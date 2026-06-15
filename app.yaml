@@ -5,4 +5,4 @@ env:
   - name: DATABRICKS_TOKEN
     valueFrom: "secret"
   - name: DATABRICKS_SQL_HTTP_PATH
-    Value: "/sql/1.0/warehouses/442541ffd55530bd"
+    value: "/sql/1.0/warehouses/442541ffd55530bd"
