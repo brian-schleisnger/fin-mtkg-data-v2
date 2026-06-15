@@ -3,4 +3,4 @@ env:
   - name: DATABRICKS_HOST
     value: "https://dish-aidpmnp.cloud.databricks.com"
   - name: DATABRICKS_TOKEN
-    valueFrom: "app-secrets:databricks-token"
+    valueFrom: "secret"
