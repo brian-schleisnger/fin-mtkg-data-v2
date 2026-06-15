@@ -1,59 +1,21 @@
 import os
+import json
 import pandas as pd
 import streamlit as st
 import requests
 from databricks import sql
 
-st.set_page_config(page_title="Dataset Q&A", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
 # ─── Configuration ───────────────────────────────────────────────
-# Databricks API & Auth setup
 MODEL = "databricks-gpt-5-4-nano"
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
 HTTP_PATH = os.environ.get('DATABRICKS_SQL_HTTP_PATH')
 ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
-
-# The Delta Table you created
 TABLE_NAME = "ai_dpm_np_sbx.sandbox.2025_marketing_raw"
 
-# ─── Helper Functions ────────────────────────────────────────────
-def run_sql_query(query: str) -> pd.DataFrame:
-    """Connects to Databricks SQL Warehouse and executes a query."""
-    # Remove the https:// from the host for the SQL connector
-    hostname = DATABRICKS_HOST.replace("https://", "")
-    
-    with sql.connect(
-        server_hostname=hostname,
-        http_path=HTTP_PATH,
-        access_token=DATABRICKS_TOKEN
-    ) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(query)
-            # Fetch results as an Arrow table, then convert to pandas
-            return cursor.fetchall_arrow().to_pandas()
-
-def call_llm(system_prompt: str, user_prompt: str) -> str:
-    """Sends a request to the Databricks Model Serving endpoint."""
-    headers = {
-        "Authorization": f"Bearer {DATABRICKS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.1,
-        "max_tokens": 1000
-    }
-    response = requests.post(ENDPOINT_URL, headers=headers, json=payload)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
-
 # ─── Schema Context ──────────────────────────────────────────────
-# In a production app, you might query `DESCRIBE TABLE` dynamically, 
-# but hardcoding the core columns saves an API call and speeds up the app.
 SCHEMA_CONTEXT = f"""
 Table Name: {TABLE_NAME}
 This table contains marketing data. Key columns include:
@@ -69,97 +31,176 @@ This table contains marketing data. Key columns include:
 - Tactic (string)
 """
 
-# ─── System Prompts ──────────────────────────────────────────────
-# Prompt 1: Text to SQL
-SQL_SYSTEM_PROMPT = f"""You are an expert Databricks SQL analyst. 
-Your job is to take a user's question and write a Databricks SQL query to answer it.
-You have access to a table with this schema:
-{SCHEMA_CONTEXT}
+# ─── Helper Functions ────────────────────────────────────────────
+def run_sql_query(query: str) -> pd.DataFrame:
+    """Connects to Databricks SQL Warehouse and executes a query."""
+    hostname = DATABRICKS_HOST.replace("https://", "")
+    with sql.connect(
+        server_hostname=hostname,
+        http_path=HTTP_PATH,
+        access_token=DATABRICKS_TOKEN
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            return cursor.fetchall_arrow().to_pandas()
 
-RULES:
-1. ONLY return the raw SQL query.
-2. Do NOT wrap the query in ```sql ``` markdown blocks.
-3. Do NOT include any explanations or conversational text.
-4. Always use the full table name: {TABLE_NAME}
-5. LIMIT queries to 100 rows maximum to prevent browser crashes.
-"""
+def raw_llm_call(messages: list, tools: list = None) -> dict:
+    """Handles standard and tool-calling HTTP requests to Databricks Model Serving."""
+    headers = {
+        "Authorization": f"Bearer {DATABRICKS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messages": messages,
+        "temperature": 0.1,
+        "max_tokens": 1500
+    }
+    if tools:
+        payload["tools"] = tools
 
-# Prompt 2: Data to Natural Language
-NL_SYSTEM_PROMPT = """You are a helpful data assistant. 
-You will be provided with a user's question and the raw data results from a SQL query.
-Your job is to explain the data results in plain, conversational English. 
-Be concise, clear, and highlight the exact numbers requested.
-"""
+    response = requests.post(ENDPOINT_URL, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]
+
+# ─── Tool Definition ─────────────────────────────────────────────
+def execute_sql_query_tool(user_intent: str) -> str:
+    """
+    Sub-agent tool: Takes a natural language intent, writes SQL, executes it, 
+    and returns the data as a CSV string.
+    """
+    sql_system_prompt = f"""You are an expert Databricks SQL analyst. 
+    Convert the user's intent into a Databricks SQL query based on this schema:
+    {SCHEMA_CONTEXT}
+    
+    RULES:
+    1. ONLY return the raw SQL query. No markdown formatting.
+    2. Always use the full table name: {TABLE_NAME}
+    3. LIMIT queries to 100 rows maximum to ensure scalability.
+    """
+    
+    # 1. Generate SQL
+    msgs = [
+        {"role": "system", "content": sql_system_prompt},
+        {"role": "user", "content": user_intent}
+    ]
+    
+    response_msg = raw_llm_call(msgs)
+    sql_query = response_msg.get("content", "").replace("```sql", "").replace("```", "").strip()
+    
+    # Save SQL to session state so we can display it in the UI later
+    st.session_state.current_turn_sql = sql_query
+
+    # 2. Execute SQL
+    try:
+        df = run_sql_query(sql_query)
+        st.session_state.current_turn_df = df # Save for UI rendering
+        
+        if df.empty:
+            return "Query executed successfully, but returned 0 rows."
+        
+        # Return CSV string to the agent (scalability handled by the LIMIT 100 in prompt)
+        return df.to_csv(index=False)
+    
+    except Exception as e:
+        return f"Database Error executing query: {e}"
+
+# Tool schema for the Agent loop
+TOOLS = [{
+    "type": "function",
+    "function": {
+        "name": "execute_sql_query_tool",
+        "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_intent": {
+                    "type": "string", 
+                    "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
+                }
+            },
+            "required": ["user_intent"]
+        }
+    }
+}]
+
+# ─── Agent Orchestration Loop ────────────────────────────────────
+def run_agent_loop(user_prompt: str):
+    """Native Python reasoning loop handling conversational memory and tool calls."""
+    
+    # Append user prompt to memory
+    st.session_state.messages.append({"role": "user", "content": user_prompt})
+    
+    # Reset UI side-effects for this turn
+    st.session_state.current_turn_sql = None
+    st.session_state.current_turn_df = None
+
+    # Turn 1: Let the model evaluate history and decide if it needs a tool
+    assistant_msg = raw_llm_call(st.session_state.messages, tools=TOOLS)
+    st.session_state.messages.append(assistant_msg)
+
+    # Check if the model decided to call our SQL tool
+    if assistant_msg.get("tool_calls"):
+        for tool_call in assistant_msg["tool_calls"]:
+            if tool_call["function"]["name"] == "execute_sql_query_tool":
+                # Parse arguments and run the tool
+                args = json.loads(tool_call["function"]["arguments"])
+                with st.spinner(f"Querying Database for: {args.get('user_intent')}..."):
+                    tool_result_csv = execute_sql_query_tool(args["user_intent"])
+                
+                # Append tool execution results back to memory
+                st.session_state.messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call["id"],
+                    "name": tool_call["function"]["name"],
+                    "content": tool_result_csv
+                })
+        
+        # Turn 2: Model synthesizes the final answer using the tool data
+        with st.spinner("Synthesizing answer..."):
+            final_msg = raw_llm_call(st.session_state.messages)
+            st.session_state.messages.append(final_msg)
+            return final_msg.get("content", "")
+    else:
+        # Model answered purely from memory (e.g., conversational follow-up)
+        return assistant_msg.get("content", "")
 
 # ─── UI ───────────────────────────────────────────────────────────
-st.title("Aquisition Finance Data - version 3 (updated June 15 2026)")
+st.title("Aquisition Finance Agent - Phase 1")
+st.caption("Ask questions, and the agent will autonomously decide when to query the data.")
 
-# Chat interface state
+# Initialize System Prompt & Memory
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful Databricks data assistant. Answer the user's questions clearly and concisely. If you need data from the database, use your provided tool."}
+    ]
 
-# Render chat history
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-        if "sql" in message:
-            with st.expander("View SQL Query"):
-                st.code(message["sql"], language="sql")
-        if "result_df" in message:
-            st.dataframe(message["result_df"])
+# Render chat history (filtering out system/tool messages for a clean UI)
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        with st.chat_message("user"):
+            st.markdown(msg["content"])
+    elif msg["role"] == "assistant" and msg.get("content"):
+        with st.chat_message("assistant"):
+            st.markdown(msg["content"])
 
 # Handle new user input
 if prompt := st.chat_input("Ask a question about the marketing data..."):
-    # 1. Display User Message
-    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Generating SQL query..."):
-            try:
-                # Step A: Get SQL from LLM
-                sql_query = call_llm(SQL_SYSTEM_PROMPT, prompt)
-                
-                # Strip markdown just in case the LLM disobeys the prompt rules
-                sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
-
-            except Exception as e:
-                st.error(f"Error generating SQL: {e}")
-                st.stop()
-
-        with st.spinner("Querying Databricks SQL Warehouse..."):
-            try:
-                # Step B: Execute SQL against Delta Table
-                result_df = run_sql_query(sql_query)
-            except Exception as e:
-                st.error(f"Error executing SQL: {e}")
-                with st.expander("Attempted Query"):
-                    st.code(sql_query, language="sql")
-                st.stop()
-
-        with st.spinner("Translating results..."):
-            try:
-                # Step C: Generate Natural Language Summary
-                # Convert a sample of the dataframe to markdown/string for the LLM context
-                data_context = result_df.head(10).to_csv(index=False)
-                nl_prompt = f"User Question: {prompt}\n\nData Results:\n{data_context}"
-                
-                nl_summary = call_llm(NL_SYSTEM_PROMPT, nl_prompt)
-                
-                # Display everything to the user
-                st.markdown(nl_summary)
-                with st.expander("View Generated SQL Query"):
-                    st.code(sql_query, language="sql")
-                st.dataframe(result_df)
-
-                # Save to session state
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": nl_summary,
-                    "sql": sql_query,
-                    "result_df": result_df
-                })
-
-            except Exception as e:
-                st.error(f"Error summarizing results: {e}")
+        try:
+            # Trigger the agentic loop
+            final_response = run_agent_loop(prompt)
+            st.markdown(final_response)
+            
+            # Display execution context if the database was queried during this loop
+            if st.session_state.current_turn_sql:
+                with st.expander("View Agent's Generated SQL Query"):
+                    st.code(st.session_state.current_turn_sql, language="sql")
+            if st.session_state.current_turn_df is not None:
+                with st.expander("View Raw Data Result"):
+                    st.dataframe(st.session_state.current_turn_df)
+                    
+        except Exception as e:
+            st.error(f"Agent Orchestration Error: {e}")
