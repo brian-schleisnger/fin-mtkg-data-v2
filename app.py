@@ -1,17 +1,16 @@
 import os
 import pandas as pd
 import streamlit as st
-from openai import OpenAI
+import requests
 
 # ─── Configuration ───────────────────────────────────────────────
 DATA_PATH = "/Workspace/Users/brian.schlesinger@dish.com/app-folder/Data/2025_marketing_raw.xlsx"  # Path to your bundled data file
 
-# Use Databricks Foundation Model Serving as the LLM backend
-client = OpenAI(
-    api_key=os.environ["DATABRICKS_TOKEN"],
-    base_url=f"{os.environ['DATABRICKS_HOST']}/serving-endpoints"
-)
-MODEL = "databricks-meta-llama-3-3-70b-instruct"  # Or any available model
+# Define your Model and API details
+MODEL = "databricks-meta-llama-3-3-70b-instruct"  # Update this to gpt-5.4-nano if desired
+DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
+DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
+ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
 
 # ─── Load Data ───────────────────────────────────────────────────
 @st.cache_data
@@ -84,64 +83,79 @@ if prompt := st.chat_input("Ask a question about the data..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Call LLM
+    # Call LLM via Databricks REST API
     with st.chat_message("assistant"):
         with st.spinner("Analyzing..."):
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,
-                max_tokens=1000
-            )
-            answer = response.choices[0].message.content
+            try:
+                headers = {
+                    "Authorization": f"Bearer {DATABRICKS_TOKEN}",
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.1,
+                    "max_tokens": 1000
+                }
+                
+                response = requests.post(ENDPOINT_URL, headers=headers, json=payload)
+                response.raise_for_status() # This will catch HTTP errors like 401 or 404
+                
+                answer = response.json()["choices"][0]["message"]["content"]
+                
+                # Extract and execute code
+                import re
+                code_match = re.search(r"```python\n(.*?)```", answer, re.DOTALL)
 
-            # Extract and execute code
-            import re
-            code_match = re.search(r"```python\n(.*?)```", answer, re.DOTALL)
+                if code_match:
+                    code = code_match.group(1)
+                    st.code(code, language="python")
 
-            if code_match:
-                code = code_match.group(1)
-                st.code(code, language="python")
+                    try:
+                        import numpy as np
+                        local_vars = {"df": df.copy(), "pd": pd, "np": np}
+                        exec(code, {}, local_vars)
+                        result = local_vars.get("result", "No result produced.")
 
-                try:
-                    import numpy as np
-                    local_vars = {"df": df.copy(), "pd": pd, "np": np}
-                    exec(code, {}, local_vars)
-                    result = local_vars.get("result", "No result produced.")
-
-                    if isinstance(result, pd.DataFrame):
-                        st.dataframe(result)
+                        if isinstance(result, pd.DataFrame):
+                            st.dataframe(result)
+                            st.session_state.messages.append({
+                                "role": "assistant",
+                                "content": answer,
+                                "result_df": result
+                            })
+                        elif isinstance(result, pd.Series):
+                            st.dataframe(result.to_frame())
+                            st.session_state.messages.append({
+                                "role": "assistant",
+                                "content": answer,
+                                "result_df": result.to_frame()
+                            })
+                        else:
+                            st.success(f"**Result:** {result}")
+                            st.session_state.messages.append({
+                                "role": "assistant",
+                                "content": f"{answer}\n\n**Result:** {result}"
+                            })
+                    except Exception as e:
+                        st.error(f"Error executing code: {e}")
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": answer,
-                            "result_df": result
+                            "content": f"Error: {e}"
                         })
-                    elif isinstance(result, pd.Series):
-                        st.dataframe(result.to_frame())
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": answer,
-                            "result_df": result.to_frame()
-                        })
-                    else:
-                        st.success(f"**Result:** {result}")
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": f"{answer}\n\n**Result:** {result}"
-                        })
-                except Exception as e:
-                    st.error(f"Error executing code: {e}")
+                else:
+                    # No code — just show the text response
+                    st.markdown(answer)
                     st.session_state.messages.append({
                         "role": "assistant",
-                        "content": f"Error: {e}"
+                        "content": answer
                     })
-            else:
-                # No code — just show the text response
-                st.markdown(answer)
+            except requests.exceptions.RequestException as api_error:
+                st.error(f"Error connecting to the AI model: {api_error}")
                 st.session_state.messages.append({
                     "role": "assistant",
-                    "content": answer
+                    "content": f"Connection Error: {api_error}"
                 })
