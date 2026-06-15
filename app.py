@@ -92,13 +92,7 @@ Be concise, clear, and highlight the exact numbers requested.
 """
 
 # ─── UI ───────────────────────────────────────────────────────────
-st.title("📊 Ask Questions About Your Data")
-
-with st.sidebar:
-    st.header("🔧 Connection Debug")
-    st.write(f"**Host Found:** {bool(DATABRICKS_HOST)}")
-    st.write(f"**HTTP Path Found:** {bool(HTTP_PATH)}")
-    st.write(f"**Token Found:** {bool(DATABRICKS_TOKEN)}")
+st.title("Aquisition Finance Data - version 3 (updated June 15 2026)")
 
 # Chat interface state
 if "messages" not in st.session_state:
