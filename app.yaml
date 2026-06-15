@@ -1,6 +1,0 @@
-command: ["streamlit", "run", "app.py"]
-env:
-  - name: DATABRICKS_HOST
-    value: "https://brian.schlesinger@dish.com.cloud.databricks.com"
-  - name: DATABRICKS_TOKEN
-    valueFrom: "databricks-token"   # Use a secret for the PAT
