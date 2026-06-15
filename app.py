@@ -11,7 +11,7 @@ st.set_page_config(page_title="Dataset Q&A", page_icon="📊", layout="wide")
 DATA_PATH = "Data/2025_marketing_raw.xlsx"  # Path to your bundled data file
 
 # Define your Model and API details
-MODEL = "databricks-gpt-5-nano"
+MODEL = "databricks-gpt-5-4-nano"
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
 ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
