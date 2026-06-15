@@ -148,7 +148,7 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             try:
                 # Step C: Generate Natural Language Summary
                 # Convert a sample of the dataframe to markdown/string for the LLM context
-                data_context = result_df.head(10).to_markdown()
+                data_context = result_df.head(10).to_csv(index=False)
                 nl_prompt = f"User Question: {prompt}\n\nData Results:\n{data_context}"
                 
                 nl_summary = call_llm(NL_SYSTEM_PROMPT, nl_prompt)
