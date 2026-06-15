@@ -4,7 +4,7 @@ import streamlit as st
 import requests
 
 # ─── Configuration ───────────────────────────────────────────────
-DATA_PATH = "/Data/2025_marketing_raw.xlsx"  # Path to your bundled data file
+DATA_PATH = "Data/2025_marketing_raw.xlsx"  # Path to your bundled data file
 
 # Define your Model and API details
 MODEL = "databricks-meta-llama-3-3-70b-instruct"  # Update this to gpt-5.4-nano if desired
