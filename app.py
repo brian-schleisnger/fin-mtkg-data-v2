@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import streamlit as st
 import requests
+import openpyxl
 
 st.set_page_config(page_title="Dataset Q&A", page_icon="📊", layout="wide")
 
@@ -19,7 +20,7 @@ ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
 @st.cache_data
 def load_data():
     """Load the dataset from the app's local data folder."""
-    df = pd.read_csv(DATA_PATH)
+    df = pd.read_excel(DATA_PATH, engine='openpyxl')
     return df
 
 df = load_data()
