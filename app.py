@@ -2,7 +2,9 @@ import os
 import pandas as pd
 import streamlit as st
 import requests
-import openpyxl
+
+st.set_page_config(page_title="Dataset Q&A", page_icon="📊", layout="wide")
+
 
 # ─── Configuration ───────────────────────────────────────────────
 DATA_PATH = "Data/2025_marketing_raw.xlsx"  # Path to your bundled data file
@@ -17,7 +19,7 @@ ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
 @st.cache_data
 def load_data():
     """Load the dataset from the app's local data folder."""
-    df = pd.read_excel(DATA_PATH, engine = 'openpyxl')
+    df = pd.read_csv(DATA_PATH)
     return df
 
 df = load_data()
@@ -55,7 +57,6 @@ Rules:
 """
 
 # ─── UI ───────────────────────────────────────────────────────────
-st.set_page_config(page_title="Dataset Q&A", page_icon="📊", layout="wide")
 st.title("📊 Ask Questions About Your Data")
 
 # Show data preview in sidebar
