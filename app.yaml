@@ -1,6 +1,6 @@
 command: ["streamlit", "run", "app.py"]
 env:
   - name: DATABRICKS_HOST
-    value: "https://brian.schlesinger@dish.com.cloud.databricks.com"
+    value: "https://diash-aidpmnp.cloud.databricks.com"
   - name: DATABRICKS_TOKEN
-    valueFrom: "app-secrets:databricks-token"   # Use a secret for the PAT
+    valueFrom: "app-secrets:databricks-token"
