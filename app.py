@@ -19,7 +19,7 @@ TABLE_NAME = "ai_dpm_np_sbx.sandbox.2025_fin_mktg_raw"
 
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
-TABLE_NAME = '"2025_fin_mktg_raw"'
+TABLE_NAME = '"sandbox"."2025_fin_mktg_raw"'
 
 # Initialize the SDK Client (auto-authenticates using the App's Service Principal)
 w = WorkspaceClient()
