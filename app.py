@@ -1,6 +1,7 @@
 import os
 import json
 import pandas as pd
+import ssl
 import streamlit as st
 import sqlalchemy as sa
 from databricks.sdk import WorkspaceClient
@@ -44,17 +45,19 @@ This table contains marketing data. Key columns include:
 def run_sql_query(query: str) -> pd.DataFrame:
     """Connects to Lakebase Postgres using dynamic OAuth tokens."""
     
-    # 1. Ask the SDK to generate a fresh token for the current Service Principal identity
+    # 1. Ask the SDK to generate a fresh token
     auth_token = w.config.authenticate()
     
-    # 2. Build the SQLAlchemy Postgres connection string
-    # We use 'token' as the username and the generated OAuth token as the password
-    # Change this line in your run_sql_query function:
-    db_url = f"postgresql+pg8000://token:{auth_token}@{PGHOST}:5432/{PGDATABASE}?sslmode=require"
+    # 2. Build the SQLAlchemy Postgres connection string (Removed sslmode=require and changed to pg8000)
+    db_url = f"postgresql+pg8000://token:{auth_token}@{PGHOST}:5432/{PGDATABASE}"
     
-    engine = sa.create_engine(db_url)
+    # 3. Create a default SSL context
+    ssl_context = ssl.create_default_context()
     
-    # 3. Execute the query
+    # 4. Pass the SSL context into the engine using connect_args
+    engine = sa.create_engine(db_url, connect_args={"ssl_context": ssl_context})
+    
+    # 5. Execute the query
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)
 
