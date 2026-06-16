@@ -2,5 +2,11 @@ streamlit>=1.30.0
 pandas>=2.0.0
 databricks-sdk>=0.20.0
 openpyxl>=3.1.0
-./sqlalchemy-2.0.51-py3-none-any.whl
+./asn1crypto-1.5.1-py2.py3-none-any.whl
+./greenlet-3.2.5-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
 ./pg8000-1.31.5-py3-none-any.whl
+./python_dateutil-2.9.0.post0-py2.py3-none-any.whl
+./scramp-1.4.8-py3-none-any.whl
+./six-1.17.0-py2.py3-none-any.whl
+./sqlalchemy-2.0.51-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+./typing_extensions-4.15.0-py3-none-any.whl
