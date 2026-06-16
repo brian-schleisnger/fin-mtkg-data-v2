@@ -49,7 +49,8 @@ def run_sql_query(query: str) -> pd.DataFrame:
     
     # 2. Build the SQLAlchemy Postgres connection string
     # We use 'token' as the username and the generated OAuth token as the password
-    db_url = f"postgresql+psycopg2://token:{auth_token}@{PGHOST}:5432/{PGDATABASE}?sslmode=require"
+    # Change this line in your run_sql_query function:
+    db_url = f"postgresql+pg8000://token:{auth_token}@{PGHOST}:5432/{PGDATABASE}?sslmode=require"
     
     engine = sa.create_engine(db_url)
     
