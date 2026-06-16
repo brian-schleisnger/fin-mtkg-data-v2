@@ -2,7 +2,5 @@ command: ["streamlit", "run", "app.py"]
 env:
   - name: DATABRICKS_HOST
     value: "https://dish-aidpmnp.cloud.databricks.com"
-  - name: DATABRICKS_TOKEN
-    valueFrom: "secret"
-  - name: DATABRICKS_SQL_HTTP_PATH
-    value: "/sql/1.0/warehouses/442541ffd55530bd"
+  - name: PGHOST
+    value: "ep-bitter-cake-d1ajl0h1.database.us-west-2.cloud.databricks.com"

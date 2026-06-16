@@ -2,8 +2,8 @@ import os
 import json
 import pandas as pd
 import streamlit as st
-import requests
-from databricks import sql
+import sqlalchemy as sa
+from databricks.sdk import WorkspaceClient
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
@@ -14,6 +14,15 @@ DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
 HTTP_PATH = os.environ.get('DATABRICKS_SQL_HTTP_PATH')
 ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
 TABLE_NAME = "ai_dpm_np_sbx.sandbox.2025_marketing_raw"
+
+
+PGHOST = os.environ.get("PGHOST")
+PGDATABASE = "databricks_postgres" 
+TABLE_NAME = "2025_marketing_raw" # Update to whatever you named the synced table
+
+# Initialize the SDK Client (auto-authenticates using the App's Service Principal)
+w = WorkspaceClient()
+
 
 # ─── Schema Context ──────────────────────────────────────────────
 SCHEMA_CONTEXT = f"""
@@ -33,23 +42,24 @@ This table contains marketing data. Key columns include:
 
 # ─── Helper Functions ────────────────────────────────────────────
 def run_sql_query(query: str) -> pd.DataFrame:
-    """Connects to Databricks SQL Warehouse and executes a query."""
-    hostname = DATABRICKS_HOST.replace("https://", "")
-    with sql.connect(
-        server_hostname=hostname,
-        http_path=HTTP_PATH,
-        access_token=DATABRICKS_TOKEN
-    ) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(query)
-            return cursor.fetchall_arrow().to_pandas()
+    """Connects to Lakebase Postgres using dynamic OAuth tokens."""
+    
+    # 1. Ask the SDK to generate a fresh token for the current Service Principal identity
+    auth_token = w.config.authenticate()
+    
+    # 2. Build the SQLAlchemy Postgres connection string
+    # We use 'token' as the username and the generated OAuth token as the password
+    db_url = f"postgresql+psycopg2://token:{auth_token}@{PGHOST}:5432/{PGDATABASE}?sslmode=require"
+    
+    engine = sa.create_engine(db_url)
+    
+    # 3. Execute the query
+    with engine.connect() as conn:
+        return pd.read_sql(sa.text(query), conn)
 
 def raw_llm_call(messages: list, tools: list = None) -> dict:
-    """Handles standard and tool-calling HTTP requests to Databricks Model Serving."""
-    headers = {
-        "Authorization": f"Bearer {DATABRICKS_TOKEN}",
-        "Content-Type": "application/json"
-    }
+    """Handles standard and tool-calling requests using the SDK to auto-manage tokens."""
+    
     payload = {
         "messages": messages,
         "temperature": 0.1,
@@ -58,9 +68,14 @@ def raw_llm_call(messages: list, tools: list = None) -> dict:
     if tools:
         payload["tools"] = tools
 
-    response = requests.post(ENDPOINT_URL, headers=headers, json=payload)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]
+    # The SDK natively handles headers, authentication, and token refreshes
+    response = w.api_client.do(
+        method="POST", 
+        path=f"/serving-endpoints/{MODEL}/invocations", 
+        body=payload
+    )
+    
+    return response["choices"][0]["message"]
 
 # ─── Tool Definition ─────────────────────────────────────────────
 def execute_sql_query_tool(user_intent: str) -> str:
