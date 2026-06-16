@@ -14,12 +14,12 @@ DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
 HTTP_PATH = os.environ.get('DATABRICKS_SQL_HTTP_PATH')
 ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
-TABLE_NAME = "ai_dpm_np_sbx.sandbox.2025_marketing_raw"
+TABLE_NAME = "ai_dpm_np_sbx.sandbox.2025_fin_mktg_raw"
 
 
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
-TABLE_NAME = "2025_marketing_raw" # Update to whatever you named the synced table
+TABLE_NAME = "2025_mfin_mktg_raw" # Update to whatever you named the synced table
 
 # Initialize the SDK Client (auto-authenticates using the App's Service Principal)
 w = WorkspaceClient()
@@ -48,11 +48,14 @@ def run_sql_query(query: str) -> pd.DataFrame:
     # 1. Ask the SDK to generate the auth headers
     auth_headers = w.config.authenticate()
     
+    # NEW: Get the active identity (Service Principal ID or User Email)
+    current_user = w.current_user.me().user_name
+    
     # 2. Extract just the raw token string from the dictionary
     auth_token = auth_headers["Authorization"].split(" ")[1]
     
-    # 3. Build the SQLAlchemy Postgres connection string
-    db_url = f"postgresql+pg8000://token:{auth_token}@{PGHOST}:5432/{PGDATABASE}"
+    # 3. Build the SQLAlchemy Postgres connection string using the actual identity
+    db_url = f"postgresql+pg8000://{current_user}:{auth_token}@{PGHOST}:5432/{PGDATABASE}"
     
     # 4. Create a default SSL context
     ssl_context = ssl.create_default_context()
