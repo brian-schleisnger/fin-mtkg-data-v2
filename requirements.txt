@@ -2,5 +2,5 @@ streamlit>=1.30.0
 pandas>=2.0.0
 databricks-sdk>=0.20.0
 openpyxl>=3.1.0
-./SQLAlchemy-2.0.51-py3-none-any.whl
+./sqlalchemy-2.0.51-py3-none-any.whl
 ./pg8000-1.31.5-py3-none-any.whl
