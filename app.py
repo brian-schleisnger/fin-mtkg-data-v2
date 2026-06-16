@@ -45,19 +45,22 @@ This table contains marketing data. Key columns include:
 def run_sql_query(query: str) -> pd.DataFrame:
     """Connects to Lakebase Postgres using dynamic OAuth tokens."""
     
-    # 1. Ask the SDK to generate a fresh token
-    auth_token = w.config.authenticate()
+    # 1. Ask the SDK to generate the auth headers
+    auth_headers = w.config.authenticate()
     
-    # 2. Build the SQLAlchemy Postgres connection string (Removed sslmode=require and changed to pg8000)
+    # 2. Extract just the raw token string from the dictionary
+    auth_token = auth_headers["Authorization"].split(" ")[1]
+    
+    # 3. Build the SQLAlchemy Postgres connection string
     db_url = f"postgresql+pg8000://token:{auth_token}@{PGHOST}:5432/{PGDATABASE}"
     
-    # 3. Create a default SSL context
+    # 4. Create a default SSL context
     ssl_context = ssl.create_default_context()
     
-    # 4. Pass the SSL context into the engine using connect_args
+    # 5. Pass the SSL context into the engine using connect_args
     engine = sa.create_engine(db_url, connect_args={"ssl_context": ssl_context})
     
-    # 5. Execute the query
+    # 6. Execute the query
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)
 
