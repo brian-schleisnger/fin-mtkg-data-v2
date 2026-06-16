@@ -10,20 +10,12 @@ st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
 # ─── Configuration ───────────────────────────────────────────────
 MODEL = "databricks-gpt-5-4-nano"
-DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
-DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
-HTTP_PATH = os.environ.get('DATABRICKS_SQL_HTTP_PATH')
-ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
-TABLE_NAME = "ai_dpm_np_sbx.sandbox.2025_fin_mktg_raw"
-
-
+TABLE_NAME = '"sandbox"."2025_fin_mktg_raw"'
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
-TABLE_NAME = '"sandbox"."2025_fin_mktg_raw"'
 
 # Initialize the SDK Client (auto-authenticates using the App's Service Principal)
 w = WorkspaceClient()
-
 
 # ─── Schema Context ──────────────────────────────────────────────
 SCHEMA_CONTEXT = f"""
