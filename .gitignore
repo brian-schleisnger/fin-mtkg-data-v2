@@ -1,2 +1,5 @@
-
-.databricks
+.venv/
+__pycache__/
+.databricks/
+.streamlit/
+*.pyc
