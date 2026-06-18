@@ -2,7 +2,7 @@ streamlit>=1.30.0
 pandas>=2.0.0
 databricks-sdk>=0.20.0
 openpyxl>=3.1.0
-statsmodels?=0.14.6
+statsmodels>=0.14.6
 ./asn1crypto-1.5.1-py2.py3-none-any.whl
 ./greenlet-3.2.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
 ./pg8000-1.31.5-py3-none-any.whl
