@@ -5,3 +5,4 @@ openpyxl>=3.1.0
 streamlit>=1.38.0
 sqlalchemy>=2.0.51
 ./statsmodels-0.14.6-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+./scipy-1.17.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
