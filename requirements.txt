@@ -2,4 +2,4 @@ streamlit>=1.30.0
 pandas>=2.0.0
 databricks-sdk>=0.20.0
 openpyxl>=3.1.0
-./statsmodels-0.14.6-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+./statsmodels-0.14.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
