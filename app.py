@@ -6,6 +6,7 @@ import streamlit as st
 import sqlalchemy as sa
 from databricks.sdk import WorkspaceClient
 import statsmodels.api as sm
+from statsmodels.tsa.arima.model import ARIMA
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
@@ -169,6 +170,47 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
         
     except Exception as e:
         return f"Regression Error: {e}"
+    
+def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> str:
+    """
+    Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
+    """
+    
+    # Order by the time column to ensure data is chronological for time series
+    sql_query = f"SELECT {time_column}, {value_column} FROM {TABLE_NAME} ORDER BY {time_column} ASC LIMIT 5000"
+    
+    try:
+        df = run_sql_query(sql_query)
+        
+        # Drop missing values and ensure numeric casting
+        df = df.dropna(subset=[time_column, value_column])
+        df[value_column] = pd.to_numeric(df[value_column], errors='coerce')
+        df = df.dropna(subset=[value_column])
+        
+        if df.empty or len(df) < 10:
+            return "Error: Not enough historical data points (minimum 10 required) to perform ARIMA forecasting."
+            
+        # Parse series data
+        series = df[value_column].values
+        
+        # Fit ARIMA model using the p, d, q parameters passed by the LLM (or defaults)
+        model = ARIMA(series, order=(p, d, q))
+        model_fit = model.fit()
+        
+        # Generate future forecasts
+        forecast = model_fit.forecast(steps=steps)
+        
+        # Build a text summary for the LLM to read and translate into natural language
+        result_text = f"ARIMA({p},{d},{q}) Forecasting Results:\n"
+        result_text += f"Based on {len(series)} historical rows, here are the predictions for the next {steps} periods:\n"
+        
+        for i, val in enumerate(forecast, start=1):
+            result_text += f"  • Period +{i}: {val:.4f}\n"
+            
+        return result_text
+        
+    except Exception as e:
+        return f"ARIMA Forecasting Error: {e}"
 
 # Tool schema for the Agent loop
 TOOLS = [{
@@ -209,7 +251,44 @@ TOOLS = [{
                 "required": ["dependent_variable", "independent_variables"]
             }
         }
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_arima_forecasting_tool",
+            "description": "Performs ARIMA time series forecasting. Use this when the user asks to predict future values based on historical trends.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "time_column": {
+                        "type": "string", 
+                        "description": "The exact column name of the timestamp or date variable."
+                    },
+                    "value_column": {
+                        "type": "string", 
+                        "description": "The exact column name of the numerical variable to forecast."
+                    },
+                    "steps": {
+                        "type": "integer",
+                        "description": "The number of future periods to forecast (default is 5)."
+                    },
+                    "p": {
+                        "type": "integer",
+                        "description": "The ARIMA model's autoregressive order (default is 1)."
+                    },
+                    "d": {
+                        "type": "integer",
+                        "description": "The ARIMA model's differencing order (default is 1)."
+                    },
+                    "q": {
+                        "type": "integer",
+                        "description": "The ARIMA model's moving average order (default is 1)."
+                    }
+                },
+                "required": ["time_column", "value_column"]
+            }
+        }
+    }    
 ]
 
 # ─── Agent Orchestration Loop ────────────────────────────────────
@@ -242,6 +321,17 @@ def run_agent_loop(user_prompt: str):
                     tool_result = run_ols_regression_tool(
                         args["dependent_variable"], 
                         args["independent_variables"]
+                    )
+
+            elif tool_name == "run_arima_forecasting_tool":
+                with st.spinner(f"Calculating ARIMA Time-Series Forecast..."):
+                    tool_result = run_arima_forecasting_tool(
+                        time_column=args["time_column"],
+                        value_column=args["value_column"],
+                        steps=args.get("steps", 5),
+                        p=args.get("p", 1),
+                        d=args.get("d", 1),
+                        q=args.get("q", 1)
                     )
             
             # Append tool execution results back to memory
