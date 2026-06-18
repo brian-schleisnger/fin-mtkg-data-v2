@@ -1,15 +1,3 @@
-import sys
-import platform
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logging.info(f"APP PYTHON VERSION: {sys.version}")
-logging.info(f"APP OS ARCHITECTURE: {platform.machine()}")
-
-
-
-
-
 import os
 import json
 import pandas as pd
