@@ -247,6 +247,7 @@ TOOLS = [{
                 "required": ["user_intent"]
             }
         }
+        }
     },
     {
         "type": "function",
@@ -381,34 +382,9 @@ def run_agent_loop(user_prompt: str):
         synthesis_prompt = f"""You are a data insights assistant. 
         User's Original Prompt: {user_prompt}
         Raw Data Extracted across all tools: {raw_outputs}
+        
         Synthesize the raw data into a clear, business-friendly summary answering the original prompt."""
-                    tool_result = execute_sql_query_tool(args["user_intent"])
-                    
-            elif tool_name == "run_ols_regression_tool":
-                with st.spinner(f"Running OLS Regression on {args.get('dependent_variable')}..."):
-                    tool_result = run_ols_regression_tool(
-                        args["dependent_variable"], 
-                        args["independent_variables"]
-                    )
-
-            elif tool_name == "run_arima_forecasting_tool":
-                with st.spinner(f"Calculating ARIMA Time-Series Forecast..."):
-                    tool_result = run_arima_forecasting_tool(
-                        time_column=args["time_column"],
-                        value_column=args["value_column"],
-                        steps=args.get("steps", 5),
-                        p=args.get("p", 1),
-                        d=args.get("d", 1),
-                        q=args.get("q", 1)
-                    )
-            
-            # Append tool execution results back to memory
-            st.session_state.messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call["id"],
-                "name": tool_name,
-                "content": tool_result
-            })
+        
         final_msgs = st.session_state.messages + [{"role": "user", "content": synthesis_prompt}]
         final_response = raw_llm_call(final_msgs)
         
