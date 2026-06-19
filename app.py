@@ -8,7 +8,6 @@ from databricks.sdk import WorkspaceClient
 import statsmodels.api as sm
 from statsmodels.tsa.arima.model import ARIMA
 
-import scikit.learn as sl
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
@@ -126,7 +125,10 @@ def execute_sql_query_tool(user_intent: str, schema: dict) -> str:
         Table to use: {TABLE_NAME}
         {f'PREVIOUS ERROR TO FIX: {error_msg}' if error_msg else ''}
         
-        RULES: Return ONLY raw SQL. No markdown formatting. Limit to 100 rows."""
+        RULES: 
+        1. Return ONLY raw SQL. No markdown formatting. 
+        2. Limit to 100 rows.
+        3. CRITICAL: Because this is a PostgreSQL database, you MUST wrap all column names in double quotes to preserve exact capitalization (e.g., SELECT "Core_Package", AVG("sac") FROM...)."""
     
         # 1. Generate SQL
         msgs = [{"role": "user", "content": sql_system_prompt}]
@@ -151,12 +153,13 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
     """
     Sub-agent tool: Fetches specific numerical columns and runs an OLS multiple regression.
     """
-    # 1. Build a dynamic SQL query to pull only the necessary columns
     columns_to_fetch = [dependent_variable] + independent_variables
-    columns_str = ", ".join(columns_to_fetch)
+    # NEW: Strip any existing quotes the LLM might have added, then forcefully wrap in double quotes
+    safe_columns = [f'"{col.replace('"', '')}"' for col in columns_to_fetch]
+    columns_str = ", ".join(safe_columns)
     
     # We query more rows here than the SQL tool to ensure a valid sample size for regression
-    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} LIMIT 5000"
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
     
     try:
         # Fetch the data using your existing helper
@@ -191,9 +194,12 @@ def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int =
     """
     Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
     """
+    # NEW: Clean and wrap the injected column names in double quotes
+    safe_time = f'"{time_column.replace('"', '')}"'
+    safe_value = f'"{value_column.replace('"', '')}"'
     
     # Order by the time column to ensure data is chronological for time series
-    sql_query = f"SELECT {time_column}, {value_column} FROM {TABLE_NAME} ORDER BY {time_column} ASC LIMIT 5000"
+    sql_query = f"SELECT {safe_time}, {safe_value} FROM {TABLE_NAME} ORDER BY {safe_time} ASC"
     
     try:
         df = run_sql_query(sql_query)
@@ -359,7 +365,7 @@ def run_agent_loop(user_prompt: str):
                         func = TOOL_DISPATCHER[tool_name]
                         
                         try:
-                            # ⚠️ Special handling: SQL tool needs the dynamic schema for its auto-correct loop
+                            # Special handling: SQL tool needs the dynamic schema for its auto-correct loop
                             if tool_name == "execute_sql_query_tool":
                                 # Assuming the execute_sql_query_tool from the merged_app takes (question, schema)
                                 result = func(user_intent=args.get("user_intent", sq), schema=relevant_schema)
