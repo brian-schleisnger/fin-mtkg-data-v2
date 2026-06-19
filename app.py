@@ -5,6 +5,8 @@ import ssl
 import streamlit as st
 import sqlalchemy as sa
 from databricks.sdk import WorkspaceClient
+import statsmodels.api as sm
+from statsmodels.tsa.arima.model import ARIMA
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
@@ -97,26 +99,6 @@ def decompose_question(user_prompt: str, schema: dict) -> list:
     Available Data Schema: {json.dumps(schema)}
     User Request: {user_prompt}
     
-<<<<<<< Updated upstream
-    except Exception as e:
-        return f"Database Error executing query: {e}"
-
-# Tool schema for the Agent loop
-TOOLS = [{
-    "type": "function",
-    "function": {
-        "name": "execute_sql_query_tool",
-        "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_intent": {
-                    "type": "string", 
-                    "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
-                }
-            },
-            "required": ["user_intent"]
-=======
     Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
     Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""
     
@@ -250,20 +232,82 @@ TOOLS = [{
         "function": {
             "name": "execute_sql_query_tool",
             "description": "Queries the database for specific factual data. Use this ONLY when you need factual data to answer the user's question.",
+        "type": "function",
+        "function": {
+            "name": "execute_sql_query_tool",
+            "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "user_intent": {
                         "type": "string", 
-                        "description": "The highly detailed question or data intent to answer."
+                        "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
                     }
                 },
                 "required": ["user_intent"]
             }
->>>>>>> Stashed changes
         }
-    }
-}]
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_ols_regression_tool",
+            "description": "Performs an Ordinary Least Squares (OLS) multiple regression. Use this when the user asks to analyze the relationship, correlation, or impact of multiple independent numerical variables on a dependent target variable.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dependent_variable": {
+                        "type": "string", 
+                        "description": "The exact column name of the target numerical variable to predict (the Y variable)."
+                    },
+                    "independent_variables": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of exact column names for the numerical predictor variables (the X variables)."
+                    }
+                },
+                "required": ["dependent_variable", "independent_variables"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_arima_forecasting_tool",
+            "description": "Performs ARIMA time series forecasting. Use this when the user asks to predict future values based on historical trends.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "time_column": {
+                        "type": "string", 
+                        "description": "The exact column name of the timestamp or date variable."
+                    },
+                    "value_column": {
+                        "type": "string", 
+                        "description": "The exact column name of the numerical variable to forecast."
+                    },
+                    "steps": {
+                        "type": "integer",
+                        "description": "The number of future periods to forecast (default is 5)."
+                    },
+                    "p": {
+                        "type": "integer",
+                        "description": "The ARIMA model's autoregressive order (default is 1)."
+                    },
+                    "d": {
+                        "type": "integer",
+                        "description": "The ARIMA model's differencing order (default is 1)."
+                    },
+                    "q": {
+                        "type": "integer",
+                        "description": "The ARIMA model's moving average order (default is 1)."
+                    }
+                },
+                "required": ["time_column", "value_column"]
+            }
+        }
+    }    
+]
 
 # Map string names from the LLM to actual Python functions
 TOOL_DISPATCHER = {
@@ -282,32 +326,6 @@ def run_agent_loop(user_prompt: str):
     # 1. Filter Context
     relevant_schema = filter_schema(user_prompt)
     
-<<<<<<< Updated upstream
-    # Reset UI side-effects for this turn
-    st.session_state.current_turn_sql = None
-    st.session_state.current_turn_df = None
-
-    # Turn 1: Let the model evaluate history and decide if it needs a tool
-    assistant_msg = raw_llm_call(st.session_state.messages, tools=TOOLS)
-    st.session_state.messages.append(assistant_msg)
-
-    # Check if the model decided to call our SQL tool
-    if assistant_msg.get("tool_calls"):
-        for tool_call in assistant_msg["tool_calls"]:
-            if tool_call["function"]["name"] == "execute_sql_query_tool":
-                # Parse arguments and run the tool
-                args = json.loads(tool_call["function"]["arguments"])
-                with st.spinner(f"Querying Database for: {args.get('user_intent')}..."):
-                    tool_result_csv = execute_sql_query_tool(args["user_intent"])
-                
-                # Append tool execution results back to memory
-                st.session_state.messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call["id"],
-                    "name": tool_call["function"]["name"],
-                    "content": tool_result_csv
-                })
-=======
     # 2. Decompose Intent
     with st.spinner("Decomposing question..."):
         sub_questions = decompose_question(user_prompt, relevant_schema)
@@ -363,10 +381,34 @@ def run_agent_loop(user_prompt: str):
         synthesis_prompt = f"""You are a data insights assistant. 
         User's Original Prompt: {user_prompt}
         Raw Data Extracted across all tools: {raw_outputs}
->>>>>>> Stashed changes
-        
         Synthesize the raw data into a clear, business-friendly summary answering the original prompt."""
-        
+                    tool_result = execute_sql_query_tool(args["user_intent"])
+                    
+            elif tool_name == "run_ols_regression_tool":
+                with st.spinner(f"Running OLS Regression on {args.get('dependent_variable')}..."):
+                    tool_result = run_ols_regression_tool(
+                        args["dependent_variable"], 
+                        args["independent_variables"]
+                    )
+
+            elif tool_name == "run_arima_forecasting_tool":
+                with st.spinner(f"Calculating ARIMA Time-Series Forecast..."):
+                    tool_result = run_arima_forecasting_tool(
+                        time_column=args["time_column"],
+                        value_column=args["value_column"],
+                        steps=args.get("steps", 5),
+                        p=args.get("p", 1),
+                        d=args.get("d", 1),
+                        q=args.get("q", 1)
+                    )
+            
+            # Append tool execution results back to memory
+            st.session_state.messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call["id"],
+                "name": tool_name,
+                "content": tool_result
+            })
         final_msgs = st.session_state.messages + [{"role": "user", "content": synthesis_prompt}]
         final_response = raw_llm_call(final_msgs)
         
