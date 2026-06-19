@@ -11,12 +11,6 @@ st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 # ─── Configuration ───────────────────────────────────────────────
 MODEL = "databricks-gpt-5-4-nano"
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
-DATABRICKS_TOKEN = os.environ.get('DATABRICKS_TOKEN')
-HTTP_PATH = os.environ.get('DATABRICKS_SQL_HTTP_PATH')
-ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/{MODEL}/invocations"
-TABLE_NAME = "ai_dpm_np_sbx.sandbox.2025_fin_mktg_raw"
-
-
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
 TABLE_NAME = '"sandbox"."2025_fin_mktg_raw"'
@@ -26,19 +20,21 @@ w = WorkspaceClient()
 
 
 # ─── Schema Context ──────────────────────────────────────────────
-SCHEMA_CONTEXT = f"""
+DATA_DICTIONARY = f"""
 Table Name: {TABLE_NAME}
 This table contains marketing data. Key columns include:
-- Acnt_Id (string)
-- Pull_Date (timestamp)
-- State (string)
-- City (string)
-- Sales_Channel (string)
-- Activation_Plan (string)
-- Promo_Cohort (string)
-- Core_Package (string)
-- Tfn (string)
-- Tactic (string)
+- Acnt_Id (string - unique customer identifier)
+- Activation_Date (timestamp - date the ccustomer activated service)
+- Beacon_Score_10pt (string - credit score range)
+- Core_Package (string - package for the user (e.g., americas top 120))
+- Tactic (string - marketing tactic the customer came from)
+- WA Churn (float - estimated months on by customer)
+- sac (float - subscriber aquisition cost)
+- NC_ARPU (float - new customer average total revenue)
+- NC_COGS (float - new customer average cogs)
+- mcf (float - estimated monthly cash flow)
+- npv (float - customer net present value)
+there are more columns in the table as well.
 """
 
 # ─── Helper Functions ────────────────────────────────────────────
@@ -67,7 +63,7 @@ def run_sql_query(query: str) -> pd.DataFrame:
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)
 
-def raw_llm_call(messages: list, tools: list = None) -> dict:
+def raw_llm_call(messages: list, tools: list = None, require_json: bool = False) -> dict:
     """Handles standard and tool-calling requests using the SDK to auto-manage tokens."""
     
     payload = {
@@ -77,6 +73,8 @@ def raw_llm_call(messages: list, tools: list = None) -> dict:
     }
     if tools:
         payload["tools"] = tools
+    if require_json:
+        payload['response_format'] = {'type': 'json_object'}
 
     # The SDK natively handles headers, authentication, and token refreshes
     response = w.api_client.do(
@@ -87,45 +85,19 @@ def raw_llm_call(messages: list, tools: list = None) -> dict:
     
     return response["choices"][0]["message"]
 
-# ─── Tool Definition ─────────────────────────────────────────────
-def execute_sql_query_tool(user_intent: str) -> str:
-    """
-    Sub-agent tool: Takes a natural language intent, writes SQL, executes it, 
-    and returns the data as a CSV string.
-    """
-    sql_system_prompt = f"""You are an expert Databricks SQL analyst. 
-    Convert the user's intent into a Databricks SQL query based on this schema:
-    {SCHEMA_CONTEXT}
-    
-    RULES:
-    1. ONLY return the raw SQL query. No markdown formatting.
-    2. Always use the full table name: {TABLE_NAME}
-    3. LIMIT queries to 100 rows maximum to ensure scalability.
-    """
-    
-    # 1. Generate SQL
-    msgs = [
-        {"role": "system", "content": sql_system_prompt},
-        {"role": "user", "content": user_intent}
-    ]
-    
-    response_msg = raw_llm_call(msgs)
-    sql_query = response_msg.get("content", "").replace("```sql", "").replace("```", "").strip()
-    
-    # Save SQL to session state so we can display it in the UI later
-    st.session_state.current_turn_sql = sql_query
+# ─── RAG & Orchestration Helpers ─────────────────────────────────
+def filter_schema(user_prompt: str) -> dict:
+    """Filters the dictionary so the LLM isn't overwhelmed by irrelevant tables."""
+    # In a larger app, use keyword matching here. For now, we return the whole dict.
+    return DATA_DICTIONARY
 
-    # 2. Execute SQL
-    try:
-        df = run_sql_query(sql_query)
-        st.session_state.current_turn_df = df # Save for UI rendering
-        
-        if df.empty:
-            return "Query executed successfully, but returned 0 rows."
-        
-        # Return CSV string to the agent (scalability handled by the LIMIT 100 in prompt)
-        return df.to_csv(index=False)
+def decompose_question(user_prompt: str, schema: dict) -> list:
+    """Step 1: Breaks the user's prompt into specific data questions."""
+    prompt = f"""You are a data strategist. Break the user's broad request down into specific, actionable data queries.
+    Available Data Schema: {json.dumps(schema)}
+    User Request: {user_prompt}
     
+<<<<<<< Updated upstream
     except Exception as e:
         return f"Database Error executing query: {e}"
 
@@ -144,17 +116,173 @@ TOOLS = [{
                 }
             },
             "required": ["user_intent"]
+=======
+    Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
+    Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""
+    
+    msgs = [{"role": "user", "content": prompt}]
+    response = raw_llm_call(msgs, require_json=True)
+    
+    try:
+        parsed = json.loads(response.get("content", "{}"))
+        return parsed.get("questions", [user_prompt]) # Fallback to original prompt if parsing fails
+    except json.JSONDecodeError:
+        return [user_prompt]
+
+# ─── Tool Definition ─────────────────────────────────────────────
+def execute_sql_query_tool(user_intent: str, schema: dict) -> str:
+    """Writes SQL, executes it, and features an internal auto-correction loop."""
+    max_retries = 2
+    error_msg = ""
+    
+    for attempt in range(max_retries):
+        sql_system_prompt = f"""You are an expert Databricks SQL analyst. 
+        Write a SQL query for this question: {user_intent}
+        Schema: {json.dumps(schema)}
+        Table to use: {TABLE_NAME}
+        {f'PREVIOUS ERROR TO FIX: {error_msg}' if error_msg else ''}
+        
+        RULES: Return ONLY raw SQL. No markdown formatting. Limit to 100 rows."""
+    
+        # 1. Generate SQL
+        msgs = [{"role": "user", "content": sql_system_prompt}]
+    
+        response_msg = raw_llm_call(msgs)
+        sql_query = response_msg.get("content", "").replace("```sql", "").replace("```", "").strip()
+    
+        st.session_state.run_log.append(f"Attempting SQL: {sql_query}")
+
+        # 2. Execute SQL
+        try:
+            df = run_sql_query(sql_query)
+            if df.empty:
+                return "Query executed successfully, but returned 0 rows."
+            # Return CSV string to the agent (scalability handled by the LIMIT 100 in prompt)
+            return df.to_csv(index=False)
+        except Exception as e:
+            error_msg = str(e)
+            st.session_state.run_log.append(f"SQL Error caught: {error_msg}. Retrying...")
+    
+def run_ols_regression_tool(dependent_variable: str, independent_variables: list) -> str:
+    """
+    Sub-agent tool: Fetches specific numerical columns and runs an OLS multiple regression.
+    """
+    # 1. Build a dynamic SQL query to pull only the necessary columns
+    columns_to_fetch = [dependent_variable] + independent_variables
+    columns_str = ", ".join(columns_to_fetch)
+    
+    # We query more rows here than the SQL tool to ensure a valid sample size for regression
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} LIMIT 5000"
+    
+    try:
+        # Fetch the data using your existing helper
+        df = run_sql_query(sql_query)
+        
+        # Drop rows with missing values to prevent the regression from crashing
+        df = df.dropna(subset=columns_to_fetch)
+        
+        # Ensure we have enough data points to run a valid regression
+        if df.empty or len(df) <= len(independent_variables):
+            return "Error: Not enough valid data points to perform regression."
+            
+        # 2. Define target (Y) and features (X)
+        Y = pd.to_numeric(df[dependent_variable])
+        
+        # Convert all independent variables to numeric, coercing errors to NaN, then drop again if needed
+        X = df[independent_variables].apply(pd.to_numeric, errors='coerce')
+        
+        # Add a constant (intercept) to the model, which is required for standard OLS
+        X = sm.add_constant(X)
+        
+        # 3. Fit the OLS model
+        model = sm.OLS(Y, X).fit()
+        
+        # 4. Return the statistical summary as a string for the LLM to interpret
+        return model.summary().as_text()
+        
+    except Exception as e:
+        return f"Regression Error: {e}"
+    
+def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> str:
+    """
+    Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
+    """
+    
+    # Order by the time column to ensure data is chronological for time series
+    sql_query = f"SELECT {time_column}, {value_column} FROM {TABLE_NAME} ORDER BY {time_column} ASC LIMIT 5000"
+    
+    try:
+        df = run_sql_query(sql_query)
+        
+        # Drop missing values and ensure numeric casting
+        df = df.dropna(subset=[time_column, value_column])
+        df[value_column] = pd.to_numeric(df[value_column], errors='coerce')
+        df = df.dropna(subset=[value_column])
+        
+        if df.empty or len(df) < 10:
+            return "Error: Not enough historical data points (minimum 10 required) to perform ARIMA forecasting."
+            
+        # Parse series data
+        series = df[value_column].values
+        
+        # Fit ARIMA model using the p, d, q parameters passed by the LLM (or defaults)
+        model = ARIMA(series, order=(p, d, q))
+        model_fit = model.fit()
+        
+        # Generate future forecasts
+        forecast = model_fit.forecast(steps=steps)
+        
+        # Build a text summary for the LLM to read and translate into natural language
+        result_text = f"ARIMA({p},{d},{q}) Forecasting Results:\n"
+        result_text += f"Based on {len(series)} historical rows, here are the predictions for the next {steps} periods:\n"
+        
+        for i, val in enumerate(forecast, start=1):
+            result_text += f"  • Period +{i}: {val:.4f}\n"
+            
+        return result_text
+        
+    except Exception as e:
+        return f"ARIMA Forecasting Error: {e}"
+
+# Tool schema for the Agent loop
+TOOLS = [{
+        "type": "function",
+        "function": {
+            "name": "execute_sql_query_tool",
+            "description": "Queries the database for specific factual data. Use this ONLY when you need factual data to answer the user's question.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_intent": {
+                        "type": "string", 
+                        "description": "The highly detailed question or data intent to answer."
+                    }
+                },
+                "required": ["user_intent"]
+            }
+>>>>>>> Stashed changes
         }
     }
 }]
 
+# Map string names from the LLM to actual Python functions
+TOOL_DISPATCHER = {
+    "execute_sql_query_tool": execute_sql_query_tool,
+    "run_ols_regression_tool": run_ols_regression_tool,
+    "run_arima_forecasting_tool": run_arima_forecasting_tool
+    # When you build tool #4, just drop it right here!
+}
+
 # ─── Agent Orchestration Loop ────────────────────────────────────
 def run_agent_loop(user_prompt: str):
-    """Native Python reasoning loop handling conversational memory and tool calls."""
+    """The main orchestrator chaining the workflow together across multiple tools."""
+    st.session_state.run_log = []
+    st.session_state.current_turn_dfs = []
     
-    # Append user prompt to memory
-    st.session_state.messages.append({"role": "user", "content": user_prompt})
+    # 1. Filter Context
+    relevant_schema = filter_schema(user_prompt)
     
+<<<<<<< Updated upstream
     # Reset UI side-effects for this turn
     st.session_state.current_turn_sql = None
     st.session_state.current_turn_df = None
@@ -179,15 +307,74 @@ def run_agent_loop(user_prompt: str):
                     "name": tool_call["function"]["name"],
                     "content": tool_result_csv
                 })
+=======
+    # 2. Decompose Intent
+    with st.spinner("Decomposing question..."):
+        sub_questions = decompose_question(user_prompt, relevant_schema)
+        st.session_state.run_log.append(f"Sub-questions identified: {sub_questions}")
+    
+    # 3. Execute Tools per Question dynamically
+    raw_outputs = []
+    for sq in sub_questions:
+        with st.spinner(f"Analyzing: '{sq}'..."):
+            
+            # Pass the full TOOLS array so the LLM can pick the right one
+            msgs = [
+                {"role": "system", "content": "You are a routing assistant. Select the appropriate tool to answer the user's question, or answer directly if no tool is needed."},
+                {"role": "user", "content": sq}
+            ]
+            assistant_msg = raw_llm_call(msgs, tools=TOOLS)
+            
+            # ─── THE DYNAMIC DISPATCHER ───
+            if assistant_msg.get("tool_calls"):
+                for tool_call in assistant_msg["tool_calls"]:
+                    tool_name = tool_call["function"]["name"]
+                    args = json.loads(tool_call["function"]["arguments"])
+                    
+                    st.session_state.run_log.append(f"Agent selected tool: {tool_name} with args: {args}")
+                    
+                    # Check if the tool exists in our dictionary
+                    if tool_name in TOOL_DISPATCHER:
+                        func = TOOL_DISPATCHER[tool_name]
+                        
+                        try:
+                            # ⚠️ Special handling: SQL tool needs the dynamic schema for its auto-correct loop
+                            if tool_name == "execute_sql_query_tool":
+                                # Assuming the execute_sql_query_tool from the merged_app takes (question, schema)
+                                result = func(user_intent=args.get("user_intent", sq), schema=relevant_schema)
+                            else:
+                                # Standard execution for OLS, ARIMA, and future tools using kwargs unpacking
+                                result = func(**args)
+                                
+                            raw_outputs.append(f"Sub-question: {sq}\nTool Used: {tool_name}\nData: {result}")
+                            
+                        except Exception as e:
+                            error_msg = f"Tool {tool_name} failed with error: {e}"
+                            st.session_state.run_log.append(error_msg)
+                            raw_outputs.append(error_msg)
+                    else:
+                        st.session_state.run_log.append(f"Warning: LLM hallucinated a non-existent tool '{tool_name}'")
+            else:
+                # The LLM decided it didn't need a tool for this specific sub-question
+                raw_outputs.append(f"Sub-question: {sq}\nAnswer: {assistant_msg.get('content')}")
+
+    # 4. Final Synthesis
+    with st.spinner("Synthesizing final answer..."):
+        synthesis_prompt = f"""You are a data insights assistant. 
+        User's Original Prompt: {user_prompt}
+        Raw Data Extracted across all tools: {raw_outputs}
+>>>>>>> Stashed changes
         
-        # Turn 2: Model synthesizes the final answer using the tool data
-        with st.spinner("Synthesizing answer..."):
-            final_msg = raw_llm_call(st.session_state.messages)
-            st.session_state.messages.append(final_msg)
-            return final_msg.get("content", "")
-    else:
-        # Model answered purely from memory (e.g., conversational follow-up)
-        return assistant_msg.get("content", "")
+        Synthesize the raw data into a clear, business-friendly summary answering the original prompt."""
+        
+        final_msgs = st.session_state.messages + [{"role": "user", "content": synthesis_prompt}]
+        final_response = raw_llm_call(final_msgs)
+        
+        # Save to memory
+        st.session_state.messages.append({"role": "user", "content": user_prompt})
+        st.session_state.messages.append(final_response)
+        
+        return final_response.get("content", "")
 
 # ─── UI ───────────────────────────────────────────────────────────
 st.title("Aquisition Finance Agent - Phase 1")
@@ -195,17 +382,12 @@ st.caption("Ask questions, and the agent will autonomously decide when to query 
 
 # Initialize System Prompt & Memory
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": "You are a helpful Databricks data assistant. Answer the user's questions clearly and concisely. If you need data from the database, use your provided tool."}
-    ]
+    st.session_state.messages = []
 
 # Render chat history (filtering out system/tool messages for a clean UI)
 for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        with st.chat_message("user"):
-            st.markdown(msg["content"])
-    elif msg["role"] == "assistant" and msg.get("content"):
-        with st.chat_message("assistant"):
+    if msg["role"] in ["user", "assistant"] and msg.get("content"):
+        with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
 # Handle new user input
@@ -220,12 +402,15 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             st.markdown(final_response)
             
             # Display execution context if the database was queried during this loop
-            if st.session_state.current_turn_sql:
-                with st.expander("View Agent's Generated SQL Query"):
-                    st.code(st.session_state.current_turn_sql, language="sql")
-            if st.session_state.current_turn_df is not None:
-                with st.expander("View Raw Data Result"):
-                    st.dataframe(st.session_state.current_turn_df)
+            with st.expander("Agent Reasoning Log"):
+                for log in st.session_state.run_log:
+                    st.text(log)
+                    
+            if st.session_state.current_turn_dfs:
+                with st.expander("View Raw Data Returned"):
+                    for i, df in enumerate(st.session_state.current_turn_dfs):
+                        st.write(f"Dataset {i+1}")
+                        st.dataframe(df)
                     
         except Exception as e:
             st.error(f"Agent Orchestration Error: {e}")
