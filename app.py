@@ -5,6 +5,8 @@ import ssl
 import streamlit as st
 import sqlalchemy as sa
 from databricks.sdk import WorkspaceClient
+import statsmodels.api as sm
+from statsmodels.tsa.arima.model import ARIMA
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
@@ -128,25 +130,166 @@ def execute_sql_query_tool(user_intent: str) -> str:
     
     except Exception as e:
         return f"Database Error executing query: {e}"
+    
+def run_ols_regression_tool(dependent_variable: str, independent_variables: list) -> str:
+    """
+    Sub-agent tool: Fetches specific numerical columns and runs an OLS multiple regression.
+    """
+    # 1. Build a dynamic SQL query to pull only the necessary columns
+    columns_to_fetch = [dependent_variable] + independent_variables
+    columns_str = ", ".join(columns_to_fetch)
+    
+    # We query more rows here than the SQL tool to ensure a valid sample size for regression
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} LIMIT 5000"
+    
+    try:
+        # Fetch the data using your existing helper
+        df = run_sql_query(sql_query)
+        
+        # Drop rows with missing values to prevent the regression from crashing
+        df = df.dropna(subset=columns_to_fetch)
+        
+        # Ensure we have enough data points to run a valid regression
+        if df.empty or len(df) <= len(independent_variables):
+            return "Error: Not enough valid data points to perform regression."
+            
+        # 2. Define target (Y) and features (X)
+        Y = pd.to_numeric(df[dependent_variable])
+        
+        # Convert all independent variables to numeric, coercing errors to NaN, then drop again if needed
+        X = df[independent_variables].apply(pd.to_numeric, errors='coerce')
+        
+        # Add a constant (intercept) to the model, which is required for standard OLS
+        X = sm.add_constant(X)
+        
+        # 3. Fit the OLS model
+        model = sm.OLS(Y, X).fit()
+        
+        # 4. Return the statistical summary as a string for the LLM to interpret
+        return model.summary().as_text()
+        
+    except Exception as e:
+        return f"Regression Error: {e}"
+    
+def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> str:
+    """
+    Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
+    """
+    
+    # Order by the time column to ensure data is chronological for time series
+    sql_query = f"SELECT {time_column}, {value_column} FROM {TABLE_NAME} ORDER BY {time_column} ASC LIMIT 5000"
+    
+    try:
+        df = run_sql_query(sql_query)
+        
+        # Drop missing values and ensure numeric casting
+        df = df.dropna(subset=[time_column, value_column])
+        df[value_column] = pd.to_numeric(df[value_column], errors='coerce')
+        df = df.dropna(subset=[value_column])
+        
+        if df.empty or len(df) < 10:
+            return "Error: Not enough historical data points (minimum 10 required) to perform ARIMA forecasting."
+            
+        # Parse series data
+        series = df[value_column].values
+        
+        # Fit ARIMA model using the p, d, q parameters passed by the LLM (or defaults)
+        model = ARIMA(series, order=(p, d, q))
+        model_fit = model.fit()
+        
+        # Generate future forecasts
+        forecast = model_fit.forecast(steps=steps)
+        
+        # Build a text summary for the LLM to read and translate into natural language
+        result_text = f"ARIMA({p},{d},{q}) Forecasting Results:\n"
+        result_text += f"Based on {len(series)} historical rows, here are the predictions for the next {steps} periods:\n"
+        
+        for i, val in enumerate(forecast, start=1):
+            result_text += f"  • Period +{i}: {val:.4f}\n"
+            
+        return result_text
+        
+    except Exception as e:
+        return f"ARIMA Forecasting Error: {e}"
 
 # Tool schema for the Agent loop
 TOOLS = [{
-    "type": "function",
-    "function": {
-        "name": "execute_sql_query_tool",
-        "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_intent": {
-                    "type": "string", 
-                    "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
-                }
-            },
-            "required": ["user_intent"]
+        "type": "function",
+        "function": {
+            "name": "execute_sql_query_tool",
+            "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_intent": {
+                        "type": "string", 
+                        "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
+                    }
+                },
+                "required": ["user_intent"]
+            }
         }
-    }
-}]
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_ols_regression_tool",
+            "description": "Performs an Ordinary Least Squares (OLS) multiple regression. Use this when the user asks to analyze the relationship, correlation, or impact of multiple independent numerical variables on a dependent target variable.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dependent_variable": {
+                        "type": "string", 
+                        "description": "The exact column name of the target numerical variable to predict (the Y variable)."
+                    },
+                    "independent_variables": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of exact column names for the numerical predictor variables (the X variables)."
+                    }
+                },
+                "required": ["dependent_variable", "independent_variables"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_arima_forecasting_tool",
+            "description": "Performs ARIMA time series forecasting. Use this when the user asks to predict future values based on historical trends.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "time_column": {
+                        "type": "string", 
+                        "description": "The exact column name of the timestamp or date variable."
+                    },
+                    "value_column": {
+                        "type": "string", 
+                        "description": "The exact column name of the numerical variable to forecast."
+                    },
+                    "steps": {
+                        "type": "integer",
+                        "description": "The number of future periods to forecast (default is 5)."
+                    },
+                    "p": {
+                        "type": "integer",
+                        "description": "The ARIMA model's autoregressive order (default is 1)."
+                    },
+                    "d": {
+                        "type": "integer",
+                        "description": "The ARIMA model's differencing order (default is 1)."
+                    },
+                    "q": {
+                        "type": "integer",
+                        "description": "The ARIMA model's moving average order (default is 1)."
+                    }
+                },
+                "required": ["time_column", "value_column"]
+            }
+        }
+    }    
+]
 
 # ─── Agent Orchestration Loop ────────────────────────────────────
 def run_agent_loop(user_prompt: str):
@@ -163,22 +306,41 @@ def run_agent_loop(user_prompt: str):
     assistant_msg = raw_llm_call(st.session_state.messages, tools=TOOLS)
     st.session_state.messages.append(assistant_msg)
 
-    # Check if the model decided to call our SQL tool
+    # Check if the model decided to call a tool
     if assistant_msg.get("tool_calls"):
         for tool_call in assistant_msg["tool_calls"]:
-            if tool_call["function"]["name"] == "execute_sql_query_tool":
-                # Parse arguments and run the tool
-                args = json.loads(tool_call["function"]["arguments"])
+            tool_name = tool_call["function"]["name"]
+            args = json.loads(tool_call["function"]["arguments"])
+            
+            if tool_name == "execute_sql_query_tool":
                 with st.spinner(f"Querying Database for: {args.get('user_intent')}..."):
-                    tool_result_csv = execute_sql_query_tool(args["user_intent"])
-                
-                # Append tool execution results back to memory
-                st.session_state.messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call["id"],
-                    "name": tool_call["function"]["name"],
-                    "content": tool_result_csv
-                })
+                    tool_result = execute_sql_query_tool(args["user_intent"])
+                    
+            elif tool_name == "run_ols_regression_tool":
+                with st.spinner(f"Running OLS Regression on {args.get('dependent_variable')}..."):
+                    tool_result = run_ols_regression_tool(
+                        args["dependent_variable"], 
+                        args["independent_variables"]
+                    )
+
+            elif tool_name == "run_arima_forecasting_tool":
+                with st.spinner(f"Calculating ARIMA Time-Series Forecast..."):
+                    tool_result = run_arima_forecasting_tool(
+                        time_column=args["time_column"],
+                        value_column=args["value_column"],
+                        steps=args.get("steps", 5),
+                        p=args.get("p", 1),
+                        d=args.get("d", 1),
+                        q=args.get("q", 1)
+                    )
+            
+            # Append tool execution results back to memory
+            st.session_state.messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call["id"],
+                "name": tool_name,
+                "content": tool_result
+            })
         
         # Turn 2: Model synthesizes the final answer using the tool data
         with st.spinner("Synthesizing answer..."):
