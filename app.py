@@ -8,6 +8,8 @@ from databricks.sdk import WorkspaceClient
 import statsmodels.api as sm
 from statsmodels.tsa.arima.model import ARIMA
 
+import scikit.learn as sl
+
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
 # ─── Configuration ───────────────────────────────────────────────
