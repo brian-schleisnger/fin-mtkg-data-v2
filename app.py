@@ -155,7 +155,7 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
     """
     columns_to_fetch = [dependent_variable] + independent_variables
     # NEW: Strip any existing quotes the LLM might have added, then forcefully wrap in double quotes
-    safe_columns = [f'"{col.replace('"', '')}"' for col in columns_to_fetch]
+    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
     columns_str = ", ".join(safe_columns)
     
     # We query more rows here than the SQL tool to ensure a valid sample size for regression
@@ -195,8 +195,8 @@ def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int =
     Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
     """
     # NEW: Clean and wrap the injected column names in double quotes
-    safe_time = f'"{time_column.replace('"', '')}"'
-    safe_value = f'"{value_column.replace('"', '')}"'
+    safe_time = '"{}"'.format(time_column.replace('"', ''))
+    safe_value = '"{}"'.format(value_column.replace('"', ''))
     
     # Order by the time column to ensure data is chronological for time series
     sql_query = f"SELECT {safe_time}, {safe_value} FROM {TABLE_NAME} ORDER BY {safe_time} ASC"
