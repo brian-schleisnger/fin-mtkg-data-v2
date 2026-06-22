@@ -192,6 +192,57 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
     except Exception as e:
         return f"Regression Error: {e}"
     
+def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> str:
+    """
+    Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
+    """
+    # NEW: Clean and wrap the injected column names in double quotes
+    safe_time = '"{}"'.format(time_column.replace('"', ''))
+    safe_value = '"{}"'.format(value_column.replace('"', ''))
+    
+    # Order by the time column to ensure data is chronological for time series
+    sql_query = f"""
+        SELECT 
+            DATE_TRUNC('month', {safe_time}) AS {safe_time}, 
+            SUM({safe_value}) AS {safe_value} 
+        FROM {TABLE_NAME} 
+        GROUP BY DATE_TRUNC('month', {safe_time}) 
+        ORDER BY {safe_time} ASC
+    """
+    
+    try:
+        df = run_sql_query(sql_query)
+        
+        # Drop missing values and ensure numeric casting
+        df = df.dropna(subset=[time_column, value_column])
+        df[value_column] = pd.to_numeric(df[value_column], errors='coerce')
+        df = df.dropna(subset=[value_column])
+        
+        if df.empty or len(df) < 10:
+            return "Error: Not enough historical data points (minimum 10 required) to perform ARIMA forecasting."
+            
+        # Parse series data
+        series = df[value_column].values
+        
+        # Fit ARIMA model using the p, d, q parameters passed by the LLM (or defaults)
+        model = ARIMA(series, order=(p, d, q))
+        model_fit = model.fit()
+        
+        # Generate future forecasts
+        forecast = model_fit.forecast(steps=steps)
+        
+        # Build a text summary for the LLM to read and translate into natural language
+        result_text = f"ARIMA({p},{d},{q}) Forecasting Results:\n"
+        result_text += f"Based on {len(series)} historical rows, here are the predictions for the next {steps} periods:\n"
+        
+        for i, val in enumerate(forecast, start=1):
+            result_text += f"  • Period +{i}: {val:.4f}\n"
+            
+        return result_text
+        
+    except Exception as e:
+        return f"ARIMA Forecasting Error: {e}"
+    
 def run_random_forest_tool(target_variable: str, feature_variables: list, task_type: str = "regression", n_estimators: int = 100) -> Dict[str, Any]:
     """
     Sub-agent tool: Fetches columns, preprocesses data, and runs a Random Forest model.
