@@ -100,6 +100,11 @@ def decompose_question(user_prompt: str, schema: dict) -> list:
     prompt = f"""You are a data strategist. Break the user's broad request down into specific, actionable data queries.
     Available Data Schema: {json.dumps(schema)}
     User Request: {user_prompt}
+
+    RULES:
+    1. ONLY generate data queries if the user is explicitly asking for data analysis, metrics, or insights.
+    2. Do not generate more than five queries. 
+    3. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item and do NOT generate data queries.
     
     Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
     Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""
@@ -128,7 +133,7 @@ def execute_sql_query_tool(user_intent: str, schema: dict) -> str:
         
         RULES: 
         1. Return ONLY raw SQL. No markdown formatting. 
-        2. Limit to 100 rows.
+        2. If returning raw, unaggregated row data, you MUST append LIMIT 100. If returning aggregations, statistics, counts, or grouped summaries (e.g., SUM, AVG, CORR, quantiles), DO NOT use a limit.
         3. CRITICAL: Because this is a PostgreSQL database, you MUST wrap all column names in double quotes to preserve exact capitalization (e.g., SELECT "Core_Package", AVG("sac") FROM...)."""
     
         # 1. Generate SQL
@@ -324,7 +329,8 @@ def run_agent_loop(user_prompt: str):
         User's Original Prompt: {user_prompt}
         Raw Data Extracted across all tools: {raw_outputs}
         
-        Synthesize the raw data into a clear, business-friendly summary answering the original prompt."""
+        Synthesize the raw data into a clear, business-friendly summary answering the original prompt.
+        If any tools failed or returned errors in the raw data, briefly mention what analysis could not be completed and why, alongside the successful insights."""
         
         final_msgs = st.session_state.messages + [{"role": "user", "content": synthesis_prompt}]
         final_response = raw_llm_call(final_msgs)
@@ -336,7 +342,7 @@ def run_agent_loop(user_prompt: str):
         return final_response.get("content", "")
 
 # ─── UI ───────────────────────────────────────────────────────────
-st.title("Aquisition Finance Agent - Phase 1")
+st.title("Acquisition Finance Agent - Phase 1")
 st.caption("Ask questions, and the agent will autonomously decide when to query the data.")
 
 # Initialize System Prompt & Memory

@@ -20,7 +20,7 @@
         "type": "function",
         "function": {
             "name": "run_ols_regression_tool",
-            "description": "Performs an Ordinary Least Squares (OLS) multiple regression. Use this when the user asks to analyze the relationship, correlation, or impact of multiple independent numerical variables on a dependent target variable.",
+            "description": "Performs an Ordinary Least Squares (OLS) multiple regression. cannot perform non-linear regression. Use this when the user asks to analyze the relationship, correlation, or impact of multiple independent numerical variables on a dependent target variable.",
             "parameters": {
                 "type": "object",
                 "properties": {
