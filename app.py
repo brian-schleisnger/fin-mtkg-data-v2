@@ -11,6 +11,7 @@ from statsmodels.tsa.arima.model import ARIMA
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, classification_report
+from typing import Dict, Any
 
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
