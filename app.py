@@ -98,7 +98,8 @@ def decompose_question(user_prompt: str, schema: dict) -> list:
     RULES:
     1. ONLY generate data queries if the user is explicitly asking for data analysis, metrics, or insights.
     2. Do not generate more than five queries. 
-    3. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item and do NOT generate data queries.
+    3. CRITICAL: Do NOT break down statistical models (like Regression, Random Forest, or ARIMA) into separate questions for their sub-metrics (e.g., coefficients, R-squared, p-values, residuals). Group all requirements for a single model into ONE unified question
+    4. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item and do NOT generate data queries.
     
     Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
     Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""
@@ -466,9 +467,17 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                     
             if st.session_state.current_turn_dfs:
                 with st.expander("View Raw Data Returned"):
-                    for i, df in enumerate(st.session_state.current_turn_dfs):
-                        st.write(f"Dataset {i+1}")
-                        st.dataframe(df)
+                    for i, item in enumerate(st.session_state.current_turn_dfs):
+                        st.write(f"**Result {i+1}**")
+                        # Check if it's a pandas dataframe before trying to render it as one
+                        if isinstance(item, pd.DataFrame):
+                            st.dataframe(item)
+                        # Check if it's a statsmodels object (they have a summary method)
+                        elif hasattr(item, "summary"):
+                            st.text(item.summary().as_text())
+                        # Fallback for Scikit-Learn models or unknown objects
+                        else:
+                            st.write(str(item))
                     
         except Exception as e:
             st.error(f"Agent Orchestration Error: {e}")
