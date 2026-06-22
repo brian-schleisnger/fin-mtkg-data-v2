@@ -113,10 +113,11 @@ def decompose_question(user_prompt: str, schema: dict) -> list:
         return [user_prompt]
 
 # ─── Tool Definition ─────────────────────────────────────────────
-def execute_sql_query_tool(user_intent: str, schema: dict) -> str:
+def execute_sql_query_tool(user_intent: str, schema: dict) -> dict:
     """Writes SQL, executes it, and features an internal auto-correction loop."""
     max_retries = 2
     error_msg = ""
+    logs = []
     
     for attempt in range(max_retries):
         sql_system_prompt = f"""You are an expert Databricks SQL analyst. 
@@ -136,7 +137,7 @@ def execute_sql_query_tool(user_intent: str, schema: dict) -> str:
         response_msg = raw_llm_call(msgs)
         sql_query = response_msg.get("content", "").replace("```sql", "").replace("```", "").strip()
     
-        st.session_state.run_log.append(f"Attempting SQL: {sql_query}")
+        logs.append(f"Attempting SQL: {sql_query}")
 
         # 2. Execute SQL
         try:
@@ -144,13 +145,13 @@ def execute_sql_query_tool(user_intent: str, schema: dict) -> str:
             if df.empty:
                 return "Query executed successfully, but returned 0 rows."
             # Return CSV string to the agent (scalability handled by the LIMIT 100 in prompt)
-            st.session_state.current_turn_dfs.append(df)
-            return df.to_csv(index=False)
+            return {"text": df.to_csv(index=False), "data": df, "logs": logs}
         except Exception as e:
             error_msg = str(e)
-            st.session_state.run_log.append(f"SQL Error caught: {error_msg}. Retrying...")
+            logs.append(f"SQL Error caught: {error_msg}. Retrying...")
+    return {"text": f"Failed after {max_retries} attempts. Last error: {error_msg}", "data": None, "logs": logs}
     
-def run_ols_regression_tool(dependent_variable: str, independent_variables: list) -> str:
+def run_ols_regression_tool(dependent_variable: str, independent_variables: list) -> dict:
     """
     Sub-agent tool: Fetches specific numerical columns and runs an OLS multiple regression.
     """
@@ -186,13 +187,12 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
         model = sm.OLS(Y, X).fit()
         
         # 4. Return the statistical summary as a string for the LLM to interpret
-        st.session_state.current_turn_dfs.append(model)
-        return model.summary().as_text()
+        return {"text": model.summary().as_text(), "data": model}
         
     except Exception as e:
         return f"Regression Error: {e}"
     
-def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> str:
+def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> dict:
     """
     Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
     """
@@ -238,7 +238,7 @@ def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int =
         for i, val in enumerate(forecast, start=1):
             result_text += f"  • Period +{i}: {val:.4f}\n"
             
-        return result_text
+        return {"text": result_text, "data": model_fit}
         
     except Exception as e:
         return f"ARIMA Forecasting Error: {e}"
@@ -389,7 +389,22 @@ def run_agent_loop(user_prompt: str):
                                 # Standard execution for OLS, ARIMA, and future tools using kwargs unpacking
                                 result = func(**args)
                                 
-                            raw_outputs.append(f"Sub-question: {sq}\nTool Used: {tool_name}\nData: {result}")
+                            if isinstance(result, dict):
+                                output_text = result.get("text", "")
+                                
+                                # Handle inner tool logs (like the SQL retry loop)
+                                if result.get("logs"):
+                                    st.session_state.run_log.extend(result["logs"])
+                                    
+                                # Safely inject models or dataframes into the UI state
+                                payload = result.get("data") or result.get("model")
+                                if payload is not None:
+                                    st.session_state.current_turn_dfs.append(payload)
+                            else:
+                                # Fallback just in case a tool returns a raw string
+                                output_text = str(result)
+
+                            raw_outputs.append(f"Sub-question: {sq}\nTool Used: {tool_name}\nData: {output_text}")
                             
                         except Exception as e:
                             error_msg = f"Tool {tool_name} failed with error: {e}"
