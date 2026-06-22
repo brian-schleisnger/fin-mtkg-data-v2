@@ -2,6 +2,7 @@ import os
 import json
 import pandas as pd
 import ssl
+from pathlib import Path
 import streamlit as st
 import sqlalchemy as sa
 from databricks.sdk import WorkspaceClient
@@ -234,84 +235,21 @@ def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int =
     except Exception as e:
         return f"ARIMA Forecasting Error: {e}"
 
-# Tool schema for the Agent loop
-TOOLS = [{
-        "type": "function",
-        "function": {
-            "name": "execute_sql_query_tool",
-            "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_intent": {
-                        "type": "string", 
-                        "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
-                    }
-                },
-                "required": ["user_intent"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "run_ols_regression_tool",
-            "description": "Performs an Ordinary Least Squares (OLS) multiple regression. Use this when the user asks to analyze the relationship, correlation, or impact of multiple independent numerical variables on a dependent target variable.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "dependent_variable": {
-                        "type": "string", 
-                        "description": "The exact column name of the target numerical variable to predict (the Y variable)."
-                    },
-                    "independent_variables": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "A list of exact column names for the numerical predictor variables (the X variables)."
-                    }
-                },
-                "required": ["dependent_variable", "independent_variables"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "run_arima_forecasting_tool",
-            "description": "Performs ARIMA time series forecasting. Use this when the user asks to predict future values based on historical trends.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "time_column": {
-                        "type": "string", 
-                        "description": "The exact column name of the timestamp or date variable."
-                    },
-                    "value_column": {
-                        "type": "string", 
-                        "description": "The exact column name of the numerical variable to forecast."
-                    },
-                    "steps": {
-                        "type": "integer",
-                        "description": "The number of future periods to forecast (default is 5)."
-                    },
-                    "p": {
-                        "type": "integer",
-                        "description": "The ARIMA model's autoregressive order (default is 1)."
-                    },
-                    "d": {
-                        "type": "integer",
-                        "description": "The ARIMA model's differencing order (default is 1)."
-                    },
-                    "q": {
-                        "type": "integer",
-                        "description": "The ARIMA model's moving average order (default is 1)."
-                    }
-                },
-                "required": ["time_column", "value_column"]
-            }
-        }
-    }    
-]
+# ─── Load Tool Schemas ───────────────────────────────────────────
+# Get the absolute path to the tools_config.json file next to app.py
+TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"
+
+# Load the JSON into the TOOLS variable
+try:
+    # Path objects have their own .open() method!
+    with TOOLS_FILE_PATH.open("r", encoding="utf-8") as f:
+        TOOLS = json.load(f)
+except FileNotFoundError:
+    st.error(f"Configuration Error: Could not find '{TOOLS_FILE_PATH.name}'. Please ensure the file exists.")
+    TOOLS = []
+except json.JSONDecodeError as e:
+    st.error(f"Configuration Error: Invalid JSON in {TOOLS_FILE_PATH.name}. Error: {e}")
+    TOOLS = []
 
 # Map string names from the LLM to actual Python functions
 TOOL_DISPATCHER = {
