@@ -191,63 +191,14 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
     except Exception as e:
         return f"Regression Error: {e}"
     
-def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> str:
+def run_random_forest_tool(target_variable: str, feature_variables: list, task_type: str = "regression", n_estimators: int = 100) -> Dict[str, Any]:
     """
-    Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
-    """
-    # NEW: Clean and wrap the injected column names in double quotes
-    safe_time = '"{}"'.format(time_column.replace('"', ''))
-    safe_value = '"{}"'.format(value_column.replace('"', ''))
-    
-    # Order by the time column to ensure data is chronological for time series
-    sql_query = f"""
-        SELECT 
-            DATE_TRUNC('month', {safe_time}) AS {safe_time}, 
-            SUM({safe_value}) AS {safe_value} 
-        FROM {TABLE_NAME} 
-        GROUP BY DATE_TRUNC('month', {safe_time}) 
-        ORDER BY {safe_time} ASC
-    """
-    
-    try:
-        df = run_sql_query(sql_query)
-        
-        # Drop missing values and ensure numeric casting
-        df = df.dropna(subset=[time_column, value_column])
-        df[value_column] = pd.to_numeric(df[value_column], errors='coerce')
-        df = df.dropna(subset=[value_column])
-        
-        if df.empty or len(df) < 10:
-            return "Error: Not enough historical data points (minimum 10 required) to perform ARIMA forecasting."
-            
-        # Parse series data
-        series = df[value_column].values
-        
-        # Fit ARIMA model using the p, d, q parameters passed by the LLM (or defaults)
-        model = ARIMA(series, order=(p, d, q))
-        model_fit = model.fit()
-        
-        # Generate future forecasts
-        forecast = model_fit.forecast(steps=steps)
-        
-        # Build a text summary for the LLM to read and translate into natural language
-        result_text = f"ARIMA({p},{d},{q}) Forecasting Results:\n"
-        result_text += f"Based on {len(series)} historical rows, here are the predictions for the next {steps} periods:\n"
-        
-        for i, val in enumerate(forecast, start=1):
-            result_text += f"  • Period +{i}: {val:.4f}\n"
-            
-        return result_text
-        
-    except Exception as e:
-        return f"ARIMA Forecasting Error: {e}"
-    
-def run_random_forest_tool(target_variable: str, feature_variables: list, task_type: str = "regression", n_estimators: int = 100) -> str:
-    """
-    Sub-agent tool: Fetches specific columns and runs a Random Forest model.
-    Handles both regression and classification tasks, returning metrics and feature importances.
+    Sub-agent tool: Fetches columns, preprocesses data, and runs a Random Forest model.
+    Returns a dictionary containing the LLM-readable text result and the trained model object.
     """
     columns_to_fetch = [target_variable] + feature_variables
+    
+    # TODO: Add explicit validation of `columns_to_fetch` against your database schema here
     safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
     columns_str = ", ".join(safe_columns)
     
@@ -255,72 +206,65 @@ def run_random_forest_tool(target_variable: str, feature_variables: list, task_t
     
     try:
         df = run_sql_query(sql_query)
-        df = df.dropna(subset=columns_to_fetch)
         
         if df.empty or len(df) <= len(feature_variables):
-            return "Error: Not enough valid data points to perform Random Forest modeling."
-        
-        # Coerce features to numeric (consistent with OLS tool logic)
-        X = df[feature_variables].apply(pd.to_numeric, errors='coerce')
-        valid_indices = X.dropna().index
-        X = X.loc[valid_indices]
-        
-        # Format the target variable (Y) based on task type
-        if task_type.lower() == "regression":
-            y = pd.to_numeric(df.loc[valid_indices, target_variable], errors='coerce')
-        else:
-            y = df.loc[valid_indices, target_variable] # Keep as categorical for classification
-        
-        # Final alignment to drop any remaining NaNs
-        valid_y_indices = y.dropna().index
-        X = X.loc[valid_y_indices]
-        y = y.loc[valid_y_indices]
-        
-        if len(X) < 10:
-            return "Error: Data size too small after cleaning to train a valid model."
+            return {"text": "Error: Not enough data points.", "model": None}
             
-        # Split data into training and testing sets
+        # Coerce target to numeric if regression
+        if task_type.lower() == "regression":
+            df[target_variable] = pd.to_numeric(df[target_variable], errors='coerce')
+            
+        # Handle categorical features by creating dummy variables (One-Hot Encoding)
+        # We don't blindly coerce features to numeric; we let pd.get_dummies handle strings
+        df = pd.get_dummies(df, columns=[col for col in feature_variables if df[col].dtype == 'object'], drop_first=True)
+        
+        # Update feature variables list after dummy creation
+        current_features = [col for col in df.columns if col != target_variable]
+        
+        # Single, clean dropna step
+        df = df.dropna(subset=[target_variable] + current_features)
+        
+        if len(df) < 10:
+            return {"text": "Error: Data size too small after cleaning to train a valid model.", "model": None}
+            
+        X = df[current_features]
+        y = df[target_variable]
+        
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
-        # Train model and generate metrics
+        # Train model with sensible regularization to prevent severe overfitting
         if task_type.lower() == "regression":
-            model = RandomForestRegressor(n_estimators=n_estimators, random_state=42)
+            model = RandomForestRegressor(n_estimators=n_estimators, max_depth=7, min_samples_leaf=3, random_state=42)
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
-            
-            r2 = r2_score(y_test, preds)
-            mse = mean_squared_error(y_test, preds)
             
             result_text = f"Random Forest Regression Results (n_estimators={n_estimators}):\n"
-            result_text += f"Model Test R-squared: {r2:.4f}\n"
-            result_text += f"Model Test MSE: {mse:.4f}\n\n"
+            result_text += f"Model Test R-squared: {r2_score(y_test, preds):.4f}\n"
+            result_text += f"Model Test MSE: {mean_squared_error(y_test, preds):.4f}\n\n"
         else:
-            model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
+            model = RandomForestClassifier(n_estimators=n_estimators, max_depth=7, min_samples_leaf=3, random_state=42)
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
             
-            acc = accuracy_score(y_test, preds)
-            report = classification_report(y_test, preds)
-            
             result_text = f"Random Forest Classification Results (n_estimators={n_estimators}):\n"
-            result_text += f"Model Test Accuracy: {acc:.4f}\n"
-            result_text += f"Classification Report:\n{report}\n\n"
+            result_text += f"Model Test Accuracy: {accuracy_score(y_test, preds):.4f}\n"
+            result_text += f"Classification Report:\n{classification_report(y_test, preds)}\n\n"
             
-        # Extract and sort feature importances
+        # Feature importances
         importances = model.feature_importances_
-        feat_imp = sorted(zip(feature_variables, importances), key=lambda x: x[1], reverse=True)
+        feat_imp = sorted(zip(current_features, importances), key=lambda x: x[1], reverse=True)
         
         result_text += "Feature Importances (higher is more impactful):\n"
-        for feat, imp in feat_imp:
+        # Only show top 10 if there are many dummy variables to save LLM context window
+        for feat, imp in feat_imp[:10]:
             result_text += f"  • {feat}: {imp:.4f}\n"
             
-        # Save model object to session state for the UI expanders
-        st.session_state.current_turn_dfs.append(model)
-        
-        return result_text
+        return {"text": result_text, "model": model}
         
     except Exception as e:
-        return f"Random Forest Error: {e}"
+        # Consider logging the full traceback here for debugging
+        return {"text": f"Random Forest Error: {e}", "model": None}
+    
 
 # ─── Load Tool Schemas ───────────────────────────────────────────
 # Get the absolute path to the tools_config.json file next to app.py
