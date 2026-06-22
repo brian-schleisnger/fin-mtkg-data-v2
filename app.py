@@ -42,30 +42,20 @@ there are more columns in the table as well.
 """
 
 # ─── Helper Functions ────────────────────────────────────────────
-def run_sql_query(query: str) -> pd.DataFrame:
-    """Connects to Lakebase Postgres using dynamic OAuth tokens."""
-    
-    # 1. Ask the SDK to generate the auth headers
+@st.cache_resource
+def get_db_engine():
     auth_headers = w.config.authenticate()
-    
-    # NEW: Get the active identity (Service Principal ID or User Email)
     current_user = w.current_user.me().user_name
-    
-    # 2. Extract just the raw token string from the dictionary
     auth_token = auth_headers["Authorization"].split(" ")[1]
-    
-    # 3. Build the SQLAlchemy Postgres connection string using the actual identity
     db_url = f"postgresql+pg8000://{current_user}:{auth_token}@{PGHOST}:5432/{PGDATABASE}"
-    
-    # 4. Create a default SSL context
     ssl_context = ssl.create_default_context()
-    
-    # 5. Pass the SSL context into the engine using connect_args
-    engine = sa.create_engine(db_url, connect_args={"ssl_context": ssl_context})
-    
-    # 6. Execute the query
+    return sa.create_engine(db_url, connect_args={"ssl_context": ssl_context})
+
+def run_sql_query(query: str) -> pd.DataFrame:
+    engine = get_db_engine()
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)
+
 
 def raw_llm_call(messages: list, tools: list = None, require_json: bool = False) -> dict:
     """Handles standard and tool-calling requests using the SDK to auto-manage tokens."""
@@ -150,6 +140,7 @@ def execute_sql_query_tool(user_intent: str, schema: dict) -> str:
             if df.empty:
                 return "Query executed successfully, but returned 0 rows."
             # Return CSV string to the agent (scalability handled by the LIMIT 100 in prompt)
+            st.session_state.current_turn_dfs.append(df)
             return df.to_csv(index=False)
         except Exception as e:
             error_msg = str(e)
@@ -191,6 +182,7 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
         model = sm.OLS(Y, X).fit()
         
         # 4. Return the statistical summary as a string for the LLM to interpret
+        st.session_state.current_turn_dfs.append(model)
         return model.summary().as_text()
         
     except Exception as e:
@@ -205,7 +197,14 @@ def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int =
     safe_value = '"{}"'.format(value_column.replace('"', ''))
     
     # Order by the time column to ensure data is chronological for time series
-    sql_query = f"SELECT {safe_time}, {safe_value} FROM {TABLE_NAME} ORDER BY {safe_time} ASC"
+    sql_query = f"""
+        SELECT 
+            DATE_TRUNC('month', {safe_time}) AS {safe_time}, 
+            SUM({safe_value}) AS {safe_value} 
+        FROM {TABLE_NAME} 
+        GROUP BY DATE_TRUNC('month', {safe_time}) 
+        ORDER BY {safe_time} ASC
+    """
     
     try:
         df = run_sql_query(sql_query)
