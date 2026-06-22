@@ -239,10 +239,6 @@ TOOLS = [{
         "type": "function",
         "function": {
             "name": "execute_sql_query_tool",
-            "description": "Queries the database for specific factual data. Use this ONLY when you need factual data to answer the user's question.",
-        "type": "function",
-        "function": {
-            "name": "execute_sql_query_tool",
             "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
             "parameters": {
                 "type": "object",
@@ -254,7 +250,6 @@ TOOLS = [{
                 },
                 "required": ["user_intent"]
             }
-        }
         }
     },
     {
