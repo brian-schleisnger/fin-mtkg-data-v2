@@ -398,7 +398,16 @@ def run_agent_loop(user_prompt: str):
                                     st.session_state.run_log.extend(result["logs"])
                                     
                                 # Safely inject models or dataframes into the UI state
-                                payload = result.get("data") or result.get("model")
+                                if isinstance(result, dict):
+                                    output_text = result.get("text", "")
+                                
+                                # Handle inner tool logs (like the SQL retry loop)
+                                if result.get("logs"):
+                                    st.session_state.run_log.extend(result["logs"])
+                                    
+                                # Safely inject models or dataframes into the UI state without evaluating truthiness
+                                payload = result.get("data") if result.get("data") is not None else result.get("model")
+                                
                                 if payload is not None:
                                     st.session_state.current_turn_dfs.append(payload)
                             else:
