@@ -8,6 +8,9 @@ import sqlalchemy as sa
 from databricks.sdk import WorkspaceClient
 import statsmodels.api as sm
 from statsmodels.tsa.arima.model import ARIMA
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, classification_report
 
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
@@ -238,6 +241,86 @@ def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int =
         
     except Exception as e:
         return f"ARIMA Forecasting Error: {e}"
+    
+def run_random_forest_tool(target_variable: str, feature_variables: list, task_type: str = "regression", n_estimators: int = 100) -> str:
+    """
+    Sub-agent tool: Fetches specific columns and runs a Random Forest model.
+    Handles both regression and classification tasks, returning metrics and feature importances.
+    """
+    columns_to_fetch = [target_variable] + feature_variables
+    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
+    columns_str = ", ".join(safe_columns)
+    
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
+    
+    try:
+        df = run_sql_query(sql_query)
+        df = df.dropna(subset=columns_to_fetch)
+        
+        if df.empty or len(df) <= len(feature_variables):
+            return "Error: Not enough valid data points to perform Random Forest modeling."
+        
+        # Coerce features to numeric (consistent with OLS tool logic)
+        X = df[feature_variables].apply(pd.to_numeric, errors='coerce')
+        valid_indices = X.dropna().index
+        X = X.loc[valid_indices]
+        
+        # Format the target variable (Y) based on task type
+        if task_type.lower() == "regression":
+            y = pd.to_numeric(df.loc[valid_indices, target_variable], errors='coerce')
+        else:
+            y = df.loc[valid_indices, target_variable] # Keep as categorical for classification
+        
+        # Final alignment to drop any remaining NaNs
+        valid_y_indices = y.dropna().index
+        X = X.loc[valid_y_indices]
+        y = y.loc[valid_y_indices]
+        
+        if len(X) < 10:
+            return "Error: Data size too small after cleaning to train a valid model."
+            
+        # Split data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        # Train model and generate metrics
+        if task_type.lower() == "regression":
+            model = RandomForestRegressor(n_estimators=n_estimators, random_state=42)
+            model.fit(X_train, y_train)
+            preds = model.predict(X_test)
+            
+            r2 = r2_score(y_test, preds)
+            mse = mean_squared_error(y_test, preds)
+            
+            result_text = f"Random Forest Regression Results (n_estimators={n_estimators}):\n"
+            result_text += f"Model Test R-squared: {r2:.4f}\n"
+            result_text += f"Model Test MSE: {mse:.4f}\n\n"
+        else:
+            model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
+            model.fit(X_train, y_train)
+            preds = model.predict(X_test)
+            
+            acc = accuracy_score(y_test, preds)
+            report = classification_report(y_test, preds)
+            
+            result_text = f"Random Forest Classification Results (n_estimators={n_estimators}):\n"
+            result_text += f"Model Test Accuracy: {acc:.4f}\n"
+            result_text += f"Classification Report:\n{report}\n\n"
+            
+        # Extract and sort feature importances
+        importances = model.feature_importances_
+        feat_imp = sorted(zip(feature_variables, importances), key=lambda x: x[1], reverse=True)
+        
+        result_text += "Feature Importances (higher is more impactful):\n"
+        for feat, imp in feat_imp:
+            result_text += f"  • {feat}: {imp:.4f}\n"
+            
+        # Save model object to session state for the UI expanders
+        st.session_state.current_turn_dfs.append(model)
+        
+        return result_text
+        
+    except Exception as e:
+        return f"Random Forest Error: {e}"
 
 # ─── Load Tool Schemas ───────────────────────────────────────────
 # Get the absolute path to the tools_config.json file next to app.py
@@ -259,8 +342,8 @@ except json.JSONDecodeError as e:
 TOOL_DISPATCHER = {
     "execute_sql_query_tool": execute_sql_query_tool,
     "run_ols_regression_tool": run_ols_regression_tool,
-    "run_arima_forecasting_tool": run_arima_forecasting_tool
-    # When you build tool #4, just drop it right here!
+    "run_arima_forecasting_tool": run_arima_forecasting_tool,
+    "run_random_forest_tool": run_random_forest_tool
 }
 
 # ─── Agent Orchestration Loop ────────────────────────────────────

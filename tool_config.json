@@ -74,5 +74,36 @@
                 "required": ["time_column", "value_column"]
             }
         }
-    }    
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_random_forest_tool",
+            "description": "Trains a Random Forest machine learning model to predict a target variable based on multiple features. Use this to find non-linear relationships, classify outcomes, or determine the importance/impact of various features.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_variable": {
+                        "type": "string",
+                        "description": "The exact column name of the target variable to predict."
+                    },
+                    "feature_variables": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of exact column names for the predictor variables."
+                    },
+                    "task_type": {
+                        "type": "string",
+                        "enum": ["regression", "classification"],
+                        "description": "Specify 'regression' if the target variable is numerical/continuous, or 'classification' if the target is categorical/discrete."
+                    },
+                    "n_estimators": {
+                        "type": "integer",
+                        "description": "The number of trees in the forest (default is 100)."
+                    }
+                },
+                "required": ["target_variable", "feature_variables", "task_type"]
+            }
+        }
+    }  
 ]
