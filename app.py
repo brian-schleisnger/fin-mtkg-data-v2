@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 import streamlit as st
 from tools import raw_llm_call, TABLE_NAME, TOOLS, TOOL_DISPATCHER
 
