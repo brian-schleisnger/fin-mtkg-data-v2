@@ -31,7 +31,7 @@ w = WorkspaceClient()
 DATA_DICTIONARY = f"""
 Table Name: {TABLE_NAME}
 This table contains marketing data. Key columns include:
-- Acnt_Id (string - unique customer identifier)
+- temp_Id (string - unique customer identifier)
 - Activation_Date (timestamp - date the ccustomer activated service)
 - Beacon_Score_10pt (string - credit score range)
 - Core_Package (string - package for the user (e.g., americas top 120))
