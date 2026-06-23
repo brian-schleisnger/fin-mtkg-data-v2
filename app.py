@@ -21,7 +21,7 @@ MODEL = "databricks-gpt-5-4-nano"
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
-TABLE_NAME = '"sandbox"."2025_fin_mktg_raw"'
+TABLE_NAME = '"sandbox"."acquisition_data_no_id"'
 
 # Initialize the SDK Client (auto-authenticates using the App's Service Principal)
 w = WorkspaceClient()
@@ -31,7 +31,7 @@ w = WorkspaceClient()
 DATA_DICTIONARY = f"""
 Table Name: {TABLE_NAME}
 This table contains marketing data. Key columns include:
-- Acnt_Id (string - unique customer identifier)
+- temp_Id (string - unique customer identifier)
 - Activation_Date (timestamp - date the ccustomer activated service)
 - Beacon_Score_10pt (string - credit score range)
 - Core_Package (string - package for the user (e.g., americas top 120))
