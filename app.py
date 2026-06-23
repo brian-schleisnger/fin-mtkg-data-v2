@@ -21,7 +21,7 @@ MODEL = "databricks-gpt-5-4-nano"
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
-TABLE_NAME = '"sandbox"."2025_fin_mktg_raw"'
+TABLE_NAME = '"sandbox"."acquisition_data_no_id"'
 
 # Initialize the SDK Client (auto-authenticates using the App's Service Principal)
 w = WorkspaceClient()
