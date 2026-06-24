@@ -105,5 +105,27 @@
                 "required": ["target_variable", "feature_variables", "task_type"]
             }
         }
-    }  
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_pca_tool",
+            "description": "Performs Principal Component Analysis (PCA) to reduce dimensionality and find the underlying variance/patterns in a set of features. Use this to identify which combinations of variables explain the most variance in the dataset.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "feature_variables": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of exact column names to include in the PCA."
+                    },
+                    "n_components": {
+                        "type": "integer",
+                        "description": "The number of principal components to compute. If omitted, computes components for all features."
+                    }
+                },
+                "required": ["feature_variables"]
+            }
+        }
+    }
 ]

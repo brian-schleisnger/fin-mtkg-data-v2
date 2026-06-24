@@ -1,17 +1,26 @@
-import os
 import json
-import pandas as pd
+import os
 import ssl
 from pathlib import Path
-import streamlit as st
-import sqlalchemy as sa
+from typing import Any, Dict
+
 from databricks.sdk import WorkspaceClient
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    mean_squared_error,
+    r2_score,
+)
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import sqlalchemy as sa
 import statsmodels.api as sm
 from statsmodels.tsa.arima.model import ARIMA
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, classification_report
-from typing import Dict, Any
+import streamlit as st
+
 
 # ─── Configuration ───────────────────────────────────────────────
 MODEL = "databricks-gpt-5-4-nano"
@@ -245,6 +254,78 @@ def run_random_forest_tool(target_variable: str, feature_variables: list, task_t
         # Consider logging the full traceback here for debugging
         return {"text": f"Random Forest Error: {e}", "model": None}
     
+def run_pca_tool(feature_variables: list, n_components: int = None) -> Dict[str, Any]:
+    """
+    Sub-agent tool: Fetches columns, standardizes data, and runs Principal Component Analysis (PCA).
+    Returns a dictionary containing the LLM-readable text result and the trained PCA object.
+    """
+    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in feature_variables]
+    columns_str = ", ".join(safe_columns)
+    
+    # Using the same row limit strategy as the Random Forest tool
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} ORDER BY RANDOM() LIMIT 100000"
+    
+    try:
+        df = run_sql_query(sql_query)
+        
+        if df.empty or len(df) < 2:
+            return {"text": "Error: Not enough data points fetched to perform PCA.", "model": None}
+            
+        # 1. Handle categorical features by creating dummy variables
+        df = pd.get_dummies(df, columns=[col for col in feature_variables if df[col].dtype == 'object'], drop_first=True)
+        
+        # 2. Drop any rows with missing values
+        df = df.dropna()
+        
+        current_features = df.columns.tolist()
+        
+        if len(df) < 2 or len(current_features) < 1:
+            return {"text": "Error: Data size too small after cleaning and encoding to perform PCA.", "model": None}
+        
+        # 3. Standardize the columns (Crucial for PCA so large magnitude features don't dominate)
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(df)
+        
+        # Cap n_components to the maximum mathematically possible if the LLM requests too many
+        max_components = min(len(df), len(current_features))
+        if n_components is None or n_components > max_components:
+            actual_components = max_components
+        else:
+            actual_components = n_components
+            
+        # 4. Fit PCA
+        pca = PCA(n_components=actual_components)
+        pca.fit(scaled_data)
+        
+        # 5. Build text summary for the LLM
+        result_text = f"PCA Results (n_components={actual_components}):\n"
+        explained_variance = pca.explained_variance_ratio_
+        
+        result_text += "Explained Variance Ratio per Component:\n"
+        for i, var in enumerate(explained_variance):
+            result_text += f"  • PC{i+1}: {var:.4f} ({(var*100):.1f}%)\n"
+        result_text += f"Total Explained Variance: {sum(explained_variance):.4f} ({(sum(explained_variance)*100):.1f}%)\n\n"
+        
+        # Extract feature loadings to explain *what* makes up each component
+        # We limit the output to the top 2 components and only significant loadings to save LLM context
+        components_to_show = min(2, actual_components)
+        result_text += "Top Feature Loadings (absolute magnitude > 0.3) for primary components:\n"
+        
+        for i in range(components_to_show):
+            result_text += f"  PC{i+1} Signficant Loadings:\n"
+            loadings = pca.components_[i]
+            
+            # Match loadings to feature names and sort by absolute impact
+            feat_loadings = sorted(zip(current_features, loadings), key=lambda x: abs(x[1]), reverse=True)
+            for feat, load in feat_loadings:
+                if abs(load) > 0.3:
+                    result_text += f"    - {feat}: {load:.4f}\n"
+        
+        return {"text": result_text, "model": pca}
+        
+    except Exception as e:
+        return {"text": f"PCA Error: {e}", "model": None}
+    
 
 # ─── Load Config & Map Dispatcher ────────────────────────────────
 TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"
@@ -259,5 +340,6 @@ TOOL_DISPATCHER = {
     "execute_sql_query_tool": execute_sql_query_tool,
     "run_ols_regression_tool": run_ols_regression_tool,
     "run_arima_forecasting_tool": run_arima_forecasting_tool,
-    "run_random_forest_tool": run_random_forest_tool
+    "run_random_forest_tool": run_random_forest_tool,
+    "run_pca_tool": run_pca_tool
 }
