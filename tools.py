@@ -128,51 +128,54 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
     except Exception as e:
         return f"Regression Error: {e}"
     
-def run_arima_forecasting_tool(time_column: str, value_column: str, steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> dict:
+def run_arima_forecasting_tool(value_column: str, aggregation: str = "SUM", steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> dict:
     """
-    Sub-agent tool: Fetches chronological data and forecasts future periods using an ARIMA model.
+    Sub-agent tool: Fetches historical data grouped by Activation_Year and Activation_Month, 
+    and forecasts future periods using an ARIMA model.
     """
-    # NEW: Clean and wrap the injected column names in double quotes
-    safe_time = '"{}"'.format(time_column.replace('"', ''))
     safe_value = '"{}"'.format(value_column.replace('"', ''))
     
-    # Order by the time column to ensure data is chronological for time series
+    # Protect against SQL injection and ensure a valid aggregation function
+    agg_func = aggregation.upper() if aggregation.upper() in ["SUM", "AVG", "COUNT"] else "SUM"
+    
+    # Group by Year and Month, ensuring chronological order for the time series
     sql_query = f"""
         SELECT 
-            DATE_TRUNC('month', {safe_time}) AS {safe_time}, 
-            SUM({safe_value}) AS {safe_value} 
+            "Activation_Year", 
+            "Activation_Month", 
+            {agg_func}({safe_value}) AS target_value 
         FROM {TABLE_NAME} 
-        GROUP BY DATE_TRUNC('month', {safe_time}) 
-        ORDER BY {safe_time} ASC
+        WHERE "Activation_Year" IS NOT NULL AND "Activation_Month" IS NOT NULL
+        GROUP BY "Activation_Year", "Activation_Month" 
+        ORDER BY "Activation_Year" ASC, "Activation_Month" ASC
     """
     
     try:
         df = run_sql_query(sql_query)
         
-        # Drop missing values and ensure numeric casting
-        df = df.dropna(subset=[time_column, value_column])
-        df[value_column] = pd.to_numeric(df[value_column], errors='coerce')
-        df = df.dropna(subset=[value_column])
+        # Clean the target values
+        df['target_value'] = pd.to_numeric(df['target_value'], errors='coerce')
+        df = df.dropna(subset=['target_value'])
         
         if df.empty or len(df) < 10:
-            return "Error: Not enough historical data points (minimum 10 required) to perform ARIMA forecasting."
+            return "Error: Not enough historical monthly data points (minimum 10 required) to perform ARIMA forecasting."
             
-        # Parse series data
-        series = df[value_column].values
+        # Parse series data (already ordered chronologically by SQL)
+        series = df['target_value'].values
         
-        # Fit ARIMA model using the p, d, q parameters passed by the LLM (or defaults)
+        # Fit ARIMA model
         model = ARIMA(series, order=(p, d, q))
         model_fit = model.fit()
         
         # Generate future forecasts
         forecast = model_fit.forecast(steps=steps)
         
-        # Build a text summary for the LLM to read and translate into natural language
-        result_text = f"ARIMA({p},{d},{q}) Forecasting Results:\n"
-        result_text += f"Based on {len(series)} historical rows, here are the predictions for the next {steps} periods:\n"
+        # Build text summary for the LLM
+        result_text = f"ARIMA({p},{d},{q}) Forecasting Results for {agg_func} of {value_column}:\n"
+        result_text += f"Based on {len(series)} months of historical data, here are the predictions for the next {steps} months:\n"
         
         for i, val in enumerate(forecast, start=1):
-            result_text += f"  • Period +{i}: {val:.4f}\n"
+            result_text += f"  • Month +{i}: {val:.4f}\n"
             
         return {"text": result_text, "data": model_fit}
         
