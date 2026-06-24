@@ -1,20 +1,20 @@
 [
     {
-        "type": "function",
-        "function": {
-            "name": "execute_sql_query_tool",
-            "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_intent": {
-                        "type": "string", 
-                        "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
-                    }
-                },
-                "required": ["user_intent"]
-            }
+    "type": "function",
+    "function": {
+        "name": "execute_sql_query_tool",
+        "description": "Queries the Databricks database using PostgreSQL syntax. Because this is PostgreSQL, you MUST wrap all column names in double quotes to preserve exact capitalization.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "sql_query": {
+                    "type": "string", 
+                    "description": "The raw PostgreSQL query to execute."
+                }
+            },
+            "required": ["sql_query"]
         }
+    }
     },
     {
         "type": "function",
@@ -42,21 +42,22 @@
         "type": "function",
         "function": {
             "name": "run_arima_forecasting_tool",
-            "description": "Performs ARIMA time series forecasting. Use this when the user asks to predict future values based on historical trends.",
+            "description": "Performs ARIMA time series forecasting grouped by Activation_Year and Activation_Month. Use this when the user asks to predict future values based on historical trends.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "time_column": {
-                        "type": "string", 
-                        "description": "The exact column name of the timestamp or date variable."
-                    },
                     "value_column": {
                         "type": "string", 
-                        "description": "The exact column name of the numerical variable to forecast."
+                        "description": "The exact column name of the numerical variable to forecast (e.g., mcf, sac, temp_Id)."
+                    },
+                    "aggregation": {
+                        "type": "string",
+                        "enum": ["SUM", "AVG", "COUNT"],
+                        "description": "The SQL aggregation function to apply to the value_column per month (e.g., SUM for totals, AVG for averages, COUNT for volume)."
                     },
                     "steps": {
                         "type": "integer",
-                        "description": "The number of future periods to forecast (default is 5)."
+                        "description": "The number of future months to forecast (default is 5)."
                     },
                     "p": {
                         "type": "integer",
@@ -71,7 +72,7 @@
                         "description": "The ARIMA model's moving average order (default is 1)."
                     }
                 },
-                "required": ["time_column", "value_column"]
+                "required": ["value_column"]
             }
         }
     },
@@ -105,5 +106,27 @@
                 "required": ["target_variable", "feature_variables", "task_type"]
             }
         }
-    }  
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_pca_tool",
+            "description": "Performs Principal Component Analysis (PCA) to reduce dimensionality and find the underlying variance/patterns in a set of features. Use this to identify which combinations of variables explain the most variance in the dataset.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "feature_variables": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of exact column names to include in the PCA."
+                    },
+                    "n_components": {
+                        "type": "integer",
+                        "description": "The number of principal components to compute. If omitted, computes components for all features."
+                    }
+                },
+                "required": ["feature_variables"]
+            }
+        }
+    }
 ]
