@@ -1,20 +1,20 @@
 [
     {
-        "type": "function",
-        "function": {
-            "name": "execute_sql_query_tool",
-            "description": "Queries the Databricks marketing databaseusing PostgreSQL syntax. Because this is PostgreSQL, you MUST wrap all column names in double quotes to preserve exact capitalization (e.g., SELECT \"Core_Package\", AVG(\"sac\") FROM...).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_intent": {
-                        "type": "string", 
-                        "description": "A highly detailed natural language description of the exact data, metrics, or filters needed."
-                    }
-                },
-                "required": ["user_intent"]
-            }
+    "type": "function",
+    "function": {
+        "name": "execute_sql_query_tool",
+        "description": "Queries the Databricks database using PostgreSQL syntax. Because this is PostgreSQL, you MUST wrap all column names in double quotes to preserve exact capitalization.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "sql_query": {
+                    "type": "string", 
+                    "description": "The raw PostgreSQL query to execute."
+                }
+            },
+            "required": ["sql_query"]
         }
+    }
     },
     {
         "type": "function",

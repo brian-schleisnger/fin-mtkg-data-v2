@@ -84,7 +84,6 @@ def execute_sql_query_tool(sql_query: str) -> dict:
         return {"text": f"Success. Showing top 100 rows:\n{csv_text}", "data": df}
         
     except Exception as e:
-        # Returning the error string allows the outer orchestrator to see it and retry
         return {"text": f"Error executing SQL: {str(e)}", "data": None}
     
 def run_ols_regression_tool(dependent_variable: str, independent_variables: list) -> dict:
