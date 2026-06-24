@@ -63,43 +63,20 @@ def raw_llm_call(messages: list, tools: list = None, require_json: bool = False)
 
 
 # ─── Tool Definition ─────────────────────────────────────────────
-def execute_sql_query_tool(user_intent: str, schema: dict) -> dict:
-    """Writes SQL, executes it, and features an internal auto-correction loop."""
-    max_retries = 2
-    error_msg = ""
-    logs = []
-    
-    for attempt in range(max_retries):
-        sql_system_prompt = f"""You are an expert Databricks SQL analyst. 
-        Write a SQL query for this question: {user_intent}
-        Schema: {json.dumps(schema)}
-        Table to use: {TABLE_NAME}
-        {f'PREVIOUS ERROR TO FIX: {error_msg}' if error_msg else ''}
+def execute_sql_query_tool(sql_query: str) -> dict:
+    """Executes SQL directly. Orchestrator now handles the retry logic."""
+    try:
+        df = run_sql_query(sql_query)
+        if df.empty:
+            return {"text": "Error: Query executed successfully, but returned 0 rows.", "data": None}
         
-        RULES: 
-        1. Return ONLY raw SQL. No markdown formatting. 
-        2. If returning raw, unaggregated row data, you MUST append LIMIT 100. If returning aggregations, statistics, counts, or grouped summaries (e.g., SUM, AVG, CORR, quantiles), DO NOT use a limit.
-        3. CRITICAL: Because this is a PostgreSQL database, you MUST wrap all column names in double quotes to preserve exact capitalization (e.g., SELECT "Core_Package", AVG("sac") FROM...)."""
-    
-        # 1. Generate SQL
-        msgs = [{"role": "user", "content": sql_system_prompt}]
-    
-        response_msg = raw_llm_call(msgs)
-        sql_query = response_msg.get("content", "").replace("```sql", "").replace("```", "").strip()
-    
-        logs.append(f"Attempting SQL: {sql_query}")
-
-        # 2. Execute SQL
-        try:
-            df = run_sql_query(sql_query)
-            if df.empty:
-                return "Query executed successfully, but returned 0 rows."
-            # Return CSV string to the agent (scalability handled by the LIMIT 100 in prompt)
-            return {"text": df.to_csv(index=False), "data": df, "logs": logs}
-        except Exception as e:
-            error_msg = str(e)
-            logs.append(f"SQL Error caught: {error_msg}. Retrying...")
-    return {"text": f"Failed after {max_retries} attempts. Last error: {error_msg}", "data": None, "logs": logs}
+        # Limit rows converted to text to prevent blowing up the LLM context window
+        csv_text = df.head(100).to_csv(index=False)
+        return {"text": f"Success. Showing top 100 rows:\n{csv_text}", "data": df}
+        
+    except Exception as e:
+        # Returning the error string allows the outer orchestrator to see it and retry
+        return {"text": f"Error executing SQL: {str(e)}", "data": None}
     
 def run_ols_regression_tool(dependent_variable: str, independent_variables: list) -> dict:
     """

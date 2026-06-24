@@ -73,68 +73,73 @@ def run_agent_loop(user_prompt: str):
         with st.spinner(f"Analyzing: '{sq}'..."):
             
             # Pass the full TOOLS array so the LLM can pick the right one
+            prompt = f"""You are a routing assistant. Select the appropriate tool, or answer directly if no tool is needed. 
+                        Use this EXACT schema for column names: {json.dumps(relevant_schema)}"""
             msgs = [
-                {"role": "system", "content": "You are a routing assistant. Select the appropriate tool to answer the user's question, or answer directly if no tool is needed."},
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": sq}
             ]
-            assistant_msg = raw_llm_call(msgs, tools=TOOLS)
+
+            max_retries = 3
+            for attempt in range(max_retries):
+                assistant_msg = raw_llm_call(msgs, tools=TOOLS)
             
-            # ─── THE DYNAMIC DISPATCHER ───
-            if assistant_msg.get("tool_calls"):
+                # ─── THE DYNAMIC DISPATCHER ───
+                if not assistant_msg.get("tool_calls"):
+                    raw_outputs.append(f"Sub-question: {sq}\nAnswer: {assistant_msg.get('content')}")
+                    break
+                
+                # Append the LLM's tool call request to the conversation history
+                msgs.append(assistant_msg)
+                has_error = False
+                
                 for tool_call in assistant_msg["tool_calls"]:
                     tool_name = tool_call["function"]["name"]
                     args = json.loads(tool_call["function"]["arguments"])
+                    call_id = tool_call.get("id", "call_id") # Needed for tool tracking
                     
-                    st.session_state.run_log.append(f"Agent selected tool: {tool_name} with args: {args}")
+                    st.session_state.run_log.append(f"Attempt {attempt+1}: Agent selected {tool_name} with args: {args}")
                     
-                    # Check if the tool exists in our dictionary
+                    # Execute the tool
                     if tool_name in TOOL_DISPATCHER:
                         func = TOOL_DISPATCHER[tool_name]
-                        
                         try:
-                            # Special handling: SQL tool needs the dynamic schema for its auto-correct loop
-                            if tool_name == "execute_sql_query_tool":
-                                # Assuming the execute_sql_query_tool from the merged_app takes (question, schema)
-                                result = func(user_intent=args.get("user_intent", sq), schema=relevant_schema)
-                            else:
-                                # Standard execution for OLS, ARIMA, and future tools using kwargs unpacking
-                                result = func(**args)
-                                
+                            # Standard execution for ALL tools (no more special SQL handling needed)
+                            result = func(**args)
+                            
                             if isinstance(result, dict):
                                 output_text = result.get("text", "")
-                                
-                                # Handle inner tool logs (like the SQL retry loop)
-                                if result.get("logs"):
-                                    st.session_state.run_log.extend(result["logs"])
-                                    
-                                # Safely inject models or dataframes into the UI state
-                                if isinstance(result, dict):
-                                    output_text = result.get("text", "")
-                                
-                                # Handle inner tool logs (like the SQL retry loop)
-                                if result.get("logs"):
-                                    st.session_state.run_log.extend(result["logs"])
-                                    
-                                # Safely inject models or dataframes into the UI state without evaluating truthiness
                                 payload = result.get("data") if result.get("data") is not None else result.get("model")
                                 
-                                if payload is not None:
+                                # Only save payload to UI if it wasn't an error
+                                if payload is not None and "Error" not in output_text:
                                     st.session_state.current_turn_dfs.append(payload)
                             else:
-                                # Fallback just in case a tool returns a raw string
                                 output_text = str(result)
-
-                            raw_outputs.append(f"Sub-question: {sq}\nTool Used: {tool_name}\nData: {output_text}")
-                            
                         except Exception as e:
-                            error_msg = f"Tool {tool_name} failed with error: {e}"
-                            st.session_state.run_log.append(error_msg)
-                            raw_outputs.append(error_msg)
+                            output_text = f"Error executing tool: {e}"
                     else:
-                        st.session_state.run_log.append(f"Warning: LLM hallucinated a non-existent tool '{tool_name}'")
-            else:
-                # The LLM decided it didn't need a tool for this specific sub-question
-                raw_outputs.append(f"Sub-question: {sq}\nAnswer: {assistant_msg.get('content')}")
+                        output_text = f"Error: Tool '{tool_name}' does not exist."
+                        
+                    # Check if the tool failed to trigger the retry
+                    if "Error" in output_text or "Exception" in output_text:
+                        has_error = True
+                        st.session_state.run_log.append(f"Tool failed: {output_text}")
+                        
+                    # Feed the result (or the error string) back to the LLM so it can learn and retry
+                    msgs.append({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "name": tool_name,
+                        "content": output_text
+                    })
+                    
+                # If everything succeeded, break the retry loop
+                if not has_error:
+                    raw_outputs.append(f"Sub-question: {sq}\nTool Used: {tool_name}\nData: {output_text}")
+                    break
+                elif attempt == max_retries - 1:
+                    raw_outputs.append(f"Sub-question: {sq}\nFailed after {max_retries} attempts.")
 
     # 4. Final Synthesis
     with st.spinner("Synthesizing final answer..."):

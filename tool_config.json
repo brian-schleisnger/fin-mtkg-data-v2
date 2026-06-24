@@ -3,7 +3,7 @@
         "type": "function",
         "function": {
             "name": "execute_sql_query_tool",
-            "description": "Queries the Databricks marketing database. Use this ONLY when you need factual data to answer the user's question.",
+            "description": "Queries the Databricks marketing databaseusing PostgreSQL syntax. Because this is PostgreSQL, you MUST wrap all column names in double quotes to preserve exact capitalization (e.g., SELECT \"Core_Package\", AVG(\"sac\") FROM...).",
             "parameters": {
                 "type": "object",
                 "properties": {
