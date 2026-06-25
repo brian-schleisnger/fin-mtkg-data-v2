@@ -6,7 +6,7 @@ streamlit>=1.38.0
 ./whls/joblib-1.5.3-py3-none-any.whl
 ./whls/patsy-1.0.2-py2.py3-none-any.whl
 ./whls/scikit_learn-1.9.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
-./whls/scipy-1.18.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+./whls/scipy-1.17.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
 ./whls/sqlalchemy-2.0.51-py3-none-any.whl
 ./whls/statsmodels-0.14.6-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
 ./whls/threadpoolctl-3.6.0-py3-none-any.whl
