@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -9,22 +10,19 @@ from tools import raw_llm_call, TABLE_NAME, TOOLS, TOOL_DISPATCHER
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
 # ─── Schema Context ──────────────────────────────────────────────
-DATA_DICTIONARY = f"""
-Table Name: {TABLE_NAME}
-This table contains marketing data. Key columns include:
-- temp_Id (string - unique customer identifier)
-- Activation_Date (timestamp - date the ccustomer activated service)
-- Beacon_Score_10pt (string - credit score range)
-- Core_Package (string - package for the user (e.g., americas top 120))
-- Tactic (string - marketing tactic the customer came from)
-- WA Churn (float - estimated months on by customer)
-- sac (float - subscriber aquisition cost)
-- NC_ARPU (float - new customer average total revenue)
-- NC_COGS (float - new customer average cogs)
-- mcf (float - estimated monthly cash flow)
-- npv (float - customer net present value)
-there are more columns in the table as well.
-"""
+# 1. Define the path to your new JSON file
+DICT_FILE_PATH = Path(__file__).parent.resolve() / "acquisition_data_dictionary.json"
+
+# 2. Load the JSON and override the table name
+try:
+    with DICT_FILE_PATH.open("r", encoding="utf-8") as f:
+        DATA_DICTIONARY = json.load(f)
+        
+        # Override the table_name in the JSON with the SQL-safe TABLE_NAME from tools.py
+        DATA_DICTIONARY["table_name"] = TABLE_NAME
+except Exception as e:
+    st.error(f"Error loading data dictionary: {e}")
+    DATA_DICTIONARY = {"error": "Could not load schema."}
 
 # ─── RAG & Orchestration Helpers ─────────────────────────────────
 def filter_schema(user_prompt: str) -> dict:
