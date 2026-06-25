@@ -1,0 +1,840 @@
+{
+  "table_name": "acquisition_data_no_id",
+  "description": "This is a data table containing nearly all customers who activated their DISH TV accounts between 4th Quarter 2018 and 1st quarter 2026. each row represents one acquisition to the brand.",
+  "special_notes": "There is no data for 2021 3rd Quarter. There were still activations, but remove this time frame unless otherwise specified. All activations in 2023 1st quarter are in the dataset, but will all be tagged as 4Q2022: cohort 3 in the Promo_Cohort column, and have Activation_Date as 12/31/2022",
+  "columns": [
+    {
+      "name": "Acnt_Id",
+      "description": "Account ID - DO NOT REFERENCE - this column has been removed from the data for a period of time until security clearances are in place. If a unique ID is needed, reference the temp_id column",
+      "data_type": "Numeric",
+      "range_of_outcomes": "16 digit",
+      "formula": null
+    },
+    {
+      "name": "Pull_Date",
+      "description": "Date the account was added to document",
+      "data_type": "Date",
+      "range_of_outcomes": "typically the end of the month that they activated in(1/31/2025 for anyone activated between 1/1/2025 and 1/31/2025)",
+      "formula": null
+    },
+    {
+      "name": "State",
+      "description": "State",
+      "data_type": "String",
+      "range_of_outcomes": "2 letter abreviation(CO for colorado, etc.)",
+      "formula": null
+    },
+    {
+      "name": "City",
+      "description": "City",
+      "data_type": "String",
+      "range_of_outcomes": "City Name",
+      "formula": null
+    },
+    {
+      "name": "Pr_Flag",
+      "description": "promortional flag",
+      "data_type": "String",
+      "range_of_outcomes": "Y or N",
+      "formula": null
+    },
+    {
+      "name": "Beacon_Score_10Pt",
+      "description": "credit score",
+      "data_type": "String",
+      "range_of_outcomes": "Buckets of 10 points, from 490-499 to 750-759 and 760+",
+      "formula": null
+    },
+    {
+      "name": "Language",
+      "description": "Language",
+      "data_type": "String",
+      "range_of_outcomes": "English, Latino, or Other",
+      "formula": null
+    },
+    {
+      "name": "Sales_Channel",
+      "description": "Sales channel",
+      "data_type": "String",
+      "range_of_outcomes": "Direct, OE, National_accounts, TVRO, Dishone, telco",
+      "formula": null
+    },
+    {
+      "name": "Activation_Plan",
+      "description": "Activation Plan, or how the customer's contract is set up",
+      "data_type": "String",
+      "range_of_outcomes": "DHA Elite(24 month price lock, leased hardware, excellent credit), DHA Plus(24 month contract, leased hardware with upgrade fees, good credit), DHA Standard(24 month contract, activation fee, leased hardware with upgrade fees, standard credit), flex(no contract, high activation fee, purchased hardware, starter credit), flex24(24 month contract, activation fees, leased hardware with upgrade fees, no credit check)",
+      "formula": null
+    },
+    {
+      "name": "Promo_Cohort",
+      "description": "Promotional cohort",
+      "data_type": "String",
+      "range_of_outcomes": "1-2 promotional cohorts per quarter (example 3Q2019: cohort 1)",
+      "formula": null
+    },
+    {
+      "name": "Dwelling",
+      "description": "Type of building service is to",
+      "data_type": "String",
+      "range_of_outcomes": "SFU(single family unit) or MDU(multi dwelling unit)",
+      "formula": null
+    },
+    {
+      "name": "Owner_Occpncy",
+      "description": "whether or not the owner of the property is the occupier",
+      "data_type": "String",
+      "range_of_outcomes": "TRUE, FALSE, or unknown",
+      "formula": null
+    },
+    {
+      "name": "Core_Package",
+      "description": "the core TV package the customer purchases",
+      "data_type": "String",
+      "range_of_outcomes": "many options withmost common being Americas_Top_120, Americas_Top_200, Latino_Plus, Americas_Top_120_Plus, etc.",
+      "formula": null
+    },
+    {
+      "name": "Geobucket",
+      "description": "how well the satelites can see the location",
+      "data_type": "Numeric",
+      "range_of_outcomes": "1-9, 1 being the best location and 9 being the worst location for satelite purposes",
+      "formula": null
+    },
+    {
+      "name": "Primary_Rcvr",
+      "description": "primary household receiver",
+      "data_type": "String",
+      "range_of_outcomes": "many options, h3 - hopper 3, or the wally, or older receiver models like 211",
+      "formula": null
+    },
+    {
+      "name": "Geo_Segment",
+      "description": "Verbal descriptor of location type",
+      "data_type": "String",
+      "range_of_outcomes": "very rural, rural, suburban, urban, very urban",
+      "formula": null
+    },
+    {
+      "name": "Activation_Date",
+      "description": "when the customer activated their service",
+      "data_type": "Date",
+      "range_of_outcomes": "any date in the range of data",
+      "formula": null
+    },
+    {
+      "name": "Tfn",
+      "description": "toll free number, tied to marketing push",
+      "data_type": "numeric",
+      "range_of_outcomes": "9 digit phone number",
+      "formula": null
+    },
+    {
+      "name": "Tactic",
+      "description": "how the customer engaged with dish",
+      "data_type": "String",
+      "range_of_outcomes": "Direct mail(account 611030), digital(account 618250), other, TV(account 611010 activity 330200-330230), unknown, print(activity 611020), OOH/out of home(account 611010 activity 330260), radio(account 611010 activity 330250)",
+      "formula": null
+    },
+    {
+      "name": "Sub_Tactic",
+      "description": "subtactic of how the customer engaged, somewhat corelative with activity codes",
+      "data_type": "String",
+      "range_of_outcomes": "many options like social, email, newspaper, none, unknown, other",
+      "formula": null
+    },
+    {
+      "name": "Bucket",
+      "description": "what bucket of marketing the customer falls into",
+      "data_type": "String",
+      "range_of_outcomes": "many options like 11_170_1600 DRTV (company 111, department 170, Direct response television adds)",
+      "formula": null
+    },
+    {
+      "name": "Zip_5_Cd",
+      "description": "zip code of the customer",
+      "data_type": "Numeric",
+      "range_of_outcomes": "5 digits",
+      "formula": null
+    },
+    {
+      "name": "Prequal_Flag_Test",
+      "description": "whether or not the user is prequalified",
+      "data_type": "String",
+      "range_of_outcomes": "Y or N",
+      "formula": null
+    },
+    {
+      "name": "Pcc",
+      "description": "?",
+      "data_type": "String",
+      "range_of_outcomes": "",
+      "formula": null
+    },
+    {
+      "name": "Gift_Id_Test",
+      "description": "?",
+      "data_type": "String",
+      "range_of_outcomes": "",
+      "formula": null
+    },
+    {
+      "name": "Receiver_Count",
+      "description": "# of receivers the customer gets",
+      "data_type": "Numeric",
+      "range_of_outcomes": "single digit number",
+      "formula": null
+    },
+    {
+      "name": "Ve_Churn",
+      "description": "estimated % churn per month",
+      "data_type": "Numeric",
+      "range_of_outcomes": "non-integer positive number",
+      "formula": null
+    },
+    {
+      "name": "Joey_Count",
+      "description": "number of secondary receivers the customer gets",
+      "data_type": "Numeric",
+      "range_of_outcomes": "single digit number",
+      "formula": null
+    },
+    {
+      "name": "WA Churn",
+      "description": "estimated months the customer will stay on",
+      "data_type": "Numeric",
+      "range_of_outcomes": "non-integer positive number",
+      "formula": "based on estimated churn, but not exact"
+    },
+    {
+      "name": "Yr1_ProgDisc",
+      "description": "programming cost discount the customer receives in year 1",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Yr2_ProgDisc",
+      "description": "programming cost discount the customer receives in year 2",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Yr3_ProgDisc",
+      "description": "programming cost discount the customer receives in year 3",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Yr1_LocalsDisc",
+      "description": "discount on local broadcasting year 1",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Yr2_LocalsDisc",
+      "description": "discount on local broadcasting year 2",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Yr3_LocalsDisc",
+      "description": "discount on local broadcasting year 3",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "eAuto_Disc",
+      "description": "electronic autopay discount",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Hopper_Disc",
+      "description": "discount on hopper purchase",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Joey_Disc",
+      "description": "discount on joey purchase",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Wally_211_Disc",
+      "description": "Discount on wally purchase",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Yr1_Disc_Fact",
+      "description": "discount factor year 1 - converts to ~5% disc. Rate",
+      "data_type": "Numeric",
+      "range_of_outcomes": "0.953462589",
+      "formula": null
+    },
+    {
+      "name": "Yr2_Disc_Fact",
+      "description": "discounnt factor year 2 - converts to ~7.5% discount rate",
+      "data_type": "Numeric",
+      "range_of_outcomes": "0.866784172",
+      "formula": null
+    },
+    {
+      "name": "Yr3_Disc_Fact",
+      "description": "discount factor year 3 - converts to ~8% disc. Rate",
+      "data_type": "Numeric",
+      "range_of_outcomes": "0.787985611",
+      "formula": null
+    },
+    {
+      "name": "Prog_Disc_New",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "CapEx",
+      "description": "capital expenditures",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "PL_Equip_ODU",
+      "description": "ODU equipment that appears on P&L statement",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "PL_Equip_Other",
+      "description": "other equipment that appears on the P&L statement",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "TVRO_margin_Prim_Box",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Rec_Cost_Prim_Sec",
+      "description": "primary and secondary receiver cost",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "LNB_Cost_Prim",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "PL_Equip",
+      "description": "sum of previous 5 columns",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Reman_Cost",
+      "description": "remaining equipment cost not allocated to P&L or CapEx",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Total_Equipment_Cost",
+      "description": "total equipment cost",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "CC_Act_Fees",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive number",
+      "formula": null
+    },
+    {
+      "name": "CC_Equip_Fees",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive number",
+      "formula": null
+    },
+    {
+      "name": "RAF_Echodot_ETF_Buyout",
+      "description": "? - likely 0",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "RAF",
+      "description": "Refer a Friend Incentive",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "EchoDot",
+      "description": "? - likely 0",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "ETF",
+      "description": "? - likely 0",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Gift_Card_Amount",
+      "description": "gift card given to customer amount $",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Marketing",
+      "description": "total marketing cost attributed to the user",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Direct_Sales",
+      "description": "total direct sales marketing attributed to the user",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Activation_Incentives",
+      "description": "total activation incentives given to the user",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Man_Pay",
+      "description": "manual payment cost",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "Install",
+      "description": "installation cost",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": null
+    },
+    {
+      "name": "sac",
+      "description": "total subscriber acquisition cost",
+      "data_type": "Numeric",
+      "range_of_outcomes": "negative number - capitalized cost",
+      "formula": "=function of all other capitalized costs"
+    },
+    {
+      "name": "Core_ARPU",
+      "description": "average revenue per user from their core packages",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Intl_ARPU",
+      "description": "average revenue per user from their international package",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "A_La_Carte_ARPU",
+      "description": "average revenue per user from a la carte add ons",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Channel_Packs_ARPU",
+      "description": "average revenue per user from channel packs (sports package, etc.)",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Adult_ARPU",
+      "description": "average revenue per user from adult package",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Locals_ARPU",
+      "description": "average revenue per user from local channels",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Other_ARPU",
+      "description": "average revenue per user from other sources",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Adult_Bundles_ARPU",
+      "description": "average revenue per user from adult package",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Equip_Price",
+      "description": "how much customer pays for equipment",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Ad_Sales_Revenue",
+      "description": "average revenue per user from ad sales",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Xtra_Rev_Other",
+      "description": "extra revenue from other sources",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Xtra_Rev_PPV",
+      "description": "pay per view revenue",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Xtra_Rev_Premium",
+      "description": "premium channel revenue",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Xtra_Rev_Unknown",
+      "description": "extra revenue from unkown sources",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "NC_Loyalty_Credits",
+      "description": "loyalty discount",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Telco_Discount",
+      "description": "telco discount",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "NC_ARPU",
+      "description": "new customer total arpu",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": "sum of all other income columns"
+    },
+    {
+      "name": "RSNs_ARPU",
+      "description": "average revenue per user from regional sports networks",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Positive Number - Income",
+      "formula": null
+    },
+    {
+      "name": "Intl_COGS",
+      "description": "cost of international programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "A_La_Carte_COGS",
+      "description": "cost of a la carte programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Channel_Packs_COGS",
+      "description": "cost of channel packs programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Core_COGS",
+      "description": "cost of core package programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Adult_COGS",
+      "description": "cost of adult channel programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "RSNs_COGS",
+      "description": "cost of regional sport networks programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Locals_COGS",
+      "description": "cost of local programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Xtra_COGS_Premium",
+      "description": "cost of premium channel programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Xtra_COGS_Unknown",
+      "description": "unknown costs",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Xtra_COGS_PPV",
+      "description": "cost of pay per view programming",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "NC_COGS",
+      "description": "new customer cost of goods sold",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": "sum of all other expense columns"
+    },
+    {
+      "name": "Package_Change",
+      "description": "cost of changing user's package",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "CSC_Cost",
+      "description": "customer service center costs",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Mo_Inc",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Mo_Inc_Prot",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Billing",
+      "description": "cost of billing",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Collections",
+      "description": "cost of collecting mayments",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Bad_Debt",
+      "description": "bad debt expense",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "TC_SC",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Upgrade_Cost",
+      "description": "cost of upgrading equipment/package",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Manufacturing",
+      "description": "cost of manufacturing and/or remanufacturing equipment for next use",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Other_Variable",
+      "description": "other variable costs",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Fixed_Depreciation",
+      "description": "fixed depreciation",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "Operational_Depreciation",
+      "description": "operational depreciation",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "NC_ST",
+      "description": "new customer satelite & transmission costs",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "NC_GA",
+      "description": "new customer general & administrative costs",
+      "data_type": "Numeric",
+      "range_of_outcomes": "Negative Number - Expense",
+      "formula": null
+    },
+    {
+      "name": "mcf",
+      "description": "monthly cash flow",
+      "data_type": "Numeric",
+      "range_of_outcomes": "number",
+      "formula": "total revenue per month minus total cogs minus all other expenses"
+    },
+    {
+      "name": "npv",
+      "description": "net present value",
+      "data_type": "Numeric",
+      "range_of_outcomes": "number",
+      "formula": null
+    },
+    {
+      "name": "npvwostwodep",
+      "description": "net present value, not including satelite & transmissions & depreciation expenses",
+      "data_type": "Numeric",
+      "range_of_outcomes": "number",
+      "formula": null
+    },
+    {
+      "name": "Media_Sales_Flat",
+      "description": "flat fee from media sales",
+      "data_type": "Numeric",
+      "range_of_outcomes": "income?",
+      "formula": null
+    },
+    {
+      "name": "Media_Sales_Nat",
+      "description": "national fees from media sales",
+      "data_type": "Numeric",
+      "range_of_outcomes": "income?",
+      "formula": null
+    },
+    {
+      "name": "Media_Sales_Local",
+      "description": "local channel fees from media sales",
+      "data_type": "Numeric",
+      "range_of_outcomes": "income?",
+      "formula": null
+    },
+    {
+      "name": "RSN_Surcharge",
+      "description": "?",
+      "data_type": "Numeric",
+      "range_of_outcomes": "",
+      "formula": null
+    },
+    {
+      "name": "temp_id",
+      "description": "UNIQUE IDENTIFIER TO REFERENCE",
+      "data_type": "Numeric",
+      "range_of_outcomes": "number",
+      "formula": null
+    },
+    {
+      "name": "Activation_Month",
+      "description": "activation month - use for sql querries about dates or time series",
+      "data_type": "Numeric",
+      "range_of_outcomes": "1 through 12",
+      "formula": null
+    },
+    {
+      "name": "Activation_Year",
+      "description": "activation year - use for sql querries about dates or time series",
+      "data_type": "Numeric",
+      "range_of_outcomes": "2018 through 2025",
+      "formula": null
+    }
+  ]
+}
