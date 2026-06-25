@@ -96,8 +96,24 @@ def run_agent_loop(user_prompt: str):
                 
                 for tool_call in assistant_msg["tool_calls"]:
                     tool_name = tool_call["function"]["name"]
-                    args = json.loads(tool_call["function"]["arguments"])
-                    call_id = tool_call.get("id", "call_id") # Needed for tool tracking
+                    call_id = tool_call.get("id", "call_id") # Move this up so we can use it in the except block
+                    
+                    # Safely attempt to parse the arguments
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"])
+                    except json.JSONDecodeError as e:
+                        error_msg = f"Error: Invalid JSON format for arguments. {str(e)}"
+                        st.session_state.run_log.append(f"Attempt {attempt+1}: {error_msg}")
+                        
+                        # Feed the error back to the LLM so it can learn and retry
+                        msgs.append({
+                            "role": "tool",
+                            "tool_call_id": call_id,
+                            "name": tool_name,
+                            "content": error_msg
+                        })
+                        has_error = True
+                        continue # Skip the rest of this iteration and let the agent retry
                     
                     st.session_state.run_log.append(f"Attempt {attempt+1}: Agent selected {tool_name} with args: {args}")
                     
