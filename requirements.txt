@@ -3,9 +3,9 @@ databricks-sdk>=0.20.0
 openpyxl>=3.1.0
 streamlit>=1.38.0
 
-/Volumes/ai_dpm_np_sbx/sandbox/sandbox-volume/acquisitions/joblib-1.5.3-py3-none-any.whl
-/Volumes/ai_dpm_np_sbx/sandbox/sandbox-volume/acquisitions/patsy-1.0.2-py2.py3-none-any (1).whl
-/Volumes/ai_dpm_np_sbx/sandbox/sandbox-volume/acquisitions/scikit_learn-1.9.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+./whls/joblib-1.5.3-py3-none-any.whl
+./whls/patsy-1.0.2-py2.py3-none-any (1).whl
+./whls/scikit_learn-1.9.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
 /Volumes/ai_dpm_np_sbx/sandbox/sandbox-volume/acquisitions/sqlalchemy-2.0.51-py3-none-any.whl
-/Volumes/ai_dpm_np_sbx/sandbox/sandbox-volume/acquisitions/statsmodels-0.14.6-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64 (1).whl
-/Volumes/ai_dpm_np_sbx/sandbox/sandbox-volume/acquisitions/threadpoolctl-3.6.0-py3-none-any.whl
+./whls/statsmodels-0.14.6-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64 (1).whl
+./whls/threadpoolctl-3.6.0-py3-none-any.whl
