@@ -270,7 +270,7 @@
       "formula": null
     },
     {
-      "name": "Wally_211_Disc",
+      "name": "Wally_Disc",
       "description": "Discount on wally purchase",
       "data_type": "Numeric",
       "range_of_outcomes": "negative number - capitalized cost",
