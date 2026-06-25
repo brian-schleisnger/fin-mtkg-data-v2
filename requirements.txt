@@ -3,6 +3,7 @@ databricks-sdk>=0.20.0
 openpyxl>=3.1.0
 streamlit>=1.38.0
 
+./whls/asn1crypto-1.5.1-py2.py3-none-any.whl
 ./whls/greenlet-3.5.2-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
 ./whls/joblib-1.5.3-py3-none-any.whl
 ./whls/patsy-1.0.2-py2.py3-none-any.whl
