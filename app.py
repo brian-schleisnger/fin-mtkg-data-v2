@@ -247,37 +247,28 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             final_response = run_agent_loop(prompt)
             st.markdown(final_response)
             
-            # Display execution context if the database was queried during this loop
+            # ─── NEW UI LAYOUT ───
+            # Show Visualizations and Download Button directly below the LLM output
+            if st.session_state.current_turn_dfs:
+                
+                # 1. Provide the Excel Download Button
+                excel_data = create_excel_buffer(st.session_state.current_turn_dfs)
+                st.download_button(
+                    label="📥 Download Raw Data to Excel",
+                    data=excel_data,
+                    file_name="agent_data_export.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                
+                # 2. Render ONLY the visual figures directly in the chat flow
+                for item in st.session_state.current_turn_dfs:
+                    if type(item).__name__ == "Figure":
+                        st.plotly_chart(item, use_container_width=True)
+            
+            # Display execution context (Agent Reasoning Log) at the very bottom
             with st.expander("Agent Reasoning Log"):
                 for log in st.session_state.run_log:
                     st.text(log)
-                    
-            if st.session_state.current_turn_dfs:
-                with st.expander("View Raw Data Returned"):
-                    
-                    # ─── NEW: Excel Download Button ───
-                    excel_data = create_excel_buffer(st.session_state.current_turn_dfs)
-                    st.download_button(
-                        label="📥 Download Data to Excel",
-                        data=excel_data,
-                        file_name="agent_data_export.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                    st.divider() # Adds a nice visual break before the visual tables
-                    # ──────────────────────────────────
-                    
-                    for i, item in enumerate(st.session_state.current_turn_dfs):
-                        st.write(f"**Result {i+1}**")
-                        if isinstance(item, pd.DataFrame):
-                            st.dataframe(item)
-                        elif hasattr(item, "summary"):
-                            st.text(item.summary().as_text())
-                        # ─── NEW: Render Plotly Figures ───
-                        elif type(item).__name__ == "Figure":
-                            st.plotly_chart(item, use_container_width=True)
-                        # ──────────────────────────────────
-                        else:
-                            st.write(str(item))
                     
         except Exception as e:
             st.error(f"Agent Orchestration Error: {e}")
