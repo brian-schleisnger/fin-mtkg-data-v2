@@ -6,6 +6,8 @@ from typing import Any, Dict
 
 from databricks.sdk import WorkspaceClient
 import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import (
     accuracy_score,
@@ -14,7 +16,6 @@ from sklearn.metrics import (
     r2_score,
 )
 from sklearn.model_selection import train_test_split
-from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import sqlalchemy as sa
 import statsmodels.api as sm
@@ -328,6 +329,72 @@ def run_pca_tool(feature_variables: list, n_components: int = None) -> Dict[str,
     except Exception as e:
         return {"text": f"PCA Error: {e}", "model": None}
     
+def run_kmeans_clustering_tool(feature_variables: list, n_clusters: int = 3) -> Dict[str, Any]:
+    """
+    Sub-agent tool: Fetches columns, standardizes data, and runs K-Means clustering.
+    Returns a dictionary containing the LLM-readable text result and the trained KMeans object.
+    """
+    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in feature_variables]
+    columns_str = ", ".join(safe_columns)
+    
+    # Using the same row limit strategy as the Random Forest and PCA tools
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} ORDER BY RANDOM() LIMIT 100000"
+    
+    try:
+        df = run_sql_query(sql_query)
+        
+        if df.empty or len(df) < n_clusters:
+            return {"text": f"Error: Not enough data points fetched to perform {n_clusters}-means clustering.", "model": None}
+            
+        # 1. Handle categorical features by creating dummy variables
+        df = pd.get_dummies(df, columns=[col for col in feature_variables if df[col].dtype == 'object'], drop_first=True)
+        
+        # 2. Drop any rows with missing values
+        df = df.dropna()
+        current_features = df.columns.tolist()
+        
+        if len(df) < n_clusters or len(current_features) < 1:
+            return {"text": "Error: Data size too small after cleaning and encoding to perform clustering.", "model": None}
+        
+        # 3. Standardize the columns (Crucial for distance-based clustering algorithms)
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(df)
+        
+        # 4. Fit K-Means
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
+        kmeans.fit(scaled_data)
+        
+        # 5. Build text summary for the LLM
+        df['Cluster'] = kmeans.labels_
+        cluster_counts = df['Cluster'].value_counts().sort_index()
+        
+        result_text = f"K-Means Clustering Results (n_clusters={n_clusters}):\n"
+        result_text += "Cluster Population Sizes:\n"
+        for cluster_id, count in cluster_counts.items():
+            result_text += f"  • Cluster {cluster_id}: {count} data points\n"
+            
+        result_text += "\nCluster Profiles (Standardized Centroids):\n"
+        result_text += "Note: Values > 0 mean the cluster is above the dataset average for that feature, < 0 means below average.\n"
+        
+        centroids = kmeans.cluster_centers_
+        
+        # Limit to the most defining features per cluster to save LLM context
+        for i in range(n_clusters):
+            result_text += f"  Cluster {i} Defining Features (Top 5):\n"
+            
+            # Match standardized centroid values to feature names and sort by absolute magnitude
+            feat_centroids = sorted(zip(current_features, centroids[i]), key=lambda x: abs(x[1]), reverse=True)
+            
+            for feat, val in feat_centroids[:5]:
+                # Only show features that have a somewhat distinct deviation from the mean
+                if abs(val) > 0.15: 
+                    result_text += f"    - {feat}: {val:.4f}\n"
+                    
+        return {"text": result_text, "model": kmeans}
+        
+    except Exception as e:
+        return {"text": f"K-Means Error: {e}", "model": None}
+    
 
 # ─── Load Config & Map Dispatcher ────────────────────────────────
 TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"
@@ -343,5 +410,6 @@ TOOL_DISPATCHER = {
     "run_ols_regression_tool": run_ols_regression_tool,
     "run_arima_forecasting_tool": run_arima_forecasting_tool,
     "run_random_forest_tool": run_random_forest_tool,
-    "run_pca_tool": run_pca_tool
+    "run_pca_tool": run_pca_tool,
+    "run_kmeans_clustering_tool": run_kmeans_clustering_tool
 }

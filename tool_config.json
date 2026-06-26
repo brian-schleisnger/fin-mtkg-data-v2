@@ -128,5 +128,27 @@
                 "required": ["feature_variables"]
             }
         }
+    },
+    {
+    "type": "function",
+    "function": {
+        "name": "run_kmeans_clustering_tool",
+        "description": "Performs K-Means clustering to group data into distinct segments based on feature similarities. Use this to discover customer segments, group similar behaviors, or identify natural groupings in the data.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "feature_variables": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "A list of exact column names to use for clustering."
+                },
+                "n_clusters": {
+                    "type": "integer",
+                    "description": "The number of clusters (k) to create. Default is 3."
+                }
+            },
+            "required": ["feature_variables"]
+        }
     }
+}
 ]
