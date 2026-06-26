@@ -41,6 +41,7 @@ def decompose_question(user_prompt: str, schema: dict) -> list:
     2. Do not generate more than five queries. 
     3. CRITICAL: Do NOT break down statistical models (like Regression, Random Forest, or ARIMA) into separate questions for their sub-metrics (e.g., coefficients, R-squared, p-values, residuals). Group all requirements for a single model into ONE unified question
     4. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item and do NOT generate data queries.
+    5. If a query requires specific columns/features, you MUST explicitly list the exact column names in that specific sub-question.
     
     Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
     Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""
