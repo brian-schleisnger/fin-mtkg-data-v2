@@ -30,18 +30,27 @@ def filter_schema(user_prompt: str) -> dict:
     # In a larger app, use keyword matching here. For now, we return the whole dict.
     return DATA_DICTIONARY
 
-def decompose_question(user_prompt: str, schema: dict) -> list:
-    """Step 1: Breaks the user's prompt into specific data questions."""
+def decompose_question(user_prompt: str, schema: dict, history: list) -> list:
+    """Step 1: Breaks the user's prompt into specific data questions using chat history."""
+    
+    # Format the last few turns of history to give the LLM context without blowing up tokens
+    history_text = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history[-6:]]) if history else "No previous history."
+    
     prompt = f"""You are a data strategist. Break the user's broad request down into specific, actionable data queries.
+    
     Available Data Schema: {json.dumps(schema)}
+    
+    Recent Conversation History:
+    {history_text}
+    
     User Request: {user_prompt}
 
     RULES:
     1. ONLY generate data queries if the user is explicitly asking for data analysis, metrics, or insights.
     2. Do not generate more than five queries. 
-    3. CRITICAL: Do NOT break down statistical models (like Regression, Random Forest, or ARIMA) into separate questions for their sub-metrics (e.g., coefficients, R-squared, p-values, residuals). Group all requirements for a single model into ONE unified question
+    3. CRITICAL: Do NOT break down statistical models (like Regression, Random Forest, or ARIMA) into separate questions for their sub-metrics (e.g., coefficients, R-squared, p-values, residuals). Group all requirements for a single model into ONE unified question.
     4. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item and do NOT generate data queries.
-    5. If a query requires specific columns/features, you MUST explicitly list the exact column names in that specific sub-question.
+    5. CRITICAL MEMORY RULE: Use the 'Recent Conversation History' to resolve pronouns (e.g., "it", "that metric") or missing context (e.g., "what about next month?"). Ensure EVERY generated sub-question is entirely self-contained and explicitly mentions the required columns or context.
     
     Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
     Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""
@@ -51,7 +60,7 @@ def decompose_question(user_prompt: str, schema: dict) -> list:
     
     try:
         parsed = json.loads(response.get("content", "{}"))
-        return parsed.get("questions", [user_prompt]) # Fallback to original prompt if parsing fails
+        return parsed.get("questions", [user_prompt]) 
     except json.JSONDecodeError:
         return [user_prompt]
     
@@ -64,9 +73,9 @@ def run_agent_loop(user_prompt: str):
     # 1. Filter Context
     relevant_schema = filter_schema(user_prompt)
     
-    # 2. Decompose Intent
+    # 2. Decompose Intent (NOW PASSING MEMORY)
     with st.spinner("Decomposing question..."):
-        sub_questions = decompose_question(user_prompt, relevant_schema)
+        sub_questions = decompose_question(user_prompt, relevant_schema, st.session_state.messages)
         st.session_state.run_log.append(f"Sub-questions identified: {sub_questions}")
     
     # 3. Execute Tools per Question dynamically
@@ -74,13 +83,22 @@ def run_agent_loop(user_prompt: str):
     for sq in sub_questions:
         with st.spinner(f"Analyzing: '{sq}'..."):
             
-            # Pass the full TOOLS array so the LLM can pick the right one
             prompt = f"""You are a routing assistant. Select the appropriate tool, or answer directly if no tool is needed. 
                         Use this EXACT schema for column names: {json.dumps(relevant_schema)}"""
-            msgs = [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": sq}
-            ]
+            
+            msgs = [{"role": "system", "content": prompt}]
+            
+            # INJECT HISTORICAL MEMORY: Give the tool router the last few turns
+            if st.session_state.messages:
+                msgs.extend(st.session_state.messages[-4:])
+                
+            # INJECT INTRA-TURN MEMORY: If previous sub-questions in this loop found data, let the router see it
+            if raw_outputs:
+                intra_turn_context = f"Context from previous sub-questions analyzed just now: {raw_outputs}"
+                msgs.append({"role": "system", "content": intra_turn_context})
+                
+            # Append the actual sub-question to trigger the tool
+            msgs.append({"role": "user", "content": sq})
 
             max_retries = 3
             for attempt in range(max_retries):
