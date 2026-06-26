@@ -130,25 +130,50 @@
         }
     },
     {
-    "type": "function",
-    "function": {
-        "name": "run_kmeans_clustering_tool",
-        "description": "Performs K-Means clustering to group data into distinct segments based on feature similarities. Use this to discover customer segments, group similar behaviors, or identify natural groupings in the data.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "feature_variables": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "A list of exact column names to use for clustering."
+        "type": "function",
+        "function": {
+            "name": "run_kmeans_clustering_tool",
+            "description": "Performs K-Means clustering to group data into distinct segments based on feature similarities. Use this to discover customer segments, group similar behaviors, or identify natural groupings in the data.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "feature_variables": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of exact column names to use for clustering."
+                    },
+                    "n_clusters": {
+                        "type": "integer",
+                        "description": "The number of clusters (k) to create. Default is 3."
+                    }
                 },
-                "n_clusters": {
-                    "type": "integer",
-                    "description": "The number of clusters (k) to create. Default is 3."
-                }
-            },
-            "required": ["feature_variables"]
+                "required": ["feature_variables"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_scatterplot_tool",
+            "description": "Generates a scatterplot to visualize the relationship between two numerical variables. Use this when the user asks to see a chart, plot, visual, or graph of how two metrics compare.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x_column": {
+                        "type": "string",
+                        "description": "The exact column name for the X-axis (independent variable)."
+                    },
+                    "y_column": {
+                        "type": "string",
+                        "description": "The exact column name for the Y-axis (dependent variable)."
+                    },
+                    "category_column": {
+                        "type": "string",
+                        "description": "Optional. The exact column name to use for color-coding the points (e.g., a categorical variable)."
+                    }
+                },
+                "required": ["x_column", "y_column"]
+            }
         }
     }
-}
 ]
