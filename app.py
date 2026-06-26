@@ -167,11 +167,15 @@ def run_agent_loop(user_prompt: str):
                             
                             if isinstance(result, dict):
                                 output_text = result.get("text", "")
-                                payload = result.get("data") if result.get("data") is not None else result.get("model")
                                 
-                                # Only save payload to UI if it wasn't an error
-                                if payload is not None and "Error" not in output_text:
-                                    st.session_state.current_turn_dfs.append(payload)
+                                # If it's not an error, append returned objects to the UI payload list
+                                if "Error" not in output_text:
+                                    if result.get("data") is not None:
+                                        st.session_state.current_turn_dfs.append(result["data"])
+                                    if result.get("model") is not None:
+                                        st.session_state.current_turn_dfs.append(result["model"])
+                                    if result.get("figure") is not None:
+                                        st.session_state.current_turn_dfs.append(result["figure"])
                             else:
                                 output_text = str(result)
                         except Exception as e:
@@ -263,13 +267,14 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                     
                     for i, item in enumerate(st.session_state.current_turn_dfs):
                         st.write(f"**Result {i+1}**")
-                        # Check if it's a pandas dataframe before trying to render it as one
                         if isinstance(item, pd.DataFrame):
                             st.dataframe(item)
-                        # Check if it's a statsmodels object (they have a summary method)
                         elif hasattr(item, "summary"):
                             st.text(item.summary().as_text())
-                        # Fallback for Scikit-Learn models or unknown objects
+                        # ─── NEW: Render Plotly Figures ───
+                        elif type(item).__name__ == "Figure":
+                            st.plotly_chart(item, use_container_width=True)
+                        # ──────────────────────────────────
                         else:
                             st.write(str(item))
                     

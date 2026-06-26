@@ -1,6 +1,7 @@
 pandas>=2.0.0
 databricks-sdk>=0.20.0
 openpyxl>=3.1.0
+plotly>=5.24.1
 streamlit>=1.38.0
 
 ./whls/asn1crypto-1.5.1-py2.py3-none-any.whl

@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from databricks.sdk import WorkspaceClient
 import pandas as pd
+import plotly.express as px
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -395,6 +396,46 @@ def run_kmeans_clustering_tool(feature_variables: list, n_clusters: int = 3) -> 
     except Exception as e:
         return {"text": f"K-Means Error: {e}", "model": None}
     
+def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str = None) -> dict:
+    """Sub-agent tool: Fetches data and generates an interactive Plotly scatterplot."""
+    columns_to_fetch = [x_column, y_column]
+    if category_column:
+        columns_to_fetch.append(category_column)
+
+    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
+    columns_str = ", ".join(safe_columns)
+    
+    # Limit rows to prevent browser freezing on massive datasets
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} ORDER BY RANDOM() LIMIT 5000"
+
+    try:
+        df = run_sql_query(sql_query)
+        if df.empty:
+            return {"text": "Error: No data returned for the scatterplot.", "data": None}
+
+        # Coerce to numeric
+        df[x_column] = pd.to_numeric(df[x_column], errors='coerce')
+        df[y_column] = pd.to_numeric(df[y_column], errors='coerce')
+        df = df.dropna(subset=[x_column, y_column])
+
+        if df.empty:
+            return {"text": "Error: Not enough valid numeric data to plot.", "data": None}
+
+        # Generate the interactive figure
+        if category_column:
+            fig = px.scatter(df, x=x_column, y=y_column, color=category_column, title=f"{y_column} vs {x_column}")
+        else:
+            fig = px.scatter(df, x=x_column, y=y_column, title=f"{y_column} vs {x_column}")
+
+        # Return both the dataframe (for Excel export) and the figure (for Streamlit)
+        return {
+            "text": f"Successfully generated scatterplot for {y_column} vs {x_column}.", 
+            "data": df, 
+            "figure": fig
+        }
+    except Exception as e:
+        return {"text": f"Scatterplot Error: {e}", "data": None}
+    
 
 # ─── Load Config & Map Dispatcher ────────────────────────────────
 TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"
@@ -411,5 +452,6 @@ TOOL_DISPATCHER = {
     "run_arima_forecasting_tool": run_arima_forecasting_tool,
     "run_random_forest_tool": run_random_forest_tool,
     "run_pca_tool": run_pca_tool,
-    "run_kmeans_clustering_tool": run_kmeans_clustering_tool
+    "run_kmeans_clustering_tool": run_kmeans_clustering_tool,
+    "generate_scatterplot_tool": generate_scatterplot_tool
 }
