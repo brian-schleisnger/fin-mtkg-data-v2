@@ -1,7 +1,7 @@
 import json
 import os
-import ssl
 from pathlib import Path
+import ssl
 from typing import Any, Dict
 
 from databricks.sdk import WorkspaceClient

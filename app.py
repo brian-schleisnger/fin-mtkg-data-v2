@@ -1,3 +1,4 @@
+import io
 import json
 from pathlib import Path
 
@@ -63,6 +64,27 @@ def decompose_question(user_prompt: str, schema: dict, history: list) -> list:
         return parsed.get("questions", [user_prompt]) 
     except json.JSONDecodeError:
         return [user_prompt]
+    
+def create_excel_buffer(data_list: list) -> bytes:
+    """Extracts DataFrames from the agent's output and writes them to an Excel buffer."""
+    buffer = io.BytesIO()
+    
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        sheet_counter = 1
+        has_data = False
+        
+        for item in data_list:
+            if isinstance(item, pd.DataFrame):
+                # Write each DataFrame to its own tab
+                item.to_excel(writer, index=False, sheet_name=f"Result_{sheet_counter}")
+                sheet_counter += 1
+                has_data = True
+                
+        # Fallback if the agent only returned models/text but no tabular data
+        if not has_data:
+            pd.DataFrame({"Message": ["No tabular data available for this query."]}).to_excel(writer, index=False, sheet_name="No Data")
+            
+    return buffer.getvalue()
     
 # ─── Agent Orchestration Loop ────────────────────────────────────
 def run_agent_loop(user_prompt: str):
@@ -227,6 +249,18 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                     
             if st.session_state.current_turn_dfs:
                 with st.expander("View Raw Data Returned"):
+                    
+                    # ─── NEW: Excel Download Button ───
+                    excel_data = create_excel_buffer(st.session_state.current_turn_dfs)
+                    st.download_button(
+                        label="📥 Download Data to Excel",
+                        data=excel_data,
+                        file_name="agent_data_export.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    st.divider() # Adds a nice visual break before the visual tables
+                    # ──────────────────────────────────
+                    
                     for i, item in enumerate(st.session_state.current_turn_dfs):
                         st.write(f"**Result {i+1}**")
                         # Check if it's a pandas dataframe before trying to render it as one
