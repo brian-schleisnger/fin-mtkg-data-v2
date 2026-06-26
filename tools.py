@@ -396,40 +396,49 @@ def run_kmeans_clustering_tool(feature_variables: list, n_clusters: int = 3) -> 
     except Exception as e:
         return {"text": f"K-Means Error: {e}", "model": None}
     
-def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str = None) -> dict:
-    """Sub-agent tool: Fetches data and generates an interactive Plotly scatterplot."""
-    columns_to_fetch = [x_column, y_column]
-    if category_column:
-        columns_to_fetch.append(category_column)
+def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
+    """Sub-agent tool: Fetches data, applies filters, and generates an interactive Plotly scatterplot."""
+    
+    # Clean column names: Split by '.' and take the last element to strip table prefixes like "schema.table.column"
+    x_clean = x_column.replace('"', '').split('.')[-1]
+    y_clean = y_column.replace('"', '').split('.')[-1]
+    columns_to_fetch = [x_clean, y_clean]
 
-    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
+    if category_column:
+        cat_clean = category_column.replace('"', '').split('.')[-1]
+        columns_to_fetch.append(cat_clean)
+
+    # Safely wrap the cleaned column names in double quotes for PostgreSQL
+    safe_columns = ['"{}"'.format(col) for col in columns_to_fetch]
     columns_str = ", ".join(safe_columns)
     
-    # Limit rows to prevent browser freezing on massive datasets
-    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} ORDER BY RANDOM() LIMIT 5000"
+    # Build the SQL query with the optional WHERE clause
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
+    if where_clause:
+        sql_query += f" WHERE {where_clause}"
+    sql_query += " ORDER BY RANDOM() LIMIT 5000"
 
     try:
         df = run_sql_query(sql_query)
         if df.empty:
-            return {"text": "Error: No data returned for the scatterplot.", "data": None}
+            return {"text": "Error: No data returned for the scatterplot. Check if the filters are too strict.", "data": None}
 
-        # Coerce to numeric
-        df[x_column] = pd.to_numeric(df[x_column], errors='coerce')
-        df[y_column] = pd.to_numeric(df[y_column], errors='coerce')
-        df = df.dropna(subset=[x_column, y_column])
+        # Coerce to numeric using the cleaned column names
+        df[x_clean] = pd.to_numeric(df[x_clean], errors='coerce')
+        df[y_clean] = pd.to_numeric(df[y_clean], errors='coerce')
+        df = df.dropna(subset=[x_clean, y_clean])
 
         if df.empty:
             return {"text": "Error: Not enough valid numeric data to plot.", "data": None}
 
         # Generate the interactive figure
         if category_column:
-            fig = px.scatter(df, x=x_column, y=y_column, color=category_column, title=f"{y_column} vs {x_column}")
+            fig = px.scatter(df, x=x_clean, y=y_clean, color=cat_clean, title=f"{y_clean} vs {x_clean}")
         else:
-            fig = px.scatter(df, x=x_column, y=y_column, title=f"{y_column} vs {x_column}")
+            fig = px.scatter(df, x=x_clean, y=y_clean, title=f"{y_clean} vs {x_clean}")
 
-        # Return both the dataframe (for Excel export) and the figure (for Streamlit)
         return {
-            "text": f"Successfully generated scatterplot for {y_column} vs {x_column}.", 
+            "text": f"Successfully generated scatterplot for {y_clean} vs {x_clean}.", 
             "data": df, 
             "figure": fig
         }

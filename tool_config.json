@@ -169,7 +169,11 @@
                     },
                     "category_column": {
                         "type": "string",
-                        "description": "Optional. The exact column name to use for color-coding the points (e.g., a categorical variable)."
+                        "description": "Optional. The exact column name to use for color-coding the points."
+                    },
+                    "where_clause": {
+                        "type": "string",
+                        "description": "Optional. A standard PostgreSQL WHERE clause to filter the data before plotting (e.g., \"Activation_Year\" = 2025 AND \"Activation_Month\" IN (10, 11, 12)). Do NOT include the word WHERE."
                     }
                 },
                 "required": ["x_column", "y_column"]
