@@ -173,7 +173,11 @@
                     },
                     "where_clause": {
                         "type": "string",
-                        "description": "Optional. A standard PostgreSQL WHERE clause to filter the data before plotting (e.g., \"Activation_Year\" = 2025 AND \"Activation_Month\" IN (10, 11, 12)). Do NOT include the word WHERE."
+                        "description": "Optional. A standard PostgreSQL WHERE clause to filter the data before plotting."
+                    },
+                    "include_trendline": {
+                        "type": "boolean",
+                        "description": "Set to true if the user asks for a trendline, line of best fit, or correlation line."
                     }
                 },
                 "required": ["x_column", "y_column"]

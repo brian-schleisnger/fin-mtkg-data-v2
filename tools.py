@@ -396,10 +396,9 @@ def run_kmeans_clustering_tool(feature_variables: list, n_clusters: int = 3) -> 
     except Exception as e:
         return {"text": f"K-Means Error: {e}", "model": None}
     
-def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
-    """Sub-agent tool: Fetches data, applies filters, and generates an interactive Plotly scatterplot."""
+def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None, include_trendline: bool = False) -> dict:
+    """Sub-agent tool: Fetches data, applies filters, and generates an interactive Plotly scatterplot with optional trendlines."""
     
-    # Clean column names: Split by '.' and take the last element to strip table prefixes like "schema.table.column"
     x_clean = x_column.replace('"', '').split('.')[-1]
     y_clean = y_column.replace('"', '').split('.')[-1]
     columns_to_fetch = [x_clean, y_clean]
@@ -408,11 +407,9 @@ def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str
         cat_clean = category_column.replace('"', '').split('.')[-1]
         columns_to_fetch.append(cat_clean)
 
-    # Safely wrap the cleaned column names in double quotes for PostgreSQL
     safe_columns = ['"{}"'.format(col) for col in columns_to_fetch]
     columns_str = ", ".join(safe_columns)
     
-    # Build the SQL query with the optional WHERE clause
     sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
     if where_clause:
         sql_query += f" WHERE {where_clause}"
@@ -423,7 +420,7 @@ def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str
         if df.empty:
             return {"text": "Error: No data returned for the scatterplot. Check if the filters are too strict.", "data": None}
 
-        # Coerce to numeric using the cleaned column names
+        # Coerce axes to numeric
         df[x_clean] = pd.to_numeric(df[x_clean], errors='coerce')
         df[y_clean] = pd.to_numeric(df[y_clean], errors='coerce')
         df = df.dropna(subset=[x_clean, y_clean])
@@ -431,11 +428,19 @@ def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str
         if df.empty:
             return {"text": "Error: Not enough valid numeric data to plot.", "data": None}
 
+        # Force the category to be a string so Plotly builds an interactive, clickable legend
+        # instead of a continuous gradient color bar.
+        if category_column:
+            df[cat_clean] = df[cat_clean].astype(str)
+
+        # Apply trendline argument if requested
+        t_line = "ols" if include_trendline else None
+
         # Generate the interactive figure
         if category_column:
-            fig = px.scatter(df, x=x_clean, y=y_clean, color=cat_clean, title=f"{y_clean} vs {x_clean}")
+            fig = px.scatter(df, x=x_clean, y=y_clean, color=cat_clean, trendline=t_line, title=f"{y_clean} vs {x_clean}")
         else:
-            fig = px.scatter(df, x=x_clean, y=y_clean, title=f"{y_clean} vs {x_clean}")
+            fig = px.scatter(df, x=x_clean, y=y_clean, trendline=t_line, title=f"{y_clean} vs {x_clean}")
 
         return {
             "text": f"Successfully generated scatterplot for {y_clean} vs {x_clean}.", 
@@ -444,7 +449,6 @@ def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str
         }
     except Exception as e:
         return {"text": f"Scatterplot Error: {e}", "data": None}
-    
 
 # ─── Load Config & Map Dispatcher ────────────────────────────────
 TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"
