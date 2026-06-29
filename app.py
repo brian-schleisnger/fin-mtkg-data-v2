@@ -5,30 +5,37 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from tools import raw_llm_call, TABLE_NAME, TOOLS, TOOL_DISPATCHER
+from tools import raw_llm_call, TOOLS, TOOL_DISPATCHER
 
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
 # ─── Schema Context ──────────────────────────────────────────────
-# 1. Define the path to your new JSON file
-DICT_FILE_PATH = Path(__file__).parent.resolve() / "acquisition_data_dictionary.json"
+# 1. Define your tables and their corresponding dictionary files
+SCHEMA_CONFIG = {
+    '"sandbox"."acquisition_data_no_id"': "acquisition_data_dictionary.json",
+    '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json"
+}
 
-# 2. Load the JSON and override the table name
-try:
-    with DICT_FILE_PATH.open("r", encoding="utf-8") as f:
-        DATA_DICTIONARY = json.load(f)
-        
-        # Override the table_name in the JSON with the SQL-safe TABLE_NAME from tools.py
-        DATA_DICTIONARY["table_name"] = TABLE_NAME
-except Exception as e:
-    st.error(f"Error loading data dictionary: {e}")
-    DATA_DICTIONARY = {"error": "Could not load schema."}
+DATA_DICTIONARY = {}
+BASE_DIR = Path(__file__).parent.resolve()
+
+# 2. Load all JSON schemas into a unified dictionary
+for table_name, file_name in SCHEMA_CONFIG.items():
+    dict_path = BASE_DIR / file_name
+    try:
+        with dict_path.open("r", encoding="utf-8") as f:
+            schema_data = json.load(f)
+            schema_data["table_name"] = table_name # Explicitly inject the SQL-safe table name
+            DATA_DICTIONARY[table_name] = schema_data
+    except Exception as e:
+        st.error(f"Error loading {file_name}: {e}")
 
 # ─── RAG & Orchestration Helpers ─────────────────────────────────
 def filter_schema(user_prompt: str) -> dict:
     """Filters the dictionary so the LLM isn't overwhelmed by irrelevant tables."""
-    # In a larger app, use keyword matching here. For now, we return the whole dict.
+    # In a larger app with dozens of tables, use semantic search or keyword matching.
+    # For two tables, passing the whole combined dictionary is fine.
     return DATA_DICTIONARY
 
 def decompose_question(user_prompt: str, schema: dict, history: list) -> list:
@@ -113,7 +120,8 @@ def run_agent_loop(user_prompt: str):
             
             # INJECT HISTORICAL MEMORY: Give the tool router the last few turns
             if st.session_state.messages:
-                msgs.extend(st.session_state.messages[-4:])
+                clean_history = [{"role": m["role"], "content": m.get("content", "")} for m in st.session_state.messages[-4:]]
+                msgs.extend(clean_history)
                 
             # INJECT INTRA-TURN MEMORY: If previous sub-questions in this loop found data, let the router see it
             if raw_outputs:
@@ -213,7 +221,10 @@ def run_agent_loop(user_prompt: str):
         Synthesize the raw data into a clear, business-friendly summary answering the original prompt.
         If any tools failed or returned errors in the raw data, briefly mention what analysis could not be completed and why, alongside the successful insights."""
         
-        final_msgs = st.session_state.messages + [{"role": "user", "content": synthesis_prompt}]
+        # Safely strip figures from history before sending to the LLM API
+        clean_messages = [{"role": m["role"], "content": m.get("content", "")} for m in st.session_state.messages]
+        final_msgs = clean_messages + [{"role": "user", "content": synthesis_prompt}]
+        
         final_response = raw_llm_call(final_msgs)
         final_text = final_response.get("content", "")
         

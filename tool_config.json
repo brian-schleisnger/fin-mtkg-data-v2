@@ -24,6 +24,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TABLE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "dependent_variable": {
                         "type": "string", 
                         "description": "The exact column name of the target numerical variable to predict (the Y variable)."
@@ -34,7 +38,7 @@
                         "description": "A list of exact column names for the numerical predictor variables (the X variables)."
                     }
                 },
-                "required": ["dependent_variable", "independent_variables"]
+                "required": ["TABLE_NAME","dependent_variable", "independent_variables"]
             }
         }
     },
@@ -46,6 +50,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TABLE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "value_column": {
                         "type": "string", 
                         "description": "The exact column name of the numerical variable to forecast (e.g., mcf, sac, temp_Id)."
@@ -72,7 +80,7 @@
                         "description": "The ARIMA model's moving average order (default is 1)."
                     }
                 },
-                "required": ["value_column"]
+                "required": ["TABLE_NAME","value_column"]
             }
         }
     },
@@ -84,6 +92,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TBALE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "target_variable": {
                         "type": "string",
                         "description": "The exact column name of the target variable to predict."
@@ -103,7 +115,7 @@
                         "description": "The number of trees in the forest (default is 100)."
                     }
                 },
-                "required": ["target_variable", "feature_variables", "task_type"]
+                "required": ["TABLE_NAME","target_variable", "feature_variables", "task_type"]
             }
         }
     },
@@ -115,6 +127,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TABLE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "feature_variables": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -125,7 +141,7 @@
                         "description": "The number of principal components to compute. If omitted, computes components for all features."
                     }
                 },
-                "required": ["feature_variables"]
+                "required": ["TABLE_NAME","feature_variables"]
             }
         }
     },
@@ -137,6 +153,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TBALE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "feature_variables": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -147,7 +167,7 @@
                         "description": "The number of clusters (k) to create. Default is 3."
                     }
                 },
-                "required": ["feature_variables"]
+                "required": ["TABLE_NAME","feature_variables"]
             }
         }
     },
@@ -159,6 +179,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TABLE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "x_column": {
                         "type": "string",
                         "description": "The exact column name for the X-axis (independent variable)."
@@ -180,7 +204,7 @@
                         "description": "Set to true if the user asks for a trendline, line of best fit, or correlation line."
                     }
                 },
-                "required": ["x_column", "y_column"]
+                "required": ["TABLE_NAME","x_column", "y_column"]
             }
         }
     },
@@ -192,6 +216,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TABLE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "x_column": {
                         "type": "string",
                         "description": "The exact column name for the X-axis (usually categorical)."
@@ -209,7 +237,7 @@
                         "description": "Optional. A standard PostgreSQL WHERE clause to filter the data."
                     }
                 },
-                "required": ["x_column", "y_column"]
+                "required": ["TABLE_NAME","x_column", "y_column"]
             }
         }
     },
@@ -221,6 +249,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TBALE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "x_column": {
                         "type": "string",
                         "description": "The exact column name of the numerical variable to analyze."
@@ -238,7 +270,7 @@
                         "description": "Optional. A standard PostgreSQL WHERE clause to filter the data."
                     }
                 },
-                "required": ["x_column"]
+                "required": ["TBABLE_NAME","x_column"]
             }
         }
     },
@@ -250,6 +282,10 @@
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "TABLE_NAME": {
+                        "type": "string",
+                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+                    },
                     "x_column": {
                         "type": "string",
                         "description": "The exact column name for the X-axis (usually a time, date, or continuous sequence variable)."
@@ -267,7 +303,7 @@
                         "description": "Optional. A standard PostgreSQL WHERE clause to filter the data."
                     }
                 },
-                "required": ["x_column", "y_column"]
+                "required": ["TABLE_NAME","x_column", "y_column"]
             }
         }
     }

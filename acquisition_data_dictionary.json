@@ -299,10 +299,10 @@
     },
     {
       "name": "Prog_Disc_New",
-      "description": "?",
+      "description": "Total Programming Discount given to the customer upon activation",
       "data_type": "Numeric",
       "range_of_outcomes": "negative number - capitalized cost",
-      "formula": null
+      "formula": "?"
     },
     {
       "name": "CapEx",

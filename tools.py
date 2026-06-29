@@ -29,7 +29,6 @@ MODEL = "databricks-gpt-5-4-nano"
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
-TABLE_NAME = '"sandbox"."acquisition_data_no_id"'
 
 # Initialize the SDK Client (auto-authenticates using the App's Service Principal)
 w = WorkspaceClient()
@@ -88,7 +87,7 @@ def execute_sql_query_tool(sql_query: str) -> dict:
     except Exception as e:
         return {"text": f"Error executing SQL: {str(e)}", "data": None}
     
-def run_ols_regression_tool(dependent_variable: str, independent_variables: list) -> dict:
+def run_ols_regression_tool(TABLE_NAME, dependent_variable: str, independent_variables: list) -> dict:
     """
     Sub-agent tool: Fetches specific numerical columns and runs an OLS multiple regression.
     """
@@ -129,7 +128,7 @@ def run_ols_regression_tool(dependent_variable: str, independent_variables: list
     except Exception as e:
         return f"Regression Error: {e}"
     
-def run_arima_forecasting_tool(value_column: str, aggregation: str = "SUM", steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> dict:
+def run_arima_forecasting_tool(TABLE_NAME, value_column: str, aggregation: str = "SUM", steps: int = 5, p: int = 1, d: int = 1, q: int = 1) -> dict:
     """
     Sub-agent tool: Fetches historical data grouped by Activation_Year and Activation_Month, 
     and forecasts future periods using an ARIMA model.
@@ -184,7 +183,7 @@ def run_arima_forecasting_tool(value_column: str, aggregation: str = "SUM", step
         return f"ARIMA Forecasting Error: {e}"
     
 
-def run_random_forest_tool(target_variable: str, feature_variables: list, task_type: str = "regression", n_estimators: int = 100) -> Dict[str, Any]:
+def run_random_forest_tool(TABLE_NAME, target_variable: str, feature_variables: list, task_type: str = "regression", n_estimators: int = 100) -> Dict[str, Any]:
     """
     Sub-agent tool: Fetches columns, preprocesses data, and runs a Random Forest model.
     Returns a dictionary containing the LLM-readable text result and the trained model object.
@@ -258,7 +257,7 @@ def run_random_forest_tool(target_variable: str, feature_variables: list, task_t
         # Consider logging the full traceback here for debugging
         return {"text": f"Random Forest Error: {e}", "model": None}
     
-def run_pca_tool(feature_variables: list, n_components: int = None) -> Dict[str, Any]:
+def run_pca_tool(TABLE_NAME, feature_variables: list, n_components: int = None) -> Dict[str, Any]:
     """
     Sub-agent tool: Fetches columns, standardizes data, and runs Principal Component Analysis (PCA).
     Returns a dictionary containing the LLM-readable text result and the trained PCA object.
@@ -330,7 +329,7 @@ def run_pca_tool(feature_variables: list, n_components: int = None) -> Dict[str,
     except Exception as e:
         return {"text": f"PCA Error: {e}", "model": None}
     
-def run_kmeans_clustering_tool(feature_variables: list, n_clusters: int = 3) -> Dict[str, Any]:
+def run_kmeans_clustering_tool(TABLE_NAME, feature_variables: list, n_clusters: int = 3) -> Dict[str, Any]:
     """
     Sub-agent tool: Fetches columns, standardizes data, and runs K-Means clustering.
     Returns a dictionary containing the LLM-readable text result and the trained KMeans object.
@@ -396,7 +395,7 @@ def run_kmeans_clustering_tool(feature_variables: list, n_clusters: int = 3) -> 
     except Exception as e:
         return {"text": f"K-Means Error: {e}", "model": None}
     
-def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None, include_trendline: bool = False) -> dict:
+def generate_scatterplot_tool(TABLE_NAME, x_column: str, y_column: str, category_column: str = None, where_clause: str = None, include_trendline: bool = False) -> dict:
     """Sub-agent tool: Fetches data, applies filters, and generates an interactive Plotly scatterplot with optional trendlines."""
     
     x_clean = x_column.replace('"', '').split('.')[-1]
@@ -450,7 +449,7 @@ def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str
     except Exception as e:
         return {"text": f"Scatterplot Error: {e}", "data": None}
     
-def generate_barchart_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
+def generate_barchart_tool(TABLE_NAME, x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
     """Sub-agent tool: Generates an interactive Plotly bar chart."""
     x_clean = x_column.replace('"', '').split('.')[-1]
     y_clean = y_column.replace('"', '').split('.')[-1]
@@ -487,7 +486,7 @@ def generate_barchart_tool(x_column: str, y_column: str, category_column: str = 
         return {"text": f"Bar Chart Error: {e}", "data": None}
 
 
-def generate_histogram_tool(x_column: str, n_bins: int = None, category_column: str = None, where_clause: str = None) -> dict:
+def generate_histogram_tool(TABLE_NAME, x_column: str, n_bins: int = None, category_column: str = None, where_clause: str = None) -> dict:
     """Sub-agent tool: Generates an interactive Plotly histogram to show data distributions."""
     x_clean = x_column.replace('"', '').split('.')[-1]
     columns_to_fetch = [x_clean]
@@ -527,7 +526,7 @@ def generate_histogram_tool(x_column: str, n_bins: int = None, category_column: 
         return {"text": f"Histogram Error: {e}", "data": None}
 
 
-def generate_linechart_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
+def generate_linechart_tool(TABLE_NAME, x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
     """Sub-agent tool: Generates an interactive Plotly line chart, sorting by X-axis."""
     x_clean = x_column.replace('"', '').split('.')[-1]
     y_clean = y_column.replace('"', '').split('.')[-1]
