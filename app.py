@@ -215,12 +215,21 @@ def run_agent_loop(user_prompt: str):
         
         final_msgs = st.session_state.messages + [{"role": "user", "content": synthesis_prompt}]
         final_response = raw_llm_call(final_msgs)
+        final_text = final_response.get("content", "")
         
-        # Save to memory
+        # Save user prompt to memory
         st.session_state.messages.append({"role": "user", "content": user_prompt})
-        st.session_state.messages.append(final_response)
         
-        return final_response.get("content", "")
+        # NEW: Extract figures and save them in the assistant's message history
+        turn_figures = [item for item in st.session_state.current_turn_dfs if type(item).__name__ == "Figure"]
+        
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": final_text,
+            "figures": turn_figures # Attach the figures to the state
+        })
+        
+        return final_text
 
 # ─── UI ───────────────────────────────────────────────────────────
 st.title("Acquisition Finance Agent - Phase 1")
@@ -234,7 +243,17 @@ if "messages" not in st.session_state:
 for msg in st.session_state.messages:
     if msg["role"] in ["user", "assistant"] and msg.get("content"):
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+            if msg.get("content"):
+                st.markdown(msg["content"])
+
+            # Render historical figures with fixed height and theme colors
+            if msg.get("figures"):
+                for fig in msg["figures"]:
+                    fig.update_layout(
+                        height=500, # Forces a reasonable ~16:9 aspect ratio on desktop
+                        colorway=["#C4262E", "#A2A4A3", "#000000"] # Uses your config.toml colors
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
 # Handle new user input
 if prompt := st.chat_input("Ask a question about the marketing data..."):
@@ -251,7 +270,14 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             # Show Visualizations and Download Button directly below the LLM output
             if st.session_state.current_turn_dfs:
                 
-                # 1. Provide the Excel Download Button
+                for item in st.session_state.current_turn_dfs:
+                    if type(item).__name__ == "Figure":
+                        item.update_layout(
+                            height=500,
+                            colorway=["#C4262E", "#A2A4A3", "#000000"] 
+                        )
+                        st.plotly_chart(item, use_container_width=True)
+                
                 excel_data = create_excel_buffer(st.session_state.current_turn_dfs)
                 st.download_button(
                     label="📥 Download Raw Data to Excel",
@@ -259,11 +285,6 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                     file_name="agent_data_export.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                
-                # 2. Render ONLY the visual figures directly in the chat flow
-                for item in st.session_state.current_turn_dfs:
-                    if type(item).__name__ == "Figure":
-                        st.plotly_chart(item, use_container_width=True)
             
             # Display execution context (Agent Reasoning Log) at the very bottom
             with st.expander("Agent Reasoning Log"):
