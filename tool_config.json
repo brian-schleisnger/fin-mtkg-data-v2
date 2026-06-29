@@ -183,5 +183,92 @@
                 "required": ["x_column", "y_column"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_barchart_tool",
+            "description": "Generates a bar chart to compare numerical values across categorical variables. Use this when the user asks for a bar chart or wants to compare totals/averages across different groups.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x_column": {
+                        "type": "string",
+                        "description": "The exact column name for the X-axis (usually categorical)."
+                    },
+                    "y_column": {
+                        "type": "string",
+                        "description": "The exact column name for the Y-axis (numerical value to measure)."
+                    },
+                    "category_column": {
+                        "type": "string",
+                        "description": "Optional. The exact column name to use for color-coding or grouping the bars."
+                    },
+                    "where_clause": {
+                        "type": "string",
+                        "description": "Optional. A standard PostgreSQL WHERE clause to filter the data."
+                    }
+                },
+                "required": ["x_column", "y_column"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_histogram_tool",
+            "description": "Generates a histogram to visualize the distribution of a single numerical variable. Use this when the user asks about the distribution, spread, or frequency of a specific metric.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x_column": {
+                        "type": "string",
+                        "description": "The exact column name of the numerical variable to analyze."
+                    },
+                    "n_bins": {
+                        "type": "integer",
+                        "description": "Optional. The number of bins to divide the data into."
+                    },
+                    "category_column": {
+                        "type": "string",
+                        "description": "Optional. The exact column name to use for color-coding the distribution by group."
+                    },
+                    "where_clause": {
+                        "type": "string",
+                        "description": "Optional. A standard PostgreSQL WHERE clause to filter the data."
+                    }
+                },
+                "required": ["x_column"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_linechart_tool",
+            "description": "Generates a line chart to visualize trends over time or across a continuous sequence. Use this when the user asks for a line chart or wants to see how a metric changes over time.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x_column": {
+                        "type": "string",
+                        "description": "The exact column name for the X-axis (usually a time, date, or continuous sequence variable)."
+                    },
+                    "y_column": {
+                        "type": "string",
+                        "description": "The exact column name for the Y-axis (numerical variable)."
+                    },
+                    "category_column": {
+                        "type": "string",
+                        "description": "Optional. The exact column name to use for color-coding multiple lines."
+                    },
+                    "where_clause": {
+                        "type": "string",
+                        "description": "Optional. A standard PostgreSQL WHERE clause to filter the data."
+                    }
+                },
+                "required": ["x_column", "y_column"]
+            }
+        }
     }
 ]

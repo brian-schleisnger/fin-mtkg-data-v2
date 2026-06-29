@@ -449,6 +449,120 @@ def generate_scatterplot_tool(x_column: str, y_column: str, category_column: str
         }
     except Exception as e:
         return {"text": f"Scatterplot Error: {e}", "data": None}
+    
+def generate_barchart_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
+    """Sub-agent tool: Generates an interactive Plotly bar chart."""
+    x_clean = x_column.replace('"', '').split('.')[-1]
+    y_clean = y_column.replace('"', '').split('.')[-1]
+    columns_to_fetch = [x_clean, y_clean]
+
+    if category_column:
+        cat_clean = category_column.replace('"', '').split('.')[-1]
+        columns_to_fetch.append(cat_clean)
+
+    safe_columns = ['"{}"'.format(col) for col in list(set(columns_to_fetch))]
+    columns_str = ", ".join(safe_columns)
+    
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
+    if where_clause:
+        sql_query += f" WHERE {where_clause}"
+    sql_query += " LIMIT 5000"
+
+    try:
+        df = run_sql_query(sql_query)
+        if df.empty:
+            return {"text": "Error: No data returned for the bar chart.", "data": None}
+
+        df[y_clean] = pd.to_numeric(df[y_clean], errors='coerce')
+        df = df.dropna(subset=[x_clean, y_clean])
+
+        if category_column:
+            df[cat_clean] = df[cat_clean].astype(str)
+            fig = px.bar(df, x=x_clean, y=y_clean, color=cat_clean, title=f"{y_clean} by {x_clean}")
+        else:
+            fig = px.bar(df, x=x_clean, y=y_clean, title=f"{y_clean} by {x_clean}")
+
+        return {"text": f"Successfully generated bar chart for {y_clean} by {x_clean}.", "data": df, "figure": fig}
+    except Exception as e:
+        return {"text": f"Bar Chart Error: {e}", "data": None}
+
+
+def generate_histogram_tool(x_column: str, n_bins: int = None, category_column: str = None, where_clause: str = None) -> dict:
+    """Sub-agent tool: Generates an interactive Plotly histogram to show data distributions."""
+    x_clean = x_column.replace('"', '').split('.')[-1]
+    columns_to_fetch = [x_clean]
+
+    if category_column:
+        cat_clean = category_column.replace('"', '').split('.')[-1]
+        columns_to_fetch.append(cat_clean)
+
+    safe_columns = ['"{}"'.format(col) for col in list(set(columns_to_fetch))]
+    columns_str = ", ".join(safe_columns)
+    
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
+    if where_clause:
+        sql_query += f" WHERE {where_clause}"
+    sql_query += " LIMIT 10000" # Slightly larger limit for distributions
+
+    try:
+        df = run_sql_query(sql_query)
+        if df.empty:
+            return {"text": "Error: No data returned for the histogram.", "data": None}
+
+        df[x_clean] = pd.to_numeric(df[x_clean], errors='coerce')
+        df = df.dropna(subset=[x_clean])
+
+        kwargs = {"x": x_clean, "title": f"Distribution of {x_clean}"}
+        if n_bins:
+            kwargs["nbins"] = n_bins
+        if category_column:
+            df[cat_clean] = df[cat_clean].astype(str)
+            kwargs["color"] = cat_clean
+            kwargs["barmode"] = "overlay" # Better default for overlapping distributions
+
+        fig = px.histogram(df, **kwargs)
+
+        return {"text": f"Successfully generated histogram for {x_clean}.", "data": df, "figure": fig}
+    except Exception as e:
+        return {"text": f"Histogram Error: {e}", "data": None}
+
+
+def generate_linechart_tool(x_column: str, y_column: str, category_column: str = None, where_clause: str = None) -> dict:
+    """Sub-agent tool: Generates an interactive Plotly line chart, sorting by X-axis."""
+    x_clean = x_column.replace('"', '').split('.')[-1]
+    y_clean = y_column.replace('"', '').split('.')[-1]
+    columns_to_fetch = [x_clean, y_clean]
+
+    if category_column:
+        cat_clean = category_column.replace('"', '').split('.')[-1]
+        columns_to_fetch.append(cat_clean)
+
+    safe_columns = ['"{}"'.format(col) for col in list(set(columns_to_fetch))]
+    columns_str = ", ".join(safe_columns)
+    
+    # We order by the X column at the SQL level to ensure the line draws correctly chronologically/sequentially
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
+    if where_clause:
+        sql_query += f" WHERE {where_clause}"
+    sql_query += f" ORDER BY \"{x_clean}\" ASC LIMIT 5000"
+
+    try:
+        df = run_sql_query(sql_query)
+        if df.empty:
+            return {"text": "Error: No data returned for the line chart.", "data": None}
+
+        df[y_clean] = pd.to_numeric(df[y_clean], errors='coerce')
+        df = df.dropna(subset=[x_clean, y_clean])
+
+        if category_column:
+            df[cat_clean] = df[cat_clean].astype(str)
+            fig = px.line(df, x=x_clean, y=y_clean, color=cat_clean, title=f"Trend of {y_clean} over {x_clean}")
+        else:
+            fig = px.line(df, x=x_clean, y=y_clean, title=f"Trend of {y_clean} over {x_clean}")
+
+        return {"text": f"Successfully generated line chart for {y_clean} over {x_clean}.", "data": df, "figure": fig}
+    except Exception as e:
+        return {"text": f"Line Chart Error: {e}", "data": None}
 
 # ─── Load Config & Map Dispatcher ────────────────────────────────
 TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"
@@ -466,5 +580,8 @@ TOOL_DISPATCHER = {
     "run_random_forest_tool": run_random_forest_tool,
     "run_pca_tool": run_pca_tool,
     "run_kmeans_clustering_tool": run_kmeans_clustering_tool,
-    "generate_scatterplot_tool": generate_scatterplot_tool
+    "generate_scatterplot_tool": generate_scatterplot_tool,
+    "generate_barchart_tool": generate_barchart_tool,
+    "generate_histogram_tool": generate_histogram_tool,
+    "generate_linechart_tool": generate_linechart_tool
 }
