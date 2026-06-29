@@ -306,7 +306,7 @@
     },
     {
       "name": "CapEx",
-      "description": "capital expenditures",
+      "description": "capital expenditures on equipment",
       "data_type": "Numeric",
       "range_of_outcomes": "negative number - capitalized cost",
       "formula": null
@@ -348,10 +348,10 @@
     },
     {
       "name": "PL_Equip",
-      "description": "sum of previous 5 columns",
+      "description": "All equipment cost that appears on P&L",
       "data_type": "Numeric",
       "range_of_outcomes": "negative number - capitalized cost",
-      "formula": null
+      "formula": "sum of previous 5 columns"
     },
     {
       "name": "Reman_Cost",
@@ -365,18 +365,18 @@
       "description": "total equipment cost",
       "data_type": "Numeric",
       "range_of_outcomes": "negative number - capitalized cost",
-      "formula": null
+      "formula": "exact sum of columns CapEx, PL_Equip, and Reman_Cost"
     },
     {
       "name": "CC_Act_Fees",
-      "description": "?",
+      "description": "account fees that are costs to the customer",
       "data_type": "Numeric",
       "range_of_outcomes": "Positive number",
       "formula": null
     },
     {
       "name": "CC_Equip_Fees",
-      "description": "?",
+      "description": "equipment fees that are a cost to the customer",
       "data_type": "Numeric",
       "range_of_outcomes": "Positive number",
       "formula": null
@@ -456,7 +456,7 @@
       "description": "total subscriber acquisition cost",
       "data_type": "Numeric",
       "range_of_outcomes": "negative number - capitalized cost",
-      "formula": "=function of all other capitalized costs"
+      "formula": "=nearly exact sum of the following columns: Prog_Disc_new; Total_Equipment_Cost; CC_Acct_Fees; CC_Equip_Fees; RAF; Gift_Card_Amount; Marketing; Direct_Sales; Activation_Incentives; Install"
     },
     {
       "name": "Core_ARPU",
@@ -677,14 +677,14 @@
     },
     {
       "name": "Mo_Inc",
-      "description": "?",
+      "description": "monthly incentives",
       "data_type": "Numeric",
       "range_of_outcomes": "Negative Number - Expense",
       "formula": null
     },
     {
       "name": "Mo_Inc_Prot",
-      "description": "?",
+      "description": "related to monthly incentives but unsure what exactly",
       "data_type": "Numeric",
       "range_of_outcomes": "Negative Number - Expense",
       "formula": null
