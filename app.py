@@ -13,7 +13,7 @@ st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 # ─── Schema Context ──────────────────────────────────────────────
 # 1. Define your tables and their corresponding dictionary files
 SCHEMA_CONFIG = {
-    '"sandbox"."acquisition_data_no_id"': "acquisition_data_dictionary.json",
+    '"sandbox"."acquisition_data_v2"': "acquisition_data_dictionary.json",
     '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json"
 }
 
