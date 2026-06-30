@@ -33,6 +33,21 @@ PGDATABASE = "databricks_postgres"
 # Initialize the SDK Client (auto-authenticates using the App's Service Principal)
 w = WorkspaceClient()
 
+# ─── Table Relationships ─────────────────────────────────────────
+TABLE_RELATIONSHIPS = {
+    (
+        '"sandbox"."dbs_marketing_spend_sync"', 
+        '"sandbox"."acquisition_data_no_id"'
+    ): (
+        ' "sandbox"."dbs_marketing_spend_sync"."Spend_Year" = "sandbox"."acquisition_data_no_id"."Activation_Year" '
+        'AND "sandbox"."dbs_marketing_spend_sync"."Spend_Month" = "sandbox"."acquisition_data_no_id"."Activation_Month" '
+    )
+}
+
+def get_join_clause(table_a: str, table_b: str) -> str:
+    """Returns the correct ON clause regardless of the order the tables are passed."""
+    return TABLE_RELATIONSHIPS.get((table_a, table_b)) or TABLE_RELATIONSHIPS.get((table_b, table_a))
+
 # ─── Helper Functions ────────────────────────────────────────────
 @st.cache_resource
 def get_db_engine():
@@ -395,54 +410,72 @@ def run_kmeans_clustering_tool(TABLE_NAME, feature_variables: list, n_clusters: 
     except Exception as e:
         return {"text": f"K-Means Error: {e}", "model": None}
     
-def generate_scatterplot_tool(TABLE_NAME, x_column: str, y_column: str, category_column: str = None, where_clause: str = None, include_trendline: bool = False) -> dict:
-    """Sub-agent tool: Fetches data, applies filters, and generates an interactive Plotly scatterplot with optional trendlines."""
+def generate_scatterplot_tool(x_config: dict, y_config: dict, category_column: str = None, where_clause: str = None, include_trendline: bool = False) -> dict:
+    """Sub-agent tool: Generates an interactive Plotly scatterplot. Supports single-table or cross-table queries."""
     
-    x_clean = x_column.replace('"', '').split('.')[-1]
-    y_clean = y_column.replace('"', '').split('.')[-1]
-    columns_to_fetch = [x_clean, y_clean]
+    table_x = x_config["table_name"]
+    col_x = x_config["column_name"].replace('"', '').split('.')[-1]
+    
+    table_y = y_config["table_name"]
+    col_y = y_config["column_name"].replace('"', '').split('.')[-1]
 
+    # Handle optional category column
+    cat_select = ""
     if category_column:
         cat_clean = category_column.replace('"', '').split('.')[-1]
-        columns_to_fetch.append(cat_clean)
+        # Defaulting category to table_x for simplicity in this snippet
+        cat_select = f', {table_x}."{cat_clean}" AS category_col'
 
-    safe_columns = ['"{}"'.format(col) for col in columns_to_fetch]
-    columns_str = ", ".join(safe_columns)
-    
-    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME}"
-    if where_clause:
-        sql_query += f" WHERE {where_clause}"
+    # Single-Table Scenario
+    if table_x == table_y:
+        sql_query = f'SELECT "{col_x}" AS x, "{col_y}" AS y {cat_select} FROM {table_x}'
+        if where_clause:
+            sql_query += f" WHERE {where_clause}"
+            
+    # Cross-Table Scenario
+    else:
+        join_condition = get_join_clause(table_x, table_y)
+        if not join_condition:
+            return {"text": f"Error: No known relationship to join {table_x} and {table_y}.", "data": None}
+            
+        sql_query = f"""
+            SELECT 
+                {table_x}."{col_x}" AS x, 
+                {table_y}."{col_y}" AS y 
+                {cat_select}
+            FROM {table_x}
+            JOIN {table_y} ON {join_condition}
+        """
+        if where_clause:
+            sql_query += f" WHERE {where_clause}"
+
     sql_query += " ORDER BY RANDOM() LIMIT 5000"
 
     try:
         df = run_sql_query(sql_query)
         if df.empty:
-            return {"text": "Error: No data returned for the scatterplot. Check if the filters are too strict.", "data": None}
+            return {"text": "Error: No data returned. Check filters or join conditions.", "data": None}
 
-        # Coerce axes to numeric
-        df[x_clean] = pd.to_numeric(df[x_clean], errors='coerce')
-        df[y_clean] = pd.to_numeric(df[y_clean], errors='coerce')
-        df = df.dropna(subset=[x_clean, y_clean])
+        df['x'] = pd.to_numeric(df['x'], errors='coerce')
+        df['y'] = pd.to_numeric(df['y'], errors='coerce')
+        df = df.dropna(subset=['x', 'y'])
 
         if df.empty:
             return {"text": "Error: Not enough valid numeric data to plot.", "data": None}
 
-        # Force the category to be a string so Plotly builds an interactive, clickable legend
-        # instead of a continuous gradient color bar.
-        if category_column:
-            df[cat_clean] = df[cat_clean].astype(str)
-
-        # Apply trendline argument if requested
         t_line = "ols" if include_trendline else None
-
-        # Generate the interactive figure
+        
         if category_column:
-            fig = px.scatter(df, x=x_clean, y=y_clean, color=cat_clean, trendline=t_line, title=f"{y_clean} vs {x_clean}")
+            df['category_col'] = df['category_col'].astype(str)
+            fig = px.scatter(df, x='x', y='y', color='category_col', trendline=t_line, title=f"{col_y} vs {col_x}")
         else:
-            fig = px.scatter(df, x=x_clean, y=y_clean, trendline=t_line, title=f"{y_clean} vs {x_clean}")
+            fig = px.scatter(df, x='x', y='y', trendline=t_line, title=f"{col_y} vs {col_x}")
+
+        # Update axis labels to be descriptive
+        fig.update_layout(xaxis_title=col_x, yaxis_title=col_y)
 
         return {
-            "text": f"Successfully generated scatterplot for {y_clean} vs {x_clean}.", 
+            "text": f"Successfully generated scatterplot for {col_y} vs {col_x}.", 
             "data": df, 
             "figure": fig
         }
@@ -562,6 +595,56 @@ def generate_linechart_tool(TABLE_NAME, x_column: str, y_column: str, category_c
         return {"text": f"Successfully generated line chart for {y_clean} over {x_clean}.", "data": df, "figure": fig}
     except Exception as e:
         return {"text": f"Line Chart Error: {e}", "data": None}
+    
+def compare_monthly_metrics_tool(marketing_metric: str, acquisition_metric_func: str = "COUNT", acquisition_column: str = "*") -> dict:
+    """
+    Aggregates acquisition data to a monthly grain and joins it with monthly marketing metrics
+    to generate an interactive trend line chart.
+    """
+    marketing_clean = marketing_metric.replace('"', '').split('.')[-1]
+    acq_clean = acquisition_column.replace('"', '').split('.')[-1] if acquisition_column != "*" else "*"
+    func_clean = acquisition_metric_func.upper()
+    
+    # Validate aggregation function to prevent injection
+    if func_clean not in ["COUNT", "SUM", "AVG"]:
+        func_clean = "COUNT"
+
+    sql_query = f"""
+        SELECT 
+            m."Spend_Year" AS year,
+            m."Spend_Month" AS month,
+            SUM(m."{marketing_clean}") AS marketing_total,
+            {func_clean}(a."{acq_clean}") AS acquisition_total
+        FROM "sandbox"."dbs_marketing_spend_sync" m
+        LEFT JOIN "sandbox"."acquisition_data_no_id" a 
+            ON m."Spend_Year" = a."Activation_Year" AND m."Spend_Month" = a."Activation_Month"
+        GROUP BY m."Spend_Year", m."Spend_Month"
+        ORDER BY m."Spend_Year" ASC, m."Spend_Month" ASC
+    """
+
+    try:
+        df = run_sql_query(sql_query)
+        if df.empty:
+            return {"text": "Error: No data returned for the time-series comparison.", "data": None}
+
+        # Create a unified date string for the X-axis
+        df['Date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str) + '-01', errors='coerce')
+        df = df.dropna(subset=['Date', 'marketing_total', 'acquisition_total'])
+
+        # Melt the dataframe so Plotly can easily plot two lines with a legend
+        df_melted = df.melt(id_vars=['Date'], value_vars=['marketing_total', 'acquisition_total'], 
+                            var_name='Metric', value_name='Value')
+
+        fig = px.line(df_melted, x='Date', y='Value', color='Metric', 
+                      title=f"Monthly Trend: {marketing_clean} vs {func_clean} of {acq_clean}")
+
+        return {
+            "text": f"Successfully generated monthly comparison chart for {marketing_clean} and {func_clean} of {acq_clean}.", 
+            "data": df, 
+            "figure": fig
+        }
+    except Exception as e:
+        return {"text": f"Monthly Comparison Error: {e}", "data": None}
 
 # ─── Load Config & Map Dispatcher ────────────────────────────────
 TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"

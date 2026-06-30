@@ -175,36 +175,33 @@
         "type": "function",
         "function": {
             "name": "generate_scatterplot_tool",
-            "description": "Generates a scatterplot to visualize the relationship between two numerical variables. Use this when the user asks to see a chart, plot, visual, or graph of how two metrics compare.",
+            "description": "Generates a scatterplot. Can pull variables from the same table or across two different tables.",
             "parameters": {
+            "type": "object",
+            "properties": {
+                "x_config": {
                 "type": "object",
+                "description": "The table and column configuration for the X-axis metric.",
                 "properties": {
-                    "TABLE_NAME": {
-                        "type": "string",
-                        "description": "The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
-                    },
-                    "x_column": {
-                        "type": "string",
-                        "description": "The exact column name for the X-axis (independent variable)."
-                    },
-                    "y_column": {
-                        "type": "string",
-                        "description": "The exact column name for the Y-axis (dependent variable)."
-                    },
-                    "category_column": {
-                        "type": "string",
-                        "description": "Optional. The exact column name to use for color-coding the points."
-                    },
-                    "where_clause": {
-                        "type": "string",
-                        "description": "Optional. A standard PostgreSQL WHERE clause to filter the data before plotting."
-                    },
-                    "include_trendline": {
-                        "type": "boolean",
-                        "description": "Set to true if the user asks for a trendline, line of best fit, or correlation line."
-                    }
+                    "table_name": { "type": "string", "description": "The exact SQL table name." },
+                    "column_name": { "type": "string", "description": "The raw column name." }
                 },
-                "required": ["TABLE_NAME","x_column", "y_column"]
+                "required": ["table_name", "column_name"]
+                },
+                "y_config": {
+                "type": "object",
+                "description": "The table and column configuration for the Y-axis metric.",
+                "properties": {
+                    "table_name": { "type": "string", "description": "The exact SQL table name." },
+                    "column_name": { "type": "string", "description": "The raw column name." }
+                },
+                "required": ["table_name", "column_name"]
+                },
+                "category_column": { "type": "string", "description": "Optional column to color-code the scatter points." },
+                "where_clause": { "type": "string", "description": "Optional SQL WHERE clause (exclude the 'WHERE' keyword)." },
+                "include_trendline": { "type": "boolean" }
+            },
+            "required": ["x_config", "y_config"]
             }
         }
     },
@@ -304,6 +301,31 @@
                     }
                 },
                 "required": ["TABLE_NAME","x_column", "y_column"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_monthly_metrics_tool",
+            "description": "Compares monthly marketing spend metrics against rolled-up acquisition metrics over time.",
+            "parameters": {
+            "type": "object",
+            "properties": {
+                "marketing_metric": {
+                "type": "string",
+                "description": "The specific column from the marketing table to sum (e.g., 'Total_Spend')."
+                },
+                "acquisition_metric_func": {
+                "type": "string",
+                "description": "The SQL aggregation function to apply to the acquisition table (e.g., 'COUNT', 'SUM', 'AVG')."
+                },
+                "acquisition_column": {
+                "type": "string",
+                "description": "The specific column from the acquisition table to aggregate. Use '*' if counting total customers."
+                }
+            },
+            "required": ["marketing_metric", "acquisition_metric_func", "acquisition_column"]
             }
         }
     }
