@@ -328,5 +328,25 @@
             "required": ["marketing_metric", "acquisition_metric_func", "acquisition_column"]
             }
         }
+    },
+    {
+    "type": "function",
+    "function": {
+        "name": "calculate_unit_economics_tool",
+        "description": "Calculates Customer Acquisition Cost (CAC), Lifetime Value (LTV / NPV), and LTV:CAC ratios by safely merging marketing spend and acquisition volumes. Use this whenever the user asks about unit economics, acquisition costs, CAC, ROI, or marketing efficiency.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "marketing_where_clause": {
+                    "type": "string",
+                    "description": "Optional. A PostgreSQL WHERE clause to filter the marketing spend table (e.g., '\"account\" = ''611010'''). Exclude the 'WHERE' keyword."
+                },
+                "acquisition_where_clause": {
+                    "type": "string",
+                    "description": "Optional. A PostgreSQL WHERE clause to filter the acquisition table (e.g., '\"Sales_Channel\" = ''Direct'''). Exclude the 'WHERE' keyword."
+                }
+            }
+        }
     }
+}
 ]

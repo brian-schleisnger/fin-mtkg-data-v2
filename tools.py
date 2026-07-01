@@ -23,6 +23,8 @@ import statsmodels.api as sm
 from statsmodels.tsa.arima.model import ARIMA
 import streamlit as st
 
+YEARLY_WACC = 0.1
+MONTHLY_WACC = (1 + YEARLY_DISC_RATE) ** (1 / 12) - 1
 
 # ─── Configuration ───────────────────────────────────────────────
 MODEL = "databricks-gpt-5-4-nano"
@@ -645,6 +647,107 @@ def compare_monthly_metrics_tool(marketing_metric: str, acquisition_metric_func:
         }
     except Exception as e:
         return {"text": f"Monthly Comparison Error: {e}", "data": None}
+    
+import numpy as np
+
+def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisition_where_clause: str = None) -> dict:
+    """
+    Sub-agent tool: Calculates Marketing cost per acquisition (CPA) and est. CLV:cpa ratios 
+    by aggregating marketing spend and acquisition volumes at a monthly grain, 
+    safely merged via Pandas.
+    """
+    # 1. Fetch Marketing Spend
+    mkt_query = """
+        SELECT 
+            "year" AS year,
+            "month" AS month,
+            SUM("amount") AS total_spend
+        FROM "sandbox"."dbs_marketing_spend_sync"
+    """
+    if marketing_where_clause:
+        mkt_query += f" WHERE {marketing_where_clause}"
+    mkt_query += ' GROUP BY "year", "month"'
+
+    # 2. Fetch Acquisition Data (Activations & Net Present Value)
+    acq_query = """
+        SELECT 
+            "Activation_Year" AS year,
+            "Activation_Month" AS month,
+            COUNT(*) AS total_activations,
+            AVG("mcf") AS avg_mcf,
+            AVG("Ve_Churn") AS avg_churn,
+        FROM "sandbox"."acquisition_data_v2"
+    """
+    if acquisition_where_clause:
+        acq_query += f" WHERE {acquisition_where_clause}"
+    acq_query += ' GROUP BY "Activation_Year", "Activation_Month"'
+
+    try:
+        df_mkt = run_sql_query(mkt_query)
+        df_acq = run_sql_query(acq_query)
+
+        if df_mkt.empty or df_acq.empty:
+            return {"text": "Error: One or both tables returned no data for the specified filters.", "data": None}
+
+        # 3. Clean and Merge safely in Pandas
+        df_mkt['year'] = pd.to_numeric(df_mkt['year'], errors='coerce')
+        df_mkt['month'] = pd.to_numeric(df_mkt['month'], errors='coerce')
+        df_acq['year'] = pd.to_numeric(df_acq['year'], errors='coerce')
+        df_acq['month'] = pd.to_numeric(df_acq['month'], errors='coerce')
+
+        df_merged = pd.merge(df_mkt, df_acq, on=['year', 'month'], how='inner')
+
+        if df_merged.empty:
+            return {"text": "Error: Could not calculate CAC. No overlapping months found between the two datasets.", "data": None}
+
+        # 4. Calculate Unit Economics
+        df_merged['cpa'] = df_merged['total_spend'] / df_merged['total_activations']
+        df_merged['clv'] = df_merged['avg_mcf'] /(MONTHLY_WACC + df_merged['avg_churn'])
+        df_merged['clv_cpa_ratio'] = df_merged['clv'] / df_merged['cpa']
+
+        # Clean up infinities if there were months with zero activations
+        df_merged.replace([np.inf, -np.inf], np.nan, inplace=True)
+        
+        # Sort chronologically for the time series
+        df_merged = df_merged.sort_values(by=['year', 'month'])
+
+        # 5. Build Interactive Trend Chart
+        df_merged['Date'] = pd.to_datetime(
+            df_merged['year'].astype(int).astype(str) + '-' + 
+            df_merged['month'].astype(int).astype(str) + '-01', 
+            errors='coerce'
+        )
+        
+        fig = px.line(
+            df_merged, 
+            x='Date', 
+            y='cpa', 
+            title='Blended Cost per Acquisition (CPA) Trend',
+            markers=True,
+            labels={'cpa': 'CPA ($)', 'Date': 'Activation Month'}
+        )
+
+        # 6. Generate Business Summary for the LLM
+        overall_spend = df_merged['total_spend'].sum()
+        overall_acq = df_merged['total_activations'].sum()
+        blended_cpa = overall_spend / overall_acq if overall_acq > 0 else 0
+        avg_clv = df_merged['clv'].mean()
+        clv_cpa = avg_clv / blended_cpa if blended_cpa > 0 else 0
+        
+        text_output = (
+            f"Unit Economics Summary:\n"
+            f"  • Total Marketing Spend Analyzed: ${overall_spend:,.2f}\n"
+            f"  • Total Activations: {overall_acq:,.0f}\n"
+            f"  • Blended CPA: ${blended_cpa:,.2f}\n"
+            f"  • Average CLV (NPV): ${avg_clv:,.2f}\n"
+            f"  • Blended CLV:CPA Ratio: {clv_cpa:.2f}x\n\n"
+            f"Note: Data is grouped by month. See the attached dataframe and chart for trend lines."
+        )
+
+        return {"text": text_output, "data": df_merged, "figure": fig}
+
+    except Exception as e:
+        return {"text": f"Unit Economics Calculation Error: {e}", "data": None}
 
 # ─── Load Config & Map Dispatcher ────────────────────────────────
 TOOLS_FILE_PATH = Path(__file__).parent.resolve() / "tool_config.json"
@@ -665,5 +768,6 @@ TOOL_DISPATCHER = {
     "generate_scatterplot_tool": generate_scatterplot_tool,
     "generate_barchart_tool": generate_barchart_tool,
     "generate_histogram_tool": generate_histogram_tool,
-    "generate_linechart_tool": generate_linechart_tool
+    "generate_linechart_tool": generate_linechart_tool,
+    "calculate_unit_economics_tool": calculate_unit_economics_tool
 }
