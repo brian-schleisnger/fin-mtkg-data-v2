@@ -333,7 +333,7 @@
     "type": "function",
     "function": {
         "name": "calculate_unit_economics_tool",
-        "description": "Calculates Customer Acquisition Cost (CAC), Lifetime Value (LTV / NPV), and LTV:CAC ratios by safely merging marketing spend and acquisition volumes. Use this whenever the user asks about unit economics, acquisition costs, CAC, ROI, or marketing efficiency.",
+        "description": "marketing cost per acquistion (CPA), Lifetime Value (CLV), and CLV:CPA ratios by safely merging marketing spend and acquisition volumes. Use this whenever the user asks about unit economics, cost per acquisition, or marketing efficiency.",
         "parameters": {
             "type": "object",
             "properties": {
