@@ -123,7 +123,11 @@ def run_agent_loop(user_prompt: str):
     st.session_state.run_log = []
     st.session_state.current_turn_dfs = []
 
-    mlflow.set_experiment("/Shared/Dataset_Agent_Telemetry") # Adjust path to your workspace
+    mlflow.set_experiment("/Workspace/Users/brian.schlesinger@dish.com") # Adjust path to your workspace
+
+    if mlflow.active_run():
+        mlflow.end_run()
+
     with mlflow.start_run(run_name="Agent_Interaction") as run:
         mlflow.log_param("user_prompt", user_prompt)
         
@@ -338,3 +342,16 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                     
         except Exception as e:
             st.error(f"Agent Orchestration Error: {e}")
+
+with st.sidebar:
+    st.title("📊 Token Usage Tracker")
+    st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(label="Prompt", value=f"{st.session_state.prompt_tokens:,}")
+    with col2:
+        st.metric(label="Completion", value=f"{st.session_state.completion_tokens:,}")
+    
+    st.caption(f"Connected to: {MODEL}")
+    st.divider()
