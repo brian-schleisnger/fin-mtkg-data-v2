@@ -37,10 +37,10 @@ w = WorkspaceClient()
 TABLE_RELATIONSHIPS = {
     (
         '"sandbox"."dbs_marketing_spend_sync"', 
-        '"sandbox"."acquisition_data_v2"'
+        '"sandbox"."acquisition_data_v3"'
     ): (
-        ' "sandbox"."dbs_marketing_spend_sync"."Spend_Year" = "sandbox"."acquisition_data_v2"."Activation_Year" '
-        'AND "sandbox"."dbs_marketing_spend_sync"."Spend_Month" = "sandbox"."acquisition_data_v2"."Activation_Month" '
+        ' "sandbox"."dbs_marketing_spend_sync"."Spend_Year" = "sandbox"."acquisition_data_v3"."Activation_Year" '
+        'AND "sandbox"."dbs_marketing_spend_sync"."Spend_Month" = "sandbox"."acquisition_data_v3"."Activation_Month" '
     )
 }
 
@@ -616,7 +616,7 @@ def compare_monthly_metrics_tool(marketing_metric: str, acquisition_metric_func:
             SUM(m."{marketing_clean}") AS marketing_total,
             {func_clean}(a."{acq_clean}") AS acquisition_total
         FROM "sandbox"."dbs_marketing_spend_sync" m
-        LEFT JOIN "sandbox"."acquisition_data_v2" a 
+        LEFT JOIN "sandbox"."acquisition_data_v3" a 
             ON m."Spend_Year" = a."Activation_Year" AND m."Spend_Month" = a."Activation_Month"
         GROUP BY m."Spend_Year", m."Spend_Month"
         ORDER BY m."Spend_Year" ASC, m."Spend_Month" ASC
