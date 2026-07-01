@@ -7,6 +7,8 @@ from typing import Any, Dict
 from databricks.sdk import WorkspaceClient
 import pandas as pd
 import plotly.express as px
+import mlflow
+import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -41,8 +43,8 @@ TABLE_RELATIONSHIPS = {
         '"sandbox"."dbs_marketing_spend_sync"', 
         '"sandbox"."acquisition_data_v3"'
     ): (
-        ' "sandbox"."dbs_marketing_spend_sync"."Spend_Year" = "sandbox"."acquisition_data_v3"."Activation_Year" '
-        'AND "sandbox"."dbs_marketing_spend_sync"."Spend_Month" = "sandbox"."acquisition_data_v3"."Activation_Month" '
+        ' "sandbox"."dbs_marketing_spend_sync"."year" = "sandbox"."acquisition_data_v3"."Activation_Year" '
+        'AND "sandbox"."dbs_marketing_spend_sync"."month" = "sandbox"."acquisition_data_v3"."Activation_Month" '
     )
 }
 
@@ -86,6 +88,18 @@ def raw_llm_call(messages: list, tools: list = None, require_json: bool = False)
         body=payload
     )
     
+    usage = response.get("usage", {})
+    if usage:
+        # Initialize in session_state if it doesn't exist yet
+        for metric in ["total_tokens", "prompt_tokens", "completion_tokens"]:
+            if metric not in st.session_state:
+                st.session_state[metric] = 0
+                
+        # Aggregate the tokens for the current session
+        st.session_state["total_tokens"] += usage.get("total_tokens", 0)
+        st.session_state["prompt_tokens"] += usage.get("prompt_tokens", 0)
+        st.session_state["completion_tokens"] += usage.get("completion_tokens", 0)
+
     return response["choices"][0]["message"]
 
 
@@ -613,15 +627,15 @@ def compare_monthly_metrics_tool(marketing_metric: str, acquisition_metric_func:
 
     sql_query = f"""
         SELECT 
-            m."Spend_Year" AS year,
-            m."Spend_Month" AS month,
+            m."year" AS year,
+            m."month" AS month,
             SUM(m."{marketing_clean}") AS marketing_total,
             {func_clean}(a."{acq_clean}") AS acquisition_total
         FROM "sandbox"."dbs_marketing_spend_sync" m
         LEFT JOIN "sandbox"."acquisition_data_v3" a 
-            ON m."Spend_Year" = a."Activation_Year" AND m."Spend_Month" = a."Activation_Month"
-        GROUP BY m."Spend_Year", m."Spend_Month"
-        ORDER BY m."Spend_Year" ASC, m."Spend_Month" ASC
+            ON m."year" = a."Activation_Year" AND m."month" = a."Activation_Month"
+        GROUP BY m."year", m."month"
+        ORDER BY m."year" ASC, m."month" ASC
     """
 
     try:
@@ -647,8 +661,6 @@ def compare_monthly_metrics_tool(marketing_metric: str, acquisition_metric_func:
         }
     except Exception as e:
         return {"text": f"Monthly Comparison Error: {e}", "data": None}
-    
-import numpy as np
 
 def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisition_where_clause: str = None) -> dict:
     """

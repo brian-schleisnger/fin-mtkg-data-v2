@@ -2,6 +2,7 @@ import io
 import json
 from pathlib import Path
 
+import mlflow
 import pandas as pd
 import streamlit as st
 
@@ -9,6 +10,27 @@ from tools import raw_llm_call, TOOLS, TOOL_DISPATCHER
 
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "total_tokens" not in st.session_state:
+    st.session_state.total_tokens = 0
+    st.session_state.prompt_tokens = 0
+    st.session_state.completion_tokens = 0
+
+# ─── NEW: Sidebar Token UI Tracker ───
+with st.sidebar:
+    st.title("📊 Token Usage Tracker")
+    st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(label="Prompt", value=f"{st.session_state.prompt_tokens:,}")
+    with col2:
+        st.metric(label="Completion", value=f"{st.session_state.completion_tokens:,}")
+    
+    st.caption(f"Connected to: {MODEL}")
+    st.divider()
 
 # ─── Schema Context ──────────────────────────────────────────────
 # 1. Define your tables and their corresponding dictionary files
@@ -100,6 +122,13 @@ def run_agent_loop(user_prompt: str):
     """The main orchestrator chaining the workflow together across multiple tools."""
     st.session_state.run_log = []
     st.session_state.current_turn_dfs = []
+
+    mlflow.set_experiment("/Shared/Dataset_Agent_Telemetry") # Adjust path to your workspace
+    with mlflow.start_run(run_name="Agent_Interaction") as run:
+        mlflow.log_param("user_prompt", user_prompt)
+        
+        # Capture the starting tokens to calculate how many this specific run costs
+        start_tokens = st.session_state.total_tokens
     
     # 1. Filter Context
     relevant_schema = filter_schema(user_prompt)
@@ -240,6 +269,10 @@ def run_agent_loop(user_prompt: str):
             "content": final_text,
             "figures": turn_figures # Attach the figures to the state
         })
+
+        tokens_used_this_turn = st.session_state.total_tokens - start_tokens
+        mlflow.log_metric("tokens_this_turn", tokens_used_this_turn)
+        mlflow.log_metric("session_total_tokens", st.session_state.total_tokens)
         
         return final_text
 
