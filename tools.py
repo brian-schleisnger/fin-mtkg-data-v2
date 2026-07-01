@@ -676,7 +676,7 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
             COUNT(*) AS total_activations,
             AVG("mcf") AS avg_mcf,
             AVG("Ve_Churn") AS avg_churn,
-        FROM "sandbox"."acquisition_data_v2"
+        FROM "sandbox"."acquisition_data_v3"
     """
     if acquisition_where_clause:
         acq_query += f" WHERE {acquisition_where_clause}"

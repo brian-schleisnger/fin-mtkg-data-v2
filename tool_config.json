@@ -3,7 +3,7 @@
     "type": "function",
     "function": {
         "name": "execute_sql_query_tool",
-        "description": "Queries the Databricks database using PostgreSQL syntax. Because this is PostgreSQL, you MUST wrap all column names in double quotes to preserve exact capitalization.",
+        "description": "Queries the Databricks database using PostgreSQL syntax. Because this is PostgreSQL, you MUST wrap all column names in double quotes to preserve exact capitalization. Do NOT use this tool if a more specific tool is available for the user's request (e.g., use calculate_unit_economics_tool for CPA/CLV, use regression/forecasting tools for modeling).",
         "parameters": {
             "type": "object",
             "properties": {
