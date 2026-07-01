@@ -781,5 +781,6 @@ TOOL_DISPATCHER = {
     "generate_barchart_tool": generate_barchart_tool,
     "generate_histogram_tool": generate_histogram_tool,
     "generate_linechart_tool": generate_linechart_tool,
-    "calculate_unit_economics_tool": calculate_unit_economics_tool
+    "calculate_unit_economics_tool": calculate_unit_economics_tool,
+    "compare_monthly_metrics_tool": compare_monthly_metrics_tool
 }
