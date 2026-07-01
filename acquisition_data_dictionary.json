@@ -1,6 +1,6 @@
 {
   "table_name": "acquisition_data_v3",
-  "description": "This is a data table containing nearly all customers who activated their DISH TV accounts between 4th Quarter 2018 and 1st quarter 2026. each row represents one acquisition to the brand.",
+  "description": "This is a data table containing unique activations for DISH TV accounts between 4th Quarter 2018 and 1st quarter 2026. each row represents one acquisition to the brand. to be counted. a customer must have activated, been active on the pull date, and been active on the final day of the quarter.",
   "special_notes": "There is no data for 2021 3rd Quarter. There were still activations, but remove this time frame unless otherwise specified. All activations in 2023 1st quarter are in the dataset, but will all be tagged as 4Q2022: cohort 3 in the Promo_Cohort column, and have Activation_Date as 12/31/2022",
   "columns": [
     {
@@ -33,7 +33,7 @@
     },
     {
       "name": "Pr_Flag",
-      "description": "promortional flag",
+      "description": "puerto rico flag - if the customer is in puerto rico.",
       "data_type": "String",
       "range_of_outcomes": "Y or N",
       "formula": null
