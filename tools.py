@@ -24,7 +24,7 @@ from statsmodels.tsa.arima.model import ARIMA
 import streamlit as st
 
 YEARLY_WACC = 0.1
-MONTHLY_WACC = (1 + YEARLY_DISC_RATE) ** (1 / 12) - 1
+MONTHLY_WACC = (1 + YEARLY_WACC) ** (1 / 12) - 1
 
 # ─── Configuration ───────────────────────────────────────────────
 MODEL = "databricks-gpt-5-4-nano"
