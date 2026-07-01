@@ -18,20 +18,6 @@ if "total_tokens" not in st.session_state:
     st.session_state.prompt_tokens = 0
     st.session_state.completion_tokens = 0
 
-# ─── NEW: Sidebar Token UI Tracker ───
-with st.sidebar:
-    st.title("📊 Token Usage Tracker")
-    st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(label="Prompt", value=f"{st.session_state.prompt_tokens:,}")
-    with col2:
-        st.metric(label="Completion", value=f"{st.session_state.completion_tokens:,}")
-    
-    st.caption(f"Connected to: {MODEL}")
-    st.divider()
-
 # ─── Schema Context ──────────────────────────────────────────────
 # 1. Define your tables and their corresponding dictionary files
 SCHEMA_CONFIG = {
@@ -251,6 +237,7 @@ def run_agent_loop(user_prompt: str):
         synthesis_prompt = f"""You are a data insights assistant. 
         User's Original Prompt: {user_prompt}
         Raw Data Extracted across all tools: {raw_outputs}
+        relevent schema: {json.dumps(relevant_schema)}
         
         Synthesize the raw data into a clear, business-friendly summary answering the original prompt.
         If any tools failed or returned errors in the raw data, briefly mention what analysis could not be completed and why, alongside the successful insights."""
@@ -277,6 +264,17 @@ def run_agent_loop(user_prompt: str):
         tokens_used_this_turn = st.session_state.total_tokens - start_tokens
         mlflow.log_metric("tokens_this_turn", tokens_used_this_turn)
         mlflow.log_metric("session_total_tokens", st.session_state.total_tokens)
+
+        # NEW: Extract figures, dataframes, and logs to save in the assistant's message history
+        turn_figures = [item for item in st.session_state.current_turn_dfs if type(item).__name__ == "Figure"]
+        
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": final_text,
+            "figures": turn_figures,
+            "dfs": list(st.session_state.current_turn_dfs), # Save a copy of the data
+            "run_log": list(st.session_state.run_log)       # Save a copy of the reasoning log
+        })
         
         return final_text
 
@@ -289,20 +287,37 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Render chat history (filtering out system/tool messages for a clean UI)
-for msg in st.session_state.messages:
+for i, msg in enumerate(st.session_state.messages):
     if msg["role"] in ["user", "assistant"] and msg.get("content"):
         with st.chat_message(msg["role"]):
             if msg.get("content"):
                 st.markdown(msg["content"])
 
-            # Render historical figures with fixed height and theme colors
+            # Render historical figures 
             if msg.get("figures"):
-                for fig in msg["figures"]:
+                for j, fig in enumerate(msg["figures"]):
                     fig.update_layout(
-                        height=500, # Forces a reasonable ~16:9 aspect ratio on desktop
-                        colorway=["#C4262E", "#A2A4A3", "#000000"] # Uses your config.toml colors
+                        height=500, 
+                        colorway=["#C4262E", "#A2A4A3", "#000000"] 
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"fig_{i}_{j}")
+                    
+            # ─── NEW: Render historical Download Buttons ───
+            if msg.get("dfs"):
+                excel_data = create_excel_buffer(msg["dfs"])
+                st.download_button(
+                    label="📥 Download Raw Data to Excel",
+                    data=excel_data,
+                    file_name=f"agent_data_export_{i}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"download_hist_{i}" # Unique key required for history loop
+                )
+            
+            # ─── NEW: Render historical Reasoning Logs ───
+            if msg.get("run_log"):
+                with st.expander("Agent Reasoning Log"):
+                    for log in msg["run_log"]:
+                        st.text(log)
 
 # Handle new user input
 if prompt := st.chat_input("Ask a question about the marketing data..."):
@@ -332,7 +347,8 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                     label="📥 Download Raw Data to Excel",
                     data=excel_data,
                     file_name="agent_data_export.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_current" # ⬅ ADD THIS LINE
                 )
             
             # Display execution context (Agent Reasoning Log) at the very bottom
