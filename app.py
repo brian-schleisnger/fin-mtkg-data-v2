@@ -11,33 +11,37 @@ import openpyxl
 import pandas as pd
 import streamlit as st
 
-# 1. Check if PyTorch is actively installed in this container's environment
+# 1. Try importing torch. Catch BOTH missing package errors AND broken C++/CUDA library errors!
 try:
     import torch
-    print("PyTorch is already installed in this environment!")
-except ImportError:
-    print("PyTorch not found in active environment. Starting setup...")
-    
+    print("PyTorch is already installed and working cleanly!")
+except (ImportError, OSError, ValueError) as e:
+    print(
+        f"PyTorch missing or broken C++ CUDA dependencies ({type(e).__name__}). Starting clean CPU setup..."
+    )
+
     wheel_name = "torch-2.4.0+cpu-cp311-cp311-linux_x86_64.whl"
     wheel_path = f"/tmp/{wheel_name}"
-    
+
     # Only download from Workspace if it's not already sitting in /tmp/
     if not os.path.exists(wheel_path):
         print("Connecting to Databricks Workspace via SDK...")
         w = WorkspaceClient()
-        
+
         workspace_path = f"/Shared/whl-loading/{wheel_name}"
         print(f" -> Downloading CPU-only PyTorch from {workspace_path}...")
-        
+
         with w.workspace.download(workspace_path) as response:
             with open(wheel_path, "wb") as outfile:
                 shutil.copyfileobj(response, outfile)
     else:
         print(f"Found existing {wheel_path} on disk. Skipping download...")
-    
-    # Install the CPU wheel cleanly
-    print("Installing PyTorch CPU into active virtual environment...")
-    subprocess.check_call(["pip", "install", wheel_path, "--no-deps"])
+
+    # CRITICAL FIX: Use --force-reinstall to obliterate the old GPU PyTorch cached in .venv!
+    print("Force-installing PyTorch CPU into active virtual environment...")
+    subprocess.check_call(
+        ["pip", "install", wheel_path, "--no-deps", "--force-reinstall"]
+    )
 
 # 2. Install dependent packages from your Git repo
 print("Installing dependent packages from Git repo...")
