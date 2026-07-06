@@ -1,3 +1,4 @@
+import hashlib
 import importlib
 import io
 import json
@@ -12,6 +13,28 @@ import mlflow
 import openpyxl
 import pandas as pd
 import streamlit as st
+
+# --- 1. TIKTOKEN OFFLINE CACHE SETUP ---
+# Tell tiktoken where to look for offline vocabulary files
+cache_dir = "/tmp/tiktoken_cache"
+os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
+os.makedirs(cache_dir, exist_ok=True)
+
+# tiktoken names cached files after the SHA1 hash of their public download URL
+tiktoken_url = (
+    "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken"
+)
+url_hash = hashlib.sha1(tiktoken_url.encode()).hexdigest()
+tiktoken_cache_path = os.path.join(cache_dir, url_hash)
+
+if not os.path.exists(tiktoken_cache_path):
+    print("Downloading offline tiktoken vocabulary from Workspace via SDK...")
+    w = WorkspaceClient()
+    with w.workspace.download("/Shared/whl-loading/o200k_base.tiktoken") as response:
+        with open(tiktoken_cache_path, "wb") as outfile:
+            shutil.copyfileobj(response, outfile)
+else:
+    print("Tiktoken offline cache already present!")
 
 # 1. Try importing torch. Catch BOTH missing package errors AND broken C++/CUDA library errors!
 try:
