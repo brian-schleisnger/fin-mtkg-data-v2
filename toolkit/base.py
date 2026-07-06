@@ -95,3 +95,15 @@ def llm_call(messages: list, response_model: BaseModel):
 def get_join_clause(table_a: str, table_b: str) -> str:
     """Returns the correct ON clause regardless of the order the tables are passed."""
     return TABLE_RELATIONSHIPS.get((table_a, table_b)) or TABLE_RELATIONSHIPS.get((table_b, table_a))
+
+def track_tokens(response):
+    """Directly extracts token usage from a live OpenAI/Databricks SDK response object."""
+    if hasattr(response, "usage") and response.usage:
+        # Check both OpenAI (.prompt_tokens) and OTel/Databricks (.input_tokens) naming conventions
+        prompt_t = getattr(response.usage, "prompt_tokens", 0) or getattr(response.usage, "input_tokens", 0)
+        comp_t = getattr(response.usage, "completion_tokens", 0) or getattr(response.usage, "output_tokens", 0)
+        total_t = getattr(response.usage, "total_tokens", 0) or (prompt_t + comp_t)
+        
+        st.session_state.prompt_tokens += prompt_t
+        st.session_state.completion_tokens += comp_t
+        st.session_state.total_tokens += total_t
