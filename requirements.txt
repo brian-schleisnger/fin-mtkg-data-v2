@@ -9,6 +9,7 @@ streamlit>=1.38.0
 ./whls/aiohttp-3.14.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
 ./whls/aiosignal-1.4.0-py3-none-any.whl
 ./whls/asn1crypto-1.5.1-py2.py3-none-any.whl
+./whls/frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl
 ./whls/greenlet-3.5.2-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
 ./whls/httpx-0.28.1-py3-none-any.whl
 ./whls/instructor-1.15.4-py3-none-any.whl
