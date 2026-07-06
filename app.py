@@ -239,8 +239,7 @@ def run_agent_loop(user_prompt: str):
                     response = raw_client.chat.completions.create(
                         model=MODEL,
                         messages=msgs,
-                        tools=TOOLS,
-                        max_retries=3
+                        tools=TOOLS
                     )
                     assistant_msg = response.choices[0].message.model_dump(exclude_none=True)
                 
