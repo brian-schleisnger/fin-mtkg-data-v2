@@ -1,7 +1,8 @@
 import io
 import json
+import os
 from pathlib import Path
-
+import subprocess
 
 import mlflow
 import openpyxl
@@ -14,6 +15,21 @@ from agent.schemas import DecomposedQuestions
 from toolkit import TOOLS, TOOL_DISPATCHER
 from toolkit.base import client, DATA_DICTIONARY, llm_call, MODEL
 
+wheel_path = "/tmp/torch_rebuilt.whl"
+part0 = "/Workspace/Shared/whl-loading/torch_part0.bin"
+part1 = "/Workspace/Shared/whl-loading/torch_part1.bin"
+
+# If the wheel hasn't been rebuilt yet in this container, stitch it together
+if not os.path.exists(wheel_path):
+    print("Stitching PyTorch wheel together from Workspace parts...")
+    with open(wheel_path, "wb") as outfile:
+        for part in [part0, part1]:
+            with open(part, "rb") as infile:
+                outfile.write(infile.read())
+    
+    # Install the reassembled wheel programmatically
+    print("Installing PyTorch...")
+    subprocess.check_call(["pip", "install", wheel_path, "--no-deps"])
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
