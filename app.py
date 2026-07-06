@@ -379,7 +379,7 @@ def run_agent_loop(user_prompt: str):
                 figures=turn_figures
             )
 
-           # ─── EXTRACT TOKEN USAGE SAFELY FROM SPANS ───
+           # ─── EXTRACT TOKEN USAGE SAFELY FROM SPANS (OTEL & MLFLOW COMPATIBLE) ───
             # Streamlit session state naturally accumulates across turns and resets on page reload!
             try:
                 trace = mlflow.get_last_active_trace()
@@ -388,27 +388,53 @@ def run_agent_loop(user_prompt: str):
                     prompt_this_turn = 0
                     completion_this_turn = 0
                     
-                    # Iterate through individual execution spans since .token_usage isn't on info
                     for span in trace.data.spans:
-                        # Safely check span attributes for token usage across different MLflow/OTel builds
-                        usage = (span.get_attribute("mlflow.chat.tokenUsage") or 
-                                 span.get_attribute("usage") or {})
+                        attrs = span.attributes or {}
+                        span_prompt = 0
+                        span_completion = 0
+                        span_total = 0
                         
-                        if isinstance(usage, dict):
-                            prompt_this_turn += usage.get("input_tokens", 0) or usage.get("prompt_tokens", 0)
-                            completion_this_turn += usage.get("output_tokens", 0) or usage.get("completion_tokens", 0)
-                            tokens_this_turn += usage.get("total_tokens", 0)
+                        # 1. Check nested dictionary formats (OpenAI SDK / Legacy MLflow)
+                        dict_usage = (attrs.get("mlflow.chat.tokenUsage") or 
+                                      attrs.get("usage") or 
+                                      attrs.get("llm.usage"))
+                        if isinstance(dict_usage, dict):
+                            span_prompt = dict_usage.get("input_tokens", 0) or dict_usage.get("prompt_tokens", 0)
+                            span_completion = dict_usage.get("output_tokens", 0) or dict_usage.get("completion_tokens", 0)
+                            span_total = dict_usage.get("total_tokens", 0) or (span_prompt + span_completion)
+                        
+                        # 2. If not found in a dictionary, check flat integer attributes (Databricks OTel standards)
+                        if span_total == 0:
+                            span_prompt = (attrs.get("gen_ai.usage.input_tokens") or 
+                                           attrs.get("llm.token_count.prompt") or 
+                                           attrs.get("usage.prompt_tokens") or 0)
+                            span_completion = (attrs.get("gen_ai.usage.output_tokens") or 
+                                               attrs.get("llm.token_count.completion") or 
+                                               attrs.get("usage.completion_tokens") or 0)
+                            span_total = (attrs.get("gen_ai.usage.total_tokens") or 
+                                          attrs.get("llm.token_count.total") or 
+                                          attrs.get("usage.total_tokens") or 
+                                          (span_prompt + span_completion))
                             
-                    # Update Streamlit session state to keep your UI sidebar accurate
-                    st.session_state.total_tokens += tokens_this_turn
+                        # Safely accumulate numbers into the turn totals
+                        prompt_this_turn += int(span_prompt) if isinstance(span_prompt, (int, float)) else 0
+                        completion_this_turn += int(span_completion) if isinstance(span_completion, (int, float)) else 0
+                        tokens_this_turn += int(span_total) if isinstance(span_total, (int, float)) else 0
+                            
+                    # Update Streamlit session state counters
                     st.session_state.prompt_tokens += prompt_this_turn
                     st.session_state.completion_tokens += completion_this_turn
+                    st.session_state.total_tokens += tokens_this_turn
                     
-                    # Log turn metrics to your active MLflow experiment run
+                    # Log turn metrics to active MLflow run
                     mlflow.log_metric("tokens_this_turn", tokens_this_turn)
                     mlflow.log_metric("session_total_tokens", st.session_state.total_tokens)
+                    
+                    # Bonus: Smart debug note if an endpoint ever returns 0 tokens
+                    if tokens_this_turn == 0 and trace.data.spans:
+                        sample_keys = list(trace.data.spans[0].attributes.keys())
+                        st.session_state.run_log.append(f"Notice: 0 tokens found in span attributes. Available keys in span 0: {sample_keys}")
             except Exception as e:
-                # Wrap in a try/except block so telemetry quirks NEVER crash your live chat UI!
                 st.session_state.run_log.append(f"Notice: Could not extract trace tokens ({e})")
 
             # NEW: Extract figures, dataframes, and logs to save in the assistant's message history
