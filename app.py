@@ -2,27 +2,36 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 
+from databricks.sdk import WorkspaceClient
 import mlflow
 import openpyxl
 import pandas as pd
 import streamlit as st
 
 wheel_path = "/tmp/torch_rebuilt.whl"
-part0 = "/Workspace/Shared/whl-loading/torch_part0.bin"
-part1 = "/Workspace/Shared/whl-loading/torch_part1.bin"
-
-# If the wheel hasn't been rebuilt yet in this container, stitch it together
+# 1. If the wheel hasn't been rebuilt yet in this container, download and stitch it
 if not os.path.exists(wheel_path):
-    print("Stitching PyTorch wheel together from Workspace parts...")
-    with open(wheel_path, "wb") as outfile:
-        for part in [part0, part1]:
-            with open(part, "rb") as infile:
-                outfile.write(infile.read())
+    print("Connecting to Databricks Workspace via SDK...")
+    w = WorkspaceClient()
     
-    # Install the reassembled wheel programmatically
-    print("Installing PyTorch...")
+    # In the SDK, workspace paths start at "/Shared/..." (do not include "/Workspace")
+    parts = [
+        "/Shared/whl-loading/torch_part0.bin", 
+        "/Shared/whl-loading/torch_part1.bin"
+    ]
+    
+    print("Downloading and stitching PyTorch wheel parts from Workspace...")
+    with open(wheel_path, "wb") as outfile:
+        for part_path in parts:
+            print(f" -> Downloading {part_path}...")
+            with w.workspace.download(part_path) as response:
+                # Stream directly to disk without spiking container RAM
+                shutil.copyfileobj(response, outfile)
+    
+    print("Installing PyTorch from stitched wheel...")
     subprocess.check_call(["pip", "install", wheel_path, "--no-deps"])
 
 subprocess.check_call([
