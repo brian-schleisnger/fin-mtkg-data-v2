@@ -17,7 +17,7 @@ try:
     print("PyTorch is already installed in this environment!")
 except ImportError:
     print("PyTorch not found in active environment. Starting setup...")
-    wheel_path = "/tmp/torch_rebuilt.whl"
+    wheel_path = "/tmp/torch-2.12.1-cp311-cp311-manylinux_2_28_x86_64.whl"
     
     # Only download and stitch if the wheel file isn't already sitting in /tmp/
     if not os.path.exists(wheel_path):
