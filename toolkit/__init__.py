@@ -1,7 +1,7 @@
 from openai import pydantic_function_tool
 
 # 1. Import schemas explicitly with aliases to prevent name collisions
-from ..agent.schemas import (
+from agent.schemas import (
     execute_sql_query_tool as execute_sql_query_tool_Schema,
     run_ols_regression_tool as run_ols_regression_tool_Schema,
     run_arima_forecasting_tool as run_arima_forecasting_tool_Schema,
