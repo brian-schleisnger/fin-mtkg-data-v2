@@ -43,7 +43,7 @@ subprocess.check_call([
 subprocess.check_call([
     "pip", 
     "install", 
-    "whls/llmlingua-0.2.2-py3-none-an.whl", 
+    "whls/llmlingua-0.2.2-py3-none-any.whl", 
     "--no-deps"
 ])
 
