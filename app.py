@@ -11,49 +11,41 @@ import openpyxl
 import pandas as pd
 import streamlit as st
 
-# 1. First, check if PyTorch is actually installed in Python's active environment
+# 1. Check if PyTorch is actively installed in this container's environment
 try:
     import torch
     print("PyTorch is already installed in this environment!")
 except ImportError:
     print("PyTorch not found in active environment. Starting setup...")
-    wheel_path = "/tmp/torch-2.12.1-cp311-cp311-manylinux_2_28_x86_64.whl"
     
-    # Only download and stitch if the wheel file isn't already sitting in /tmp/
+    wheel_name = "torch-2.4.0+cpu-cp311-cp311-linux_x86_64.whl"
+    wheel_path = f"/tmp/{wheel_name}"
+    
+    # Only download from Workspace if it's not already sitting in /tmp/
     if not os.path.exists(wheel_path):
         print("Connecting to Databricks Workspace via SDK...")
         w = WorkspaceClient()
         
-        parts = [
-            "/Shared/whl-loading/torch_part0.bin", 
-            "/Shared/whl-loading/torch_part1.bin"
-        ]
+        workspace_path = f"/Shared/whl-loading/{wheel_name}"
+        print(f" -> Downloading CPU-only PyTorch from {workspace_path}...")
         
-        print("Downloading and stitching PyTorch wheel parts from Workspace...")
-        with open(wheel_path, "wb") as outfile:
-            for part_path in parts:
-                print(f" -> Downloading {part_path}...")
-                with w.workspace.download(part_path) as response:
-                    shutil.copyfileobj(response, outfile)
+        with w.workspace.download(workspace_path) as response:
+            with open(wheel_path, "wb") as outfile:
+                shutil.copyfileobj(response, outfile)
     else:
         print(f"Found existing {wheel_path} on disk. Skipping download...")
     
-    # ALWAYS install if we hit the ImportError, regardless of whether the file was already on disk!
-    print("Installing PyTorch into active virtual environment...")
+    # Install the CPU wheel cleanly
+    print("Installing PyTorch CPU into active virtual environment...")
     subprocess.check_call(["pip", "install", wheel_path, "--no-deps"])
 
-subprocess.check_call([
-    "pip", 
-    "install", 
+# 2. Install dependent packages from your Git repo
+print("Installing dependent packages from Git repo...")
+for pkg in [
     "whls/accelerate-1.14.0-py3-none-any.whl", 
-    "--no-deps"
-])
-subprocess.check_call([
-    "pip", 
-    "install", 
-    "whls/llmlingua-0.2.2-py3-none-any.whl", 
-    "--no-deps"
-])
+    "whls/llmlingua-0.2.2-py3-none-any.whl"
+]:
+    subprocess.check_call(["pip", "install", pkg, "--no-deps"])
 
 from agent.cache import agent_cache
 from agent.memory import context_optimizer
