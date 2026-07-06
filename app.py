@@ -9,12 +9,6 @@ import openpyxl
 import pandas as pd
 import streamlit as st
 
-from agent.cache import agent_cache
-from agent.memory import context_optimizer
-from agent.schemas import DecomposedQuestions
-from toolkit import TOOLS, TOOL_DISPATCHER
-from toolkit.base import client, DATA_DICTIONARY, llm_call, MODEL
-
 wheel_path = "/tmp/torch_rebuilt.whl"
 part0 = "/Workspace/Shared/whl-loading/torch_part0.bin"
 part1 = "/Workspace/Shared/whl-loading/torch_part1.bin"
@@ -43,6 +37,14 @@ subprocess.check_call([
     "whls/llmlingua-0.2.2-py3-none-an.whl", 
     "--no-deps"
 ])
+
+from agent.cache import agent_cache
+from agent.memory import context_optimizer
+from agent.schemas import DecomposedQuestions
+from toolkit import TOOLS, TOOL_DISPATCHER
+from toolkit.base import client, DATA_DICTIONARY, llm_call, MODEL
+
+
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
