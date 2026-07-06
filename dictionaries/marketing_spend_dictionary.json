@@ -1,0 +1,875 @@
+{
+    "database_context": {
+        "table_metadata": {
+            "table_name": "dbs_marketing_spend_synced",
+            "table_description": "this is a table going back to 2021 containing all accounts and activities each month and the spend tied to them.",
+            "special_rules": "if there is an account number that is not defined, it is likely 0. do not use it in calculations"
+        },
+        "schema_definition": [
+            {
+                "Column Name": "index",
+                "Column Description": "primary key index - likely will not need to be referenced",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "positive integer"
+            },
+            {
+                "Column Name": "string code",
+                "Column Description": "a combined string containing the company, department, account, and activity codes together. Could be useful for referencing",
+                "Data Type": "String",
+                "Range of Outcomes": "xxx-xxxxxxxxxxxxxxx"
+            },
+            {
+                "Column Name": "company",
+                "Column Description": "the company unit the spend was directed to. Most of the time, this will be 111",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "3 digit number"
+            },
+            {
+                "Column Name": "department",
+                "Column Description": "the department of the company the spend was dircted to. Most of the time, this will be a number in the 170s",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "3 digit number"
+            },
+            {
+                "Column Name": "account",
+                "Column Description": "the account of the company the spend is attributed to.",
+                "Data Type": "String",
+                "Range of Outcomes": "6 digit number or SACADV or SACADD"
+            },
+            {
+                "Column Name": "activity",
+                "Column Description": "the specific activity of the account the spend was for.",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "6 digit number"
+            },
+            {
+                "Column Name": "month",
+                "Column Description": "the month the spend took place in",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "Jan through Dec"
+            },
+            {
+                "Column Name": "amount",
+                "Column Description": "the amount that was spent. Positive indicates we spent money, negative indicates we received money back",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "number"
+            },
+            {
+                "Column Name": "year",
+                "Column Description": "year the spend took place in.",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "2021 through present year"
+            }
+        ],
+        "reference_mappings": {
+            "company_and_department_codes": [
+                {
+                    "Company": 111,
+                    "Company Description": "DishTV",
+                    "Department": 170,
+                    "Department Description": "General Market/GM"
+                },
+                {
+                    "Company": 111,
+                    "Company Description": "DishTV",
+                    "Department": 171,
+                    "Department Description": "Latino Market"
+                },
+                {
+                    "Company": 111,
+                    "Company Description": "DishTV",
+                    "Department": 172,
+                    "Department Description": "International Market"
+                },
+                {
+                    "Company": 213,
+                    "Company Description": "Dish Puerto Rico",
+                    "Department": 170,
+                    "Department Description": "Puerto Rican Market/PRGM"
+                },
+                {
+                    "Company": 365,
+                    "Company Description": "SlingTV",
+                    "Department": 170,
+                    "Department Description": "General Market/GM"
+                },
+                {
+                    "Company": 365,
+                    "Company Description": "SlingTV",
+                    "Department": 171,
+                    "Department Description": "Latino Market"
+                },
+                {
+                    "Company": 365,
+                    "Company Description": "SlingTV",
+                    "Department": 172,
+                    "Department Description": "International Market"
+                },
+                {
+                    "Company": 365,
+                    "Company Description": "SlingTV",
+                    "Department": 175,
+                    "Department Description": "Production Marketing"
+                },
+                {
+                    "Company": 365,
+                    "Company Description": "SlingTV",
+                    "Department": 176,
+                    "Department Description": "Freestream"
+                }
+            ],
+            "account_and_activity_codes": [
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330100.0,
+                    "Activity Code Name": "Mktg - Commercial",
+                    "Description: Activity Codes": "Marketing materials and initiatives to support Commercial activity (B2B, Hotel Programs and Other Hospitality)"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330110.0,
+                    "Activity Code Name": "Mktg - Other",
+                    "Description: Activity Codes": "Used for small one off scenarios that don't specifically fit into defined sub-tactics. Very rare"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330120.0,
+                    "Activity Code Name": "Mktg - Events",
+                    "Description: Activity Codes": "Acquisition activity for potential customers at a specific engagement or Retailers support at events"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330130.0,
+                    "Activity Code Name": "Mktg - Opportunity Brand",
+                    "Description: Activity Codes": "Funds for opportunity Brand-related initiatives as needed"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330140.0,
+                    "Activity Code Name": "Mktg - Programmer Retrans",
+                    "Description: Activity Codes": "Non-Broadcast contractual media buys that are part of a programmer retransmission agreement"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330150.0,
+                    "Activity Code Name": "Mktg - Tailgater aka Dish Outdoors",
+                    "Description: Activity Codes": "Dish Outdoors Marketing (Tailgater, Camping World, RV/Mobile, etc.)"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330160.0,
+                    "Activity Code Name": "Mktg - Opportunity Direct",
+                    "Description: Activity Codes": "Fund for opportunity Direct-Response-related initiatives as needed"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330170.0,
+                    "Activity Code Name": "Mktg - Opportunity Other",
+                    "Description: Activity Codes": "Used as a checkbook to hold funds. Deployed as forecast adjustments towards other sub-tactics"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 330180.0,
+                    "Activity Code Name": "Mktg - Brand Initiatives",
+                    "Description: Activity Codes": "Hyper-Focused Brand Initiatives (Country Music Festival, Hometown Heros, Wounded Warriors, AARP, Small Town, etc.)"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "General",
+                    "Account": 611000,
+                    "Description: Account Codes": "General account for ad-hoc Brand, Direct-Response and Other initiatives as needed.",
+                    "Activity Codes": 331200.0,
+                    "Activity Code Name": "Mktg - Agency Fee",
+                    "Description: Activity Codes": "Agency Fees associated with Media Strategy and Management (Ovative)"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Broadcast",
+                    "Account": 611010,
+                    "Description: Account Codes": "National / Local Broadcast Vehicles to reach large audiences. TV / Radio / Out of Home: Ad Campaign - Expenses for individual spots throughout the county",
+                    "Activity Codes": 330200.0,
+                    "Activity Code Name": "Mktg - Brand TV",
+                    "Description: Activity Codes": "TV used for brand awareness"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Broadcast",
+                    "Account": 611010,
+                    "Description: Account Codes": "National / Local Broadcast Vehicles to reach large audiences. TV / Radio / Out of Home: Ad Campaign - Expenses for individual spots throughout the county",
+                    "Activity Codes": 330210.0,
+                    "Activity Code Name": "Mktg - DRTV",
+                    "Description: Activity Codes": "Direct Response TV - Call to Action"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Broadcast",
+                    "Account": 611010,
+                    "Description: Account Codes": "National / Local Broadcast Vehicles to reach large audiences. TV / Radio / Out of Home: Ad Campaign - Expenses for individual spots throughout the county",
+                    "Activity Codes": 330220.0,
+                    "Activity Code Name": "Mktg - Hybrid - \"Brandtail\" TV",
+                    "Description: Activity Codes": "TV - Blended Brand and Direct Response"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Broadcast",
+                    "Account": 611010,
+                    "Description: Account Codes": "National / Local Broadcast Vehicles to reach large audiences. TV / Radio / Out of Home: Ad Campaign - Expenses for individual spots throughout the county",
+                    "Activity Codes": 330230.0,
+                    "Activity Code Name": "Mktg - Local Broadcast / Test",
+                    "Description: Activity Codes": "Very localized and serving a specific purpose. E.g., Small Town Takeover or Hyper focused messaging"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Broadcast",
+                    "Account": 611010,
+                    "Description: Account Codes": "National / Local Broadcast Vehicles to reach large audiences. TV / Radio / Out of Home: Ad Campaign - Expenses for individual spots throughout the county",
+                    "Activity Codes": 330240.0,
+                    "Activity Code Name": "Mktg - Programmer Retrans Agreements",
+                    "Description: Activity Codes": "Contractual obligation to purchase Broadcast Advertising from programmers"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Broadcast",
+                    "Account": 611010,
+                    "Description: Account Codes": "National / Local Broadcast Vehicles to reach large audiences. TV / Radio / Out of Home: Ad Campaign - Expenses for individual spots throughout the county",
+                    "Activity Codes": 330250.0,
+                    "Activity Code Name": "Mktg - Radio",
+                    "Description: Activity Codes": "Audio advertising on radio. Note, contractual Sirius is currently coded to programming"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Broadcast",
+                    "Account": 611010,
+                    "Description: Account Codes": "National / Local Broadcast Vehicles to reach large audiences. TV / Radio / Out of Home: Ad Campaign - Expenses for individual spots throughout the county",
+                    "Activity Codes": 330260.0,
+                    "Activity Code Name": "Mktg - Out of Home",
+                    "Description: Activity Codes": "Signage in high-traffic public spaces"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330300.0,
+                    "Activity Code Name": "Mktg - Newspaper",
+                    "Description: Activity Codes": "Free Standing Insert. Loose print ads in the middle of the newspaper"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330310.0,
+                    "Activity Code Name": "Mktg - Insert media",
+                    "Description: Activity Codes": "Small to mid-sized print ads, inserted into catalogs, billing statements, and other like media"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330320.0,
+                    "Activity Code Name": "Mktg - Magazine",
+                    "Description: Activity Codes": "Print vehicle usually around a given audience or subject matter - Includes ads and blow in media"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330330.0,
+                    "Activity Code Name": "Mktg - ROP",
+                    "Description: Activity Codes": "Run of Paper/Run of Press. Print ads on the newspaper pages"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330340.0,
+                    "Activity Code Name": "Mktg - Shared Mail",
+                    "Description: Activity Codes": "Print ads in bundled packaging with other advertisers"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330350.0,
+                    "Activity Code Name": "Mktg - Print Other",
+                    "Description: Activity Codes": "Print programs that do not fit in other sub-tactics as well as isolated testing"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330360.0,
+                    "Activity Code Name": "Mktg - Door Hanger",
+                    "Description: Activity Codes": "Targeted print vehicle that is left at the home based on specific demographic locations"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330370.0,
+                    "Activity Code Name": "Mktg - Pay Per Inquiry",
+                    "Description: Activity Codes": "Partners transferring sales calls to us"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330380.0,
+                    "Activity Code Name": "Mktg - Print Brand",
+                    "Description: Activity Codes": "High profile fixed position placements used for brand awareness"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Print",
+                    "Account": 611020,
+                    "Description: Account Codes": "National / Local Print Vehicles to reach large audiences: Ad Expenses for placements in specific hard copy formats",
+                    "Activity Codes": 330390.0,
+                    "Activity Code Name": "Mktg - Statement Marketing",
+                    "Description: Activity Codes": "Ads on statements or included with the statements"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Direct",
+                    "Account": 611030,
+                    "Description: Account Codes": "National Direct Mail campaigns based on external data sources (Experian/Equifax data, etc.)",
+                    "Activity Codes": 330400.0,
+                    "Activity Code Name": "Mktg - DM Testing",
+                    "Description: Activity Codes": "Direct Mail - Test creative and market segments"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Direct",
+                    "Account": 611030,
+                    "Description: Account Codes": "National Direct Mail campaigns based on external data sources (Experian/Equifax data, etc.)",
+                    "Activity Codes": 330410.0,
+                    "Activity Code Name": "Mktg - Direct Mail-Production",
+                    "Description: Activity Codes": "Direct Mail creative and list development"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Direct",
+                    "Account": 611030,
+                    "Description: Account Codes": "National Direct Mail campaigns based on external data sources (Experian/Equifax data, etc.)",
+                    "Activity Codes": 330420.0,
+                    "Activity Code Name": "Mktg - Formers",
+                    "Description: Activity Codes": "Direct Mail to former customers who voluntarily disconnected"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Direct",
+                    "Account": 611030,
+                    "Description: Account Codes": "National Direct Mail campaigns based on external data sources (Experian/Equifax data, etc.)",
+                    "Activity Codes": 330430.0,
+                    "Activity Code Name": "Mktg - Leads",
+                    "Description: Activity Codes": "Direct Mail to follow up on abandoned online cart entries and unconverted sales calls"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Direct",
+                    "Account": 611030,
+                    "Description: Account Codes": "National Direct Mail campaigns based on external data sources (Experian/Equifax data, etc.)",
+                    "Activity Codes": 330435.0,
+                    "Activity Code Name": "Mktg - Movers",
+                    "Description: Activity Codes": "Direct Mail to movers, found via change of address requests and utility connects"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Direct",
+                    "Account": 611030,
+                    "Description: Account Codes": "National Direct Mail campaigns based on external data sources (Experian/Equifax data, etc.)",
+                    "Activity Codes": 330440.0,
+                    "Activity Code Name": "Mktg - Prospecting",
+                    "Description: Activity Codes": "Direct Mail to people who have not previously had Dish service (Credit Reviewed)"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Direct",
+                    "Account": 611030,
+                    "Description: Account Codes": "National Direct Mail campaigns based on external data sources (Experian/Equifax data, etc.)",
+                    "Activity Codes": 330445.0,
+                    "Activity Code Name": "Mktg - Prospecting Non Pre Qual",
+                    "Description: Activity Codes": "Direct Mail to people who have not previously had Dish service and are qualified using internal models (ITA)"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "External Marketing",
+                    "Account Name (Tactic)": "Database",
+                    "Account": 611040,
+                    "Description: Account Codes": "Expenses for demographic data to make business decisions",
+                    "Activity Codes": 330450.0,
+                    "Activity Code Name": "Mktg - Database",
+                    "Description: Activity Codes": "Credit and demographics data"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Retail Marketing",
+                    "Account Name (Tactic)": "POP",
+                    "Account": 614100,
+                    "Description: Account Codes": "Retailer Point of Purchase materials for Brick & Mortar stores",
+                    "Activity Codes": 330500.0,
+                    "Activity Code Name": "Mktg - POP Materials/Sales Kits",
+                    "Description: Activity Codes": "Retailer Point of Purchase materials"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Retail Marketing",
+                    "Account Name (Tactic)": "Merchandising Expense",
+                    "Account": 614150,
+                    "Description: Account Codes": "Merch Expense for Retailers",
+                    "Activity Codes": "",
+                    "Activity Code Name": "Mktg - Merchandising Expense",
+                    "Description: Activity Codes": "Retail Merchandise Expense - this is used primarily for Sling Gift Cards in Dept 366"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Retail Marketing",
+                    "Account Name (Tactic)": "Sales",
+                    "Account": 614200,
+                    "Description: Account Codes": "Expenses for Retailers (websites) and support of Direct Sales",
+                    "Activity Codes": 330600.0,
+                    "Activity Code Name": "Mktg - Malls",
+                    "Description: Activity Codes": "Supporting the utilization of kiosks in malls. Design, support materials, install cost for demo equip"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Retail Marketing",
+                    "Account Name (Tactic)": "Sales",
+                    "Account": 614200,
+                    "Description: Account Codes": "Expenses for Retailers (websites) and support of Direct Sales",
+                    "Activity Codes": 330610.0,
+                    "Activity Code Name": "Mktg - Retailer Support",
+                    "Description: Activity Codes": "Retailer access to BrandDrive, Creative Templates, Negotiated Media and placement, and general fees"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Retail Marketing",
+                    "Account Name (Tactic)": "Sales",
+                    "Account": 614200,
+                    "Description: Account Codes": "Expenses for Retailers (websites) and support of Direct Sales",
+                    "Activity Codes": 330620.0,
+                    "Activity Code Name": "Mktg - Door 2 Door",
+                    "Description: Activity Codes": "Targeted Door knocking campaigns"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Retail Marketing",
+                    "Account Name (Tactic)": "Sales",
+                    "Account": 614200,
+                    "Description: Account Codes": "Expenses for Retailers (websites) and support of Direct Sales",
+                    "Activity Codes": 330630.0,
+                    "Activity Code Name": "Mktg - Partner Test and Learn",
+                    "Description: Activity Codes": "Initiatives where we directly support a partner program to influence objectives"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Partnership Marketing",
+                    "Account Name (Tactic)": "Sponsorship",
+                    "Account": 616000,
+                    "Description: Account Codes": "Sponsorships, Partnerships and Co-Messaging with external businesses",
+                    "Activity Codes": 330700.0,
+                    "Activity Code Name": "Mktg - Affiliate/Partnership",
+                    "Description: Activity Codes": "Non-sports partnerships, such as Airlines or Affiliate relationships (Commission Junction). In Sling Product we use this for Contractual Agreements for Button and Banner placements."
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Partnership Marketing",
+                    "Account Name (Tactic)": "Sponsorship",
+                    "Account": 616000,
+                    "Description: Account Codes": "Sponsorships, Partnerships and Co-Messaging with external businesses",
+                    "Activity Codes": 330710.0,
+                    "Activity Code Name": "Mktg - Sports",
+                    "Description: Activity Codes": "Sports partnerships, such as the University of Tennessee or Colorado Rockies"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Co-op",
+                    "Account": 618000,
+                    "Description: Account Codes": "Reimbursement of retail partners for advertising spending",
+                    "Activity Codes": 330800.0,
+                    "Activity Code Name": "Mktg - Co-op Advertising",
+                    "Description: Activity Codes": "Reimburse retail partners for advertising spend"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Referral",
+                    "Account": 618050,
+                    "Description: Account Codes": "Internally based campaigns using Target Direct Mail / Inserts to subscribers to drive referrals",
+                    "Activity Codes": 330900.0,
+                    "Activity Code Name": "Mktg - Referral",
+                    "Description: Activity Codes": "Referral - other than TV ads"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Referral",
+                    "Account": 618050,
+                    "Description: Account Codes": "Internally based campaigns using Target Direct Mail / Inserts to subscribers to drive referrals",
+                    "Activity Codes": 330910.0,
+                    "Activity Code Name": "Mktg - Referral-Production",
+                    "Description: Activity Codes": "Referral - creative development"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Referral",
+                    "Account": 618050,
+                    "Description: Account Codes": "Internally based campaigns using Target Direct Mail / Inserts to subscribers to drive referrals",
+                    "Activity Codes": 330915.0,
+                    "Activity Code Name": "I/C Cross Channel Ad Sales -Pay TV",
+                    "Description: Activity Codes": "Referral - TV ads on our network"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "CMF",
+                    "Account": 618200,
+                    "Description: Account Codes": "Contractual Marketing Funds",
+                    "Activity Codes": 330920.0,
+                    "Activity Code Name": "Mktg - Marketing Services (CMF)",
+                    "Description: Activity Codes": "Currently NOT USED - Spend is in the core marketing accounts that represent the spend"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331000.0,
+                    "Activity Code Name": "Mktg - Display",
+                    "Description: Activity Codes": "Advertising space on external websites and screens other than Linear and OTA"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331005.0,
+                    "Activity Code Name": "Mktg - Display / Social Brand",
+                    "Description: Activity Codes": "High level Digital Brand funnel for Display and Social marketing (Not used in 2023/2024) Split Display and Social appart"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331010.0,
+                    "Activity Code Name": "Mktg - Online Production",
+                    "Description: Activity Codes": "Development of digital creative"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331020.0,
+                    "Activity Code Name": "Mktg - Search",
+                    "Description: Activity Codes": "Advertising within the search results in a search engine"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331030.0,
+                    "Activity Code Name": "Mktg - Tools & Tech",
+                    "Description: Activity Codes": "Search Engine Optimization. Analytic tools used to optimize Digital spend"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331040.0,
+                    "Activity Code Name": "Mktg - Email",
+                    "Description: Activity Codes": "Email list purchases and campaigns"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331050.0,
+                    "Activity Code Name": "Mktg - Social Media",
+                    "Description: Activity Codes": "Advertising that focuses on Social Media platforms. Includes Facebook etc. Also includes Social influencers"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Digital / Online",
+                    "Account": 618250,
+                    "Description: Account Codes": "Online/Internet based Marketing Campaigns",
+                    "Activity Codes": 331055.0,
+                    "Activity Code Name": "Mktg - Display and Social Retargeting",
+                    "Description: Activity Codes": "Low level Digital funnel (retargeted) for Display and Social marketing (Not used in 2023/2024) Split Display and Social appart"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Production \n(Mostly TV, Radio)",
+                    "Account": 618300,
+                    "Description: Account Codes": "Cost of producing advertisements and marketing materials",
+                    "Activity Codes": 331200.0,
+                    "Activity Code Name": "Mktg - Agency Fee",
+                    "Description: Activity Codes": "Fixed monthly fee to advertising agency"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Production \n(Mostly TV, Radio)",
+                    "Account": 618300,
+                    "Description: Account Codes": "Cost of producing advertisements and marketing materials",
+                    "Activity Codes": 331210.0,
+                    "Activity Code Name": "Mktg - Contract Work",
+                    "Description: Activity Codes": "Cost associated to talent (Brand ambassadors / Spokespersons) not specific to a single production"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Production \n(Mostly TV, Radio)",
+                    "Account": 618300,
+                    "Description: Account Codes": "Cost of producing advertisements and marketing materials",
+                    "Activity Codes": 331220.0,
+                    "Activity Code Name": "Mktg - Creative Production - Other",
+                    "Description: Activity Codes": "Production costs that do not fall directly into Direct or Brand"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Production \n(Mostly TV, Radio)",
+                    "Account": 618300,
+                    "Description: Account Codes": "Cost of producing advertisements and marketing materials",
+                    "Activity Codes": 331230.0,
+                    "Activity Code Name": "Mktg - Creative Production - DRTV",
+                    "Description: Activity Codes": "Creation of DRTV spots"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Production \n(Mostly TV, Radio)",
+                    "Account": 618300,
+                    "Description: Account Codes": "Cost of producing advertisements and marketing materials",
+                    "Activity Codes": 331240.0,
+                    "Activity Code Name": "Mktg - Creative Production - Brand",
+                    "Description: Activity Codes": "Creation of Brand spots"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Acquisition Marketing",
+                    "Account Name (Tactic)": "Production \n(Mostly TV, Radio)",
+                    "Account": 618300,
+                    "Description: Account Codes": "Cost of producing advertisements and marketing materials",
+                    "Activity Codes": 331250.0,
+                    "Activity Code Name": "Mktg - Supply & Misc.",
+                    "Description: Activity Codes": "Cost to support internal production (Image libraries, set development)"
+                },
+                {
+                    "Part of Marketing SAC?": true,
+                    "P&L Section": "Other Marketing",
+                    "Account Name (Tactic)": "Research",
+                    "Account": 618350,
+                    "Description: Account Codes": "Customer demographic data research",
+                    "Activity Codes": 331300.0,
+                    "Activity Code Name": "Mktg - Market Research / Customer Insight",
+                    "Description: Activity Codes": "Research used to understand our Target Customer including analytic models / focus groups / Ad analysis"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "Programming Discounts",
+                    "Account Name (Tactic)": "Gift Cards",
+                    "Account": 400905,
+                    "Description: Account Codes": "Recognition of Gift Card Value (Cash)",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "",
+                    "Description: Activity Codes": "This is a contra revenue account. Gift Cards are considered cash and a new subscriber could use this for any purpose"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "Customer Communications",
+                    "Account Name (Tactic)": "Cust Comm - Other",
+                    "Account": 535900,
+                    "Description: Account Codes": "Marketing driven ARPU / Existing Customer programs",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "",
+                    "Description: Activity Codes": "Marketing driven programs to increase ARPU or directly engage with existing customers independent of core Retention efforts"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "Commissions and Direct Sales",
+                    "Account Name (Tactic)": "Primary Incentive",
+                    "Account": 604000,
+                    "Description: Account Codes": "Marketing Incentives",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "",
+                    "Description: Activity Codes": "Usually used for indirect (Retailer) incentive payments"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "Commissions and Direct Sales",
+                    "Account Name (Tactic)": "Conversion Comms/Affiliate Payments",
+                    "Account": 604500,
+                    "Description: Account Codes": "Marketing Affiliate PMTS",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "",
+                    "Description: Activity Codes": "Used for Affiliate Payments to program aggregators. Includes Fees, Downstream Activation Paymemts, and possible Marketing support"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "Commissions and Direct Sales",
+                    "Account Name (Tactic)": "Other Programs",
+                    "Account": 606050,
+                    "Description: Account Codes": "Utilized for expenses related to the fulfillment of gift cards",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "",
+                    "Description: Activity Codes": "Cost associated the the fulfillment of Gift Cards is different that the cash value. This is the processing costs for the program (Print / Mailing / Etc.)"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "Office Administration",
+                    "Account Name (Tactic)": "Outside Data Services",
+                    "Account": 662400,
+                    "Description: Account Codes": "Marketing Data / Services to support Strategic Decisions",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "",
+                    "Description: Activity Codes": "Marketing data and services that do not directly attribute to the act of marketing. Services that directly impact marketing should be in SAC"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "?",
+                    "Account Name (Tactic)": "Rollup",
+                    "Account": "SACADV",
+                    "Description: Account Codes": "Rollup Accounts for non-marketing departments",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "Sales",
+                    "Description: Activity Codes": "This is a rollup of all sales activities and accounts"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "?",
+                    "Account Name (Tactic)": "Rollup",
+                    "Account": "SACADV",
+                    "Description: Account Codes": "Rollup Accounts for non-marketing departments",
+                    "Activity Codes": 1.0,
+                    "Activity Code Name": "Other Dish",
+                    "Description: Activity Codes": "This is a rollup of all other dish spend accounts"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "?",
+                    "Account Name (Tactic)": "Rollup",
+                    "Account": "SACADV",
+                    "Description: Account Codes": "Rollup Accounts for non-marketing departments",
+                    "Activity Codes": 2.0,
+                    "Activity Code Name": "Corporate",
+                    "Description: Activity Codes": "This is a rollup of all corporate accounts related to dish"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "?",
+                    "Account Name (Tactic)": "Sales Support",
+                    "Account": 611588,
+                    "Description: Account Codes": "?",
+                    "Activity Codes": 330915.0,
+                    "Activity Code Name": "I/C Cross Channel Ad Sales -Pay TV",
+                    "Description: Activity Codes": "Referral - TV ads on our network"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "?",
+                    "Account Name (Tactic)": "Sales Support",
+                    "Account": 626088,
+                    "Description: Account Codes": "Other Account",
+                    "Activity Codes": 0.0,
+                    "Activity Code Name": "Other Activity",
+                    "Description: Activity Codes": "For all other related but unallocated spend"
+                },
+                {
+                    "Part of Marketing SAC?": false,
+                    "P&L Section": "?",
+                    "Account Name (Tactic)": "Broadband",
+                    "Account": 629999,
+                    "Description: Account Codes": "?",
+                    "Activity Codes": 331100.0,
+                    "Activity Code Name": "GM TFN Allocation",
+                    "Description: Activity Codes": "?"
+                }
+            ]
+        }
+    }
+}

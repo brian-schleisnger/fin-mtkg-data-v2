@@ -1,6 +1,0 @@
-command: ["streamlit", "run", "app.py"]
-env:
-  - name: DATABRICKS_HOST
-    value: "https://dish-aidpmnp.cloud.databricks.com"
-  - name: PGHOST
-    value: "ep-bitter-cake-d1ajl0h1.database.us-west-2.cloud.databricks.com"
