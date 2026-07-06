@@ -1,9 +1,11 @@
+import importlib
 import io
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 from databricks.sdk import WorkspaceClient
 import mlflow
@@ -37,17 +39,24 @@ except (ImportError, OSError, ValueError) as e:
     else:
         print(f"Found existing {wheel_path} on disk. Skipping download...")
 
-    # CRITICAL FIX: Use --force-reinstall to obliterate the old GPU PyTorch cached in .venv!
+    # Force-install the CPU wheel to obliterate the old GPU PyTorch cached in .venv!
     print("Force-installing PyTorch CPU into active virtual environment...")
     subprocess.check_call(
         ["pip", "install", wheel_path, "--no-deps", "--force-reinstall"]
     )
 
+    # CRITICAL FIX: Flush broken/half-loaded torch modules from Python's RAM!
+    print("Flushing module cache so Python sees the fresh CPU installation...")
+    for mod in list(sys.modules.keys()):
+        if mod.startswith("torch"):
+            del sys.modules[mod]
+    importlib.invalidate_caches()
+
 # 2. Install dependent packages from your Git repo
 print("Installing dependent packages from Git repo...")
 for pkg in [
-    "whls/accelerate-1.14.0-py3-none-any.whl", 
-    "whls/llmlingua-0.2.2-py3-none-any.whl"
+    "whls/accelerate-1.14.0-py3-none-any.whl",
+    "whls/llmlingua-0.2.2-py3-none-any.whl",
 ]:
     subprocess.check_call(["pip", "install", pkg, "--no-deps"])
 
