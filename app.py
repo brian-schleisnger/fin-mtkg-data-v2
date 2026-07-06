@@ -11,27 +11,35 @@ import openpyxl
 import pandas as pd
 import streamlit as st
 
-wheel_path = "/tmp/torch_rebuilt.whl"
-# 1. If the wheel hasn't been rebuilt yet in this container, download and stitch it
-if not os.path.exists(wheel_path):
-    print("Connecting to Databricks Workspace via SDK...")
-    w = WorkspaceClient()
+# 1. First, check if PyTorch is actually installed in Python's active environment
+try:
+    import torch
+    print("PyTorch is already installed in this environment!")
+except ImportError:
+    print("PyTorch not found in active environment. Starting setup...")
+    wheel_path = "/tmp/torch_rebuilt.whl"
     
-    # In the SDK, workspace paths start at "/Shared/..." (do not include "/Workspace")
-    parts = [
-        "/Shared/whl-loading/torch_part0.bin", 
-        "/Shared/whl-loading/torch_part1.bin"
-    ]
+    # Only download and stitch if the wheel file isn't already sitting in /tmp/
+    if not os.path.exists(wheel_path):
+        print("Connecting to Databricks Workspace via SDK...")
+        w = WorkspaceClient()
+        
+        parts = [
+            "/Shared/whl-loading/torch_part0.bin", 
+            "/Shared/whl-loading/torch_part1.bin"
+        ]
+        
+        print("Downloading and stitching PyTorch wheel parts from Workspace...")
+        with open(wheel_path, "wb") as outfile:
+            for part_path in parts:
+                print(f" -> Downloading {part_path}...")
+                with w.workspace.download(part_path) as response:
+                    shutil.copyfileobj(response, outfile)
+    else:
+        print(f"Found existing {wheel_path} on disk. Skipping download...")
     
-    print("Downloading and stitching PyTorch wheel parts from Workspace...")
-    with open(wheel_path, "wb") as outfile:
-        for part_path in parts:
-            print(f" -> Downloading {part_path}...")
-            with w.workspace.download(part_path) as response:
-                # Stream directly to disk without spiking container RAM
-                shutil.copyfileobj(response, outfile)
-    
-    print("Installing PyTorch from stitched wheel...")
+    # ALWAYS install if we hit the ImportError, regardless of whether the file was already on disk!
+    print("Installing PyTorch into active virtual environment...")
     subprocess.check_call(["pip", "install", wheel_path, "--no-deps"])
 
 subprocess.check_call([
