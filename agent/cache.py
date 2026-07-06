@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # Import existing authentication and configuration from your base module
-from .toolkit.base import auth_token, databricks_host
+from toolkit.base import auth_token, databricks_host
 
 # ─── Configuration ───────────────────────────────────────────────
 # Standard Databricks hosted embedding model
