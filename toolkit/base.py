@@ -19,19 +19,20 @@ DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
 
-# Initialize the SDK Client (auto-authenticates using the App's Service Principal)
+# Initialize the SDK Client
 w = WorkspaceClient()
 auth_headers = w.config.authenticate()
 auth_token = auth_headers["Authorization"].split(" ")[1]
 databricks_host = w.config.host
 
-# Initialize the Instructor-patched OpenAI client pointed at Databricks
-client = instructor.from_openai(
-    OpenAI(
-        api_key=auth_token,
-        base_url=f"{databricks_host}/serving-endpoints"
-    )
+# 1. CREATE THE RAW CLIENT (For standard chat & native tool calling)
+raw_client = OpenAI(
+    api_key=auth_token,
+    base_url=f"{databricks_host}/serving-endpoints"
 )
+
+# 2. CREATE THE INSTRUCTOR CLIENT (For Pydantic structured outputs)
+instructor_client = instructor.from_openai(raw_client)
 
 mlflow.openai.autolog()
 
@@ -84,7 +85,7 @@ def run_sql_query(query: str) -> pd.DataFrame:
 
 def llm_call(messages: list, response_model: BaseModel):
     """Replaces raw_llm_call for tasks that require strict JSON outputs."""
-    return client.chat.completions.create(
+    return instructor_client.chat.completions.create(
         model=MODEL, # e.g., "databricks-dbrx-instruct"
         messages=messages,
         response_model=response_model, # Instructor handles the magic here

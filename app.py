@@ -87,7 +87,7 @@ from agent.cache import agent_cache
 from agent.memory import context_optimizer
 from agent.schemas import DecomposedQuestions
 from toolkit import TOOLS, TOOL_DISPATCHER
-from toolkit.base import client, DATA_DICTIONARY, llm_call, MODEL
+from toolkit.base import raw_client, DATA_DICTIONARY, llm_call, MODEL
 
 
 
@@ -236,7 +236,7 @@ def run_agent_loop(user_prompt: str):
 
                 max_retries = 3
                 for attempt in range(max_retries):
-                    response = client.chat.completions.create(
+                    response = raw_client.chat.completions.create(
                         model=MODEL,
                         messages=msgs,
                         tools=TOOLS,
@@ -359,7 +359,7 @@ def run_agent_loop(user_prompt: str):
             clean_messages = [{"role": m["role"], "content": m.get("content", "")} for m in st.session_state.messages]
             final_msgs = clean_messages + [{"role": "user", "content": synthesis_prompt}]
             
-            response = client.chat.completions.create(
+            response = raw_client.chat.completions.create(
                 model=MODEL,
                 messages=final_msgs
             )
