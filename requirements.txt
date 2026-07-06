@@ -16,6 +16,7 @@ streamlit>=1.38.0
 ./whls/jiter-0.16.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 ./whls/joblib-1.5.3-py3-none-any.whl
 ./whls/llmlingua-0.2.2-py3-none-any.whl
+./whls/multidict-6.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
 ./whls/nltk-3.9.4-py3-none-any.whl
 ./whls/openai-2.44.0-py3-none-any.whl
 ./whls/patsy-1.0.2-py2.py3-none-any.whl
