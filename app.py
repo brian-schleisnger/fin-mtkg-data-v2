@@ -37,6 +37,12 @@ subprocess.check_call([
     "whls/accelerate-1.14.0-py3-none-any.whl", 
     "--no-deps"
 ])
+subprocess.check_call([
+    "pip", 
+    "install", 
+    "whls/llmlingua-0.2.2-py3-none-an.whl", 
+    "--no-deps"
+])
 
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
