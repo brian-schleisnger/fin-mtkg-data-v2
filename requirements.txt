@@ -5,7 +5,7 @@ pandas>=2.0.0
 plotly>=5.24.1
 streamlit>=1.38.0
 
-./whls/accelerate-1.14.0-py3-none-any.whl
+
 ./whls/aiohappyeyeballs-2.7.1-py3-none-any.whl
 ./whls/aiohttp-3.14.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
 ./whls/aiosignal-1.4.0-py3-none-any.whl

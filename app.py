@@ -31,6 +31,13 @@ if not os.path.exists(wheel_path):
     print("Installing PyTorch...")
     subprocess.check_call(["pip", "install", wheel_path, "--no-deps"])
 
+subprocess.check_call([
+    "pip", 
+    "install", 
+    "whls/accelerate-1.14.0-py3-none-any.whl", 
+    "--no-deps"
+])
+
 st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
 
 if "messages" not in st.session_state:
