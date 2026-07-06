@@ -381,9 +381,8 @@ def run_agent_loop(user_prompt: str):
 
             # ─── EXTRACT TOKEN USAGE DIRECTLY FROM MLFLOW TRACE ───
             # MLflow automatically aggregates input/output tokens across all child LLM spans
-            last_trace_id = mlflow.get_last_active_trace_id()
-            if last_trace_id:
-                trace = mlflow.get_trace(trace_id=last_trace_id)
+            trace = mlflow.get_last_active_trace()
+            if trace and hasattr(trace, "info"):
                 usage = trace.info.token_usage
                 
                 if usage:
