@@ -284,7 +284,7 @@ def run_agent_loop(user_prompt: str):
                         
                         # Execute the tool
                         if tool_name in TOOL_DISPATCHER:
-                            func = TOOL_DISPATCHER[tool_name]
+                            func, _ = TOOL_DISPATCHER[tool_name]
                             try:
                                 # Standard execution for ALL tools (no more special SQL handling needed)
                                 result = func(**clean_args)
