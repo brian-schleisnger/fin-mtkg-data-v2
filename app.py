@@ -379,17 +379,26 @@ def run_agent_loop(user_prompt: str):
                 figures=turn_figures
             )
 
-            # ─── EXTRACT TOKEN USAGE DIRECTLY FROM MLFLOW TRACE ───
-            # MLflow automatically aggregates input/output tokens across all child LLM spans
-            trace = mlflow.get_last_active_trace()
-            if trace and hasattr(trace, "info"):
-                usage = trace.info.token_usage
-                
-                if usage:
-                    tokens_this_turn = usage.get("total_tokens", 0)
-                    prompt_this_turn = usage.get("input_tokens", 0)
-                    completion_this_turn = usage.get("output_tokens", 0)
+           # ─── EXTRACT TOKEN USAGE SAFELY FROM SPANS ───
+            # Streamlit session state naturally accumulates across turns and resets on page reload!
+            try:
+                trace = mlflow.get_last_active_trace()
+                if trace and hasattr(trace, "data") and trace.data.spans:
+                    tokens_this_turn = 0
+                    prompt_this_turn = 0
+                    completion_this_turn = 0
                     
+                    # Iterate through individual execution spans since .token_usage isn't on info
+                    for span in trace.data.spans:
+                        # Safely check span attributes for token usage across different MLflow/OTel builds
+                        usage = (span.get_attribute("mlflow.chat.tokenUsage") or 
+                                 span.get_attribute("usage") or {})
+                        
+                        if isinstance(usage, dict):
+                            prompt_this_turn += usage.get("input_tokens", 0) or usage.get("prompt_tokens", 0)
+                            completion_this_turn += usage.get("output_tokens", 0) or usage.get("completion_tokens", 0)
+                            tokens_this_turn += usage.get("total_tokens", 0)
+                            
                     # Update Streamlit session state to keep your UI sidebar accurate
                     st.session_state.total_tokens += tokens_this_turn
                     st.session_state.prompt_tokens += prompt_this_turn
@@ -398,6 +407,9 @@ def run_agent_loop(user_prompt: str):
                     # Log turn metrics to your active MLflow experiment run
                     mlflow.log_metric("tokens_this_turn", tokens_this_turn)
                     mlflow.log_metric("session_total_tokens", st.session_state.total_tokens)
+            except Exception as e:
+                # Wrap in a try/except block so telemetry quirks NEVER crash your live chat UI!
+                st.session_state.run_log.append(f"Notice: Could not extract trace tokens ({e})")
 
             # NEW: Extract figures, dataframes, and logs to save in the assistant's message history
             turn_figures = [item for item in st.session_state.current_turn_dfs if type(item).__name__ == "Figure"]
