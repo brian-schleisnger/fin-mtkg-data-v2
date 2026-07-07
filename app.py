@@ -133,8 +133,8 @@ if not st.session_state.messages:
         st.markdown(
             "Current Data sources I have Access to:\n"
             "- Marketing Spend Data (01/2021 - 05/2026)\n"
-            "- Customer Activation data (10/2018 - 03/2026)\n"
-            "Type a question below or select one of the suggested queries to get started:"
+            "- Customer Activation data (10/2018 - 03/2026)\n\n"
+            "- Type a question below or select one of the suggested queries to get started:"
         ) 
 
 # ─── 5. CHAT HISTORY RENDERING ───────────────────────────────────────────
