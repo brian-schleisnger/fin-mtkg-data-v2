@@ -95,8 +95,6 @@ from agent.loop import run_agent_loop
 from toolkit.base import MODEL
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
-
-
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
 mlflow.set_experiment("/Workspace/Users/brian.schlesinger@dish.com")
 def create_excel_buffer(data_list: list) -> bytes:
@@ -127,6 +125,17 @@ if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
     st.session_state.prompt_tokens = 0
     st.session_state.completion_tokens = 0
+
+# ─── 4.5 WELCOME SCREEN (EMPTY STATE) ────────────────────────────────────
+if not st.session_state.messages:
+    with st.container():
+        st.markdown("## 👋 Welcome to the Marketing Dataset Agent")
+        st.markdown(
+            "Current Data sources I have Access to:\n"
+            "- Marketing Spend Data (01/2021 - 05/2026)"
+            "- Customer Activation data (10/2018 - 03/2026)"
+            "Type a question below or select one of the suggested queries to get started:"
+        ) 
 
 # ─── 5. CHAT HISTORY RENDERING ───────────────────────────────────────────
 for i, msg in enumerate(st.session_state.messages):
@@ -180,22 +189,29 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                         fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
                         st.plotly_chart(fig, use_container_width=True)
                 
-            # 4. Handle Excel export if DataFrames exist
-            if result["dfs"]:
-                excel_data = create_excel_buffer(result["dfs"])
-                st.download_button(
-                    label="📥 Download Raw Data to Excel",
-                    data=excel_data,
-                    file_name="agent_data_export.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="download_current"
-                )
-            
-            # Render Execution Context (Reasoning Log)
-            if result.get("run_log"):
-                with st.expander("Agent Reasoning Log"):
-                    for log in result["run_log"]:
-                        st.text(log)
+            # Replace the standalone download_button and expander rendering with this layout:
+            if msg.get("dfs") or msg.get("run_log"):
+                st.markdown("---") # Light divider separating text from actions
+                act_col1, act_col2 = st.columns([1, 2])
+                
+                with act_col1:
+                    if msg.get("dfs"):
+                        excel_data = create_excel_buffer(msg["dfs"])
+                        st.download_button(
+                            label="📥 Download Excel Export",
+                            data=excel_data,
+                            file_name=f"agent_export_{i}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"download_hist_{i}",
+                            use_container_width=True
+                        )
+                        
+                with act_col2:
+                    if msg.get("run_log"):
+                        with st.expander("🧠 View Agent Execution Trace", expanded=False):
+                            # Formatting logs as numbered code traces looks much more professional
+                            for step_num, log in enumerate(msg["run_log"], 1):
+                                st.markdown(f"**Step {step_num}:** `{log}`")
 
             # Update Streamlit session state cleanly in the UI layer
             st.session_state.messages.append({"role": "user", "content": prompt})
@@ -212,14 +228,29 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
 
 # ─── 7. SIDEBAR & METRICS ────────────────────────────────────────────────
 with st.sidebar:
-    st.title("📊 Token Usage Tracker")
-    st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
+    st.title("🤖 Dataset Agent")
+    st.markdown("---")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(label="Prompt", value=f"{st.session_state.prompt_tokens:,}")
-    with col2:
-        st.metric(label="Completion", value=f"{st.session_state.completion_tokens:,}")
+    # Visual card for Token Metrics
+    with st.container(border=True):
+        st.subheader("📊 Token Usage Tracker")
+        st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(label="Prompt", value=f"{st.session_state.prompt_tokens:,}")
+        with col2:
+            st.metric(label="Completion", value=f"{st.session_state.completion_tokens:,}")
     
-    st.caption(f"Connected to: {MODEL}")
+    # High-contrast model status badge
+    st.success(f"**Connected Model:**\n`{MODEL}`", icon="🟢")
+    
     st.divider()
+    
+    # Essential UX: Reset Session Button
+    if st.button("🗑️ Clear Chat History", use_container_width=True, type="secondary"):
+        st.session_state.messages = []
+        st.session_state.total_tokens = 0
+        st.session_state.prompt_tokens = 0
+        st.session_state.completion_tokens = 0
+        st.rerun()
