@@ -8,6 +8,7 @@ import instructor
 import mlflow
 from openai import OpenAI
 import pandas as pd
+import pg8000
 from pydantic import BaseModel
 import sqlalchemy as sa
 import streamlit as st
@@ -21,18 +22,25 @@ PGDATABASE = "databricks_postgres"
 
 # Initialize the SDK Client
 w = WorkspaceClient()
-auth_headers = w.config.authenticate()
-auth_token = auth_headers["Authorization"].split(" ")[1]
 databricks_host = w.config.host
 
-# 1. CREATE THE RAW CLIENT (For standard chat & native tool calling)
-raw_client = OpenAI(
-    api_key=auth_token,
-    base_url=f"{databricks_host}/serving-endpoints"
-)
+def get_auth_token() -> str:
+    """Dynamically fetches a fresh token from the Databricks SDK on every call."""
+    auth_headers = w.config.authenticate()
+    return auth_headers["Authorization"].split(" ")[1]
 
-# 2. CREATE THE INSTRUCTOR CLIENT (For Pydantic structured outputs)
-instructor_client = instructor.from_openai(raw_client)
+class DynamicOpenAIClient:
+    """A proxy wrapper that ensures every API call uses a freshly rotated token."""
+    def __getattr__(self, name):
+        fresh_token = get_auth_token()
+        client = OpenAI(
+            api_key=fresh_token,
+            base_url=f"{databricks_host}/serving-endpoints"
+        )
+        return getattr(client, name)
+
+# 1. CREATE THE RAW CLIENT PROXY (Zero changes needed in app.py!)
+raw_client = DynamicOpenAIClient()
 
 mlflow.openai.autolog()
 
@@ -72,10 +80,26 @@ for table_name, file_name in SCHEMA_CONFIG.items():
 # ─── Helper Functions ────────────────────────────────────────────
 @st.cache_resource
 def get_db_engine():
-    current_user = w.current_user.me().user_name
-    db_url = f"postgresql+pg8000://{current_user}:{auth_token}@{PGHOST}:5432/{PGDATABASE}"
+    """
+    Caches the SQLAlchemy engine pool, but delegates physical connection 
+    creation to a dynamic function so Postgres always gets a fresh token.
+    """
     ssl_context = ssl.create_default_context()
-    return sa.create_engine(db_url, connect_args={"ssl_context": ssl_context})
+    
+    def get_fresh_connection():
+        fresh_token = get_auth_token()
+        current_user = w.current_user.me().user_name
+        return pg8000.connect(
+            user=current_user,
+            password=fresh_token,
+            host=PGHOST,
+            port=5432,
+            database=PGDATABASE,
+            ssl_context=ssl_context
+        )
+    
+    # We pass an empty URL and bind the dynamic connection creator
+    return sa.create_engine("postgresql+pg8000://", creator=get_fresh_connection)
 
 @mlflow.trace(name="run_sql_query")
 def run_sql_query(query: str) -> pd.DataFrame:
@@ -85,11 +109,18 @@ def run_sql_query(query: str) -> pd.DataFrame:
 
 def llm_call(messages: list, response_model: BaseModel):
     """Replaces raw_llm_call for tasks that require strict JSON outputs."""
-    return instructor_client.chat.completions.create(
-        model=MODEL, # e.g., "databricks-dbrx-instruct"
+    # Instantiates a fresh instructor client using the dynamic token wrapper
+    fresh_instructor_client = instructor.from_openai(
+        OpenAI(
+            api_key=get_auth_token(),
+            base_url=f"{databricks_host}/serving-endpoints"
+        )
+    )
+    return fresh_instructor_client.chat.completions.create(
+        model=MODEL,
         messages=messages,
-        response_model=response_model, # Instructor handles the magic here
-        max_retries=3 # Instructor automatically feeds Pydantic validation errors back to the LLM
+        response_model=response_model,
+        max_retries=3
     )
 
 def get_join_clause(table_a: str, table_b: str) -> str:

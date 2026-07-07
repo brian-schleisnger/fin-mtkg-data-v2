@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # Import existing authentication and configuration from your base module
-from toolkit.base import auth_token, databricks_host
+from toolkit.base import get_auth_token, databricks_host
 
 # ─── Configuration ───────────────────────────────────────────────
 # Standard Databricks hosted embedding model
@@ -28,10 +28,6 @@ class SemanticCache:
     """
     def __init__(self, db_path: str = CACHE_DB_PATH):
         self.db_path = db_path
-        self.client = OpenAI(
-            api_key=auth_token,
-            base_url=f"{databricks_host}/serving-endpoints"
-        )
         self._init_db()
 
     def _init_db(self):
@@ -52,8 +48,12 @@ class SemanticCache:
             conn.commit()
 
     def _get_embedding(self, text: str) -> np.ndarray:
-        """Generates a vector embedding for the user prompt using Databricks Serving."""
-        response = self.client.embeddings.create(
+        # Dynamically grab the token right before calling the embedding model
+        client = OpenAI(
+            api_key=get_auth_token(),
+            base_url=f"{databricks_host}/serving-endpoints"
+        )
+        response = client.embeddings.create(
             model=EMBEDDING_MODEL,
             input=[text.strip().lower()]
         )
