@@ -15,6 +15,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
+
 # ─── 1. ENVIRONMENT BOOTSTRAPPING (CACHED) ───────────────────────────────
 @st.cache_resource
 def bootstrap_environment():
@@ -93,7 +95,7 @@ from agent.loop import run_agent_loop
 from toolkit.base import MODEL
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
-st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
+
 
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
 mlflow.set_experiment("/Workspace/Users/brian.schlesinger@dish.com")
