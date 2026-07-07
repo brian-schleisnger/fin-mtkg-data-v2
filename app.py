@@ -132,15 +132,15 @@ if not st.session_state.messages:
         st.markdown("## 👋 Welcome to the Marketing Dataset Agent")
         st.markdown(
             "Current Data sources I have Access to:\n"
-            "- Marketing Spend Data (01/2021 - 05/2026)"
-            "- Customer Activation data (10/2018 - 03/2026)"
+            "- Marketing Spend Data (01/2021 - 05/2026)\n"
+            "- Customer Activation data (10/2018 - 03/2026)\n"
             "Type a question below or select one of the suggested queries to get started:"
         ) 
 
 # ─── 5. CHAT HISTORY RENDERING ───────────────────────────────────────────
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] in ["user", "assistant"] and msg.get("content"):
-        with st.chat_message(msg["role"]):
+        with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
             st.markdown(msg["content"])
 
             # Render historical figures safely using isinstance
@@ -150,48 +150,9 @@ for i, msg in enumerate(st.session_state.messages):
                         fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
                         st.plotly_chart(fig, use_container_width=True, key=f"fig_{i}_{j}")
                     
-            # Render historical Excel Download Buttons
-            if msg.get("dfs"):
-                excel_data = create_excel_buffer(msg["dfs"])
-                st.download_button(
-                    label="📥 Download Raw Data to Excel",
-                    data=excel_data,
-                    file_name=f"agent_data_export_{i}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"download_hist_{i}" 
-                )
-            
-            # Render historical Reasoning Logs
-            if msg.get("run_log"):
-                with st.expander("Agent Reasoning Log"):
-                    for log in msg["run_log"]:
-                        st.text(log)
-
-if prompt := st.chat_input("Ask a question about the marketing data..."):
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        try:
-            # 1. Run the backend loop, passing current chat history
-            with st.spinner("Analyzing..."):
-                result = run_agent_loop(prompt, st.session_state.messages)
-            
-            # 2. Render response
-            if result.get("is_cached"):
-                st.toast("⚡ Served instantly from Semantic Cache!", icon="⚡")
-            st.markdown(result["final_text"])
-            
-            # Render visual figures returned by the current turn
-            if result.get("figures"):
-                for fig in result["figures"]:
-                    if isinstance(fig, go.Figure):
-                        fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
-                        st.plotly_chart(fig, use_container_width=True)
-                
-            # Replace the standalone download_button and expander rendering with this layout:
+            # Historical Action Bar (Uses `msg`)
             if msg.get("dfs") or msg.get("run_log"):
-                st.markdown("---") # Light divider separating text from actions
+                st.markdown("---")
                 act_col1, act_col2 = st.columns([1, 2])
                 
                 with act_col1:
@@ -200,20 +161,66 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                         st.download_button(
                             label="📥 Download Excel Export",
                             data=excel_data,
-                            file_name=f"agent_export_{i}.xlsx",
+                            file_name=f"agent_data_export_{i}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key=f"download_hist_{i}",
                             use_container_width=True
                         )
-                        
+                
                 with act_col2:
                     if msg.get("run_log"):
                         with st.expander("🧠 View Agent Execution Trace", expanded=False):
-                            # Formatting logs as numbered code traces looks much more professional
                             for step_num, log in enumerate(msg["run_log"], 1):
                                 st.markdown(f"**Step {step_num}:** `{log}`")
 
-            # Update Streamlit session state cleanly in the UI layer
+# ─── 6. CHAT INPUT & EXECUTION ───────────────────────────────────────────
+if prompt := st.chat_input("Ask a question about the marketing data..."):
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant", avatar="🤖"):
+        try:
+            # 1. Run the backend loop, passing current chat history
+            with st.spinner("Analyzing..."):
+                result = run_agent_loop(prompt, st.session_state.messages)
+            
+            # 2. Render response text
+            if result.get("is_cached"):
+                st.toast("⚡ Served instantly from Semantic Cache!", icon="⚡")
+            st.markdown(result["final_text"])
+            
+            # 3. Render visual figures returned by the current turn
+            if result.get("figures"):
+                for fig in result["figures"]:
+                    if isinstance(fig, go.Figure):
+                        fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
+                        st.plotly_chart(fig, use_container_width=True)
+                
+            # 4. Current Turn Action Bar (Uses `result` NOT `msg`!)
+            if result.get("dfs") or result.get("run_log"):
+                st.markdown("---")
+                act_col1, act_col2 = st.columns([1, 2])
+                
+                with act_col1:
+                    if result.get("dfs"):
+                        excel_data = create_excel_buffer(result["dfs"])
+                        st.download_button(
+                            label="📥 Download Excel Export",
+                            data=excel_data,
+                            file_name="agent_data_export_current.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="download_current",
+                            use_container_width=True
+                        )
+                
+                with act_col2:
+                    if result.get("run_log"):
+                        with st.expander("🧠 View Agent Execution Trace", expanded=False):
+                            for step_num, log in enumerate(result["run_log"], 1):
+                                st.markdown(f"**Step {step_num}:** `{log}`")
+
+            # 5. Update Streamlit session state cleanly in the UI layer
+            # Now that no NameError occurs above, these lines will execute properly!
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({
                 "role": "assistant", 
