@@ -462,15 +462,24 @@ def run_scenario_planning_tool(
 ) -> Dict[str, Any]:
     """
     Sub-agent tool: Simulates what-if scenarios using OLS regression across single or multiple tables.
-    When multiple tables (or marketing + acquisition tables) are provided, it automatically aggregates 
-    metrics to the monthly grain (Year, Month) prior to merging to prevent Cartesian explosions and identify cross-table trends.
+    Automatically aggregates metrics to the monthly grain (Year, Month) prior to merging to prevent Cartesian explosions.
     """
-    # 0. Convert List[dict] (from Pydantic model_dump) into a simple {col: val} mapping
-    changes_map = {
-        item["column_name"]: float(item["new_value"]) if isinstance(item, dict) else float(item.new_value)
-        for item in scenario_changes
-    }
+    # 0. SANITIZE INPUTS: Strip accidental double/single quotes added by the LLM
+    target_variable = str(target_variable).replace('"', '').replace("'", "").strip()
+    feature_variables = [str(col).replace('"', '').replace("'", "").strip() for col in feature_variables]
     
+    changes_map = {}
+    for item in scenario_changes:
+        if isinstance(item, dict):
+            col_name = item.get("column_name", "")
+            val = item.get("new_value", 0.0)
+        else:
+            col_name = getattr(item, "column_name", "")
+            val = getattr(item, "new_value", 0.0)
+            
+        clean_col = str(col_name).replace('"', '').replace("'", "").strip()
+        changes_map[clean_col] = float(val)
+        
     all_features = list(set(feature_variables + list(changes_map.keys())))
     
     try:
@@ -479,7 +488,6 @@ def run_scenario_planning_tool(
         
         if is_multi_table or any(t in str(TABLE_NAME).lower() for t in ["marketing", "acquisition"]):
             # -- MULTI-TABLE MONTHLY AGGREGATION MODE --
-            # 1a. Fetch Marketing Spend aggregated by Month
             mkt_query = """
                 SELECT 
                     "year" AS year,
@@ -490,7 +498,6 @@ def run_scenario_planning_tool(
                 FROM "sandbox"."dbs_marketing_spend_sync"
                 GROUP BY "year", "month"
             """
-            # 1b. Fetch Acquisition Data aggregated by Month
             acq_query = """
                 SELECT 
                     "Activation_Year" AS year,
@@ -509,7 +516,6 @@ def run_scenario_planning_tool(
             if df_mkt.empty or df_acq.empty:
                 return {"text": "Error: One or both tables returned no data for monthly aggregation.", "data": None, "model": None}
             
-            # Clean time dimensions and merge safely
             for df_tmp in [df_mkt, df_acq]:
                 df_tmp['year'] = pd.to_numeric(df_tmp['year'], errors='coerce')
                 df_tmp['month'] = pd.to_numeric(df_tmp['month'], errors='coerce')
@@ -521,11 +527,13 @@ def run_scenario_planning_tool(
             # -- STANDARD SINGLE-TABLE MODE --
             table_str = TABLE_NAME[0] if isinstance(TABLE_NAME, list) else TABLE_NAME
             columns_to_fetch = [target_variable] + all_features
-            safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
+            safe_columns = ['"{}"'.format(col) for col in columns_to_fetch]
             columns_str = ", ".join(safe_columns)
             
             sql_query = f"SELECT {columns_str} FROM {table_str} ORDER BY RANDOM() LIMIT 100000"
             df = run_sql_query(sql_query)
+            # Strip quotes from dataframe column names just in case pg8000 preserved them
+            df.columns = [str(col).replace('"', '').replace("'", "").strip() for col in df.columns]
             
         # Ensure target and features exist in our merged dataframe
         missing_cols = [col for col in [target_variable] + all_features if col not in df.columns]
@@ -566,7 +574,6 @@ def run_scenario_planning_tool(
             
             if col in changes_map:
                 scenario_point[col] = float(changes_map[col])
-                # Calculate Elasticity: (% change in Y) / (% change in X) at the mean
                 if col_mean != 0 and historical_target_mean != 0:
                     elasticity = (coef * col_mean) / historical_target_mean
                     elasticity_log.append((col, coef, elasticity))
@@ -595,7 +602,6 @@ def run_scenario_planning_tool(
             pct_change = ((new_val - hist_mean) / hist_mean) * 100 if hist_mean != 0 else 0
             corr = df[col].corr(df[target_variable])
             
-            # Find coefficient and elasticity
             coef_val = model.params.get(col, 0.0)
             elast_val = next((e[2] for e in elasticity_log if e[0] == col), 0.0)
             
