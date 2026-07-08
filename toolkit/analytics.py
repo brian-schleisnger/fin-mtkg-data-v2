@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import mlflow
 import numpy as np
@@ -454,16 +454,16 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
 
 @mlflow.trace(name="run_scenario_planning_tool")
 def run_scenario_planning_tool(
-    TABLE_NAME: str, 
+    TABLE_NAME: Union[str, List[str]], 
     target_variable: str, 
     feature_variables: list, 
     scenario_changes: list, 
     confidence_level: float = 0.95
 ) -> Dict[str, Any]:
     """
-    Sub-agent tool: Simulates what-if scenarios using OLS regression.
-    Changes specified variables to hypothetical values while holding all other features at their historical mean.
-    Returns point predictions, confidence intervals, and Pearson correlations.
+    Sub-agent tool: Simulates what-if scenarios using OLS regression across single or multiple tables.
+    When multiple tables (or marketing + acquisition tables) are provided, it automatically aggregates 
+    metrics to the monthly grain (Year, Month) prior to merging to prevent Cartesian explosions and identify cross-table trends.
     """
     # 0. Convert List[dict] (from Pydantic model_dump) into a simple {col: val} mapping
     changes_map = {
@@ -471,92 +471,155 @@ def run_scenario_planning_tool(
         for item in scenario_changes
     }
     
-    # Ensure any variables in changes_map are included in our feature list
     all_features = list(set(feature_variables + list(changes_map.keys())))
-    columns_to_fetch = [target_variable] + all_features
-    
-    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
-    columns_str = ", ".join(safe_columns)
-    
-    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} ORDER BY RANDOM() LIMIT 100000"
     
     try:
-        df = run_sql_query(sql_query)
+        # 1. DYNAMIC DATA FETCHING: Multi-Table Monthly Merge vs Single Table
+        is_multi_table = isinstance(TABLE_NAME, list) or (isinstance(TABLE_NAME, str) and "," in TABLE_NAME)
         
-        # Clean data: coerce to numeric and drop NAs
-        for col in columns_to_fetch:
+        if is_multi_table or any(t in str(TABLE_NAME).lower() for t in ["marketing", "acquisition"]):
+            # -- MULTI-TABLE MONTHLY AGGREGATION MODE --
+            # 1a. Fetch Marketing Spend aggregated by Month
+            mkt_query = """
+                SELECT 
+                    "year" AS year,
+                    "month" AS month,
+                    SUM("amount") AS total_marketing_spend,
+                    AVG("amount") AS avg_transaction_spend,
+                    COUNT(*) AS marketing_transactions
+                FROM "sandbox"."dbs_marketing_spend_sync"
+                GROUP BY "year", "month"
+            """
+            # 1b. Fetch Acquisition Data aggregated by Month
+            acq_query = """
+                SELECT 
+                    "Activation_Year" AS year,
+                    "Activation_Month" AS month,
+                    COUNT(*) AS total_activations,
+                    AVG("mcf") AS avg_mcf,
+                    AVG("Ve_Churn") AS avg_churn,
+                    SUM("mcf") AS total_mcf
+                FROM "sandbox"."acquisition_data_v3"
+                GROUP BY "Activation_Year", "Activation_Month"
+            """
+            
+            df_mkt = run_sql_query(mkt_query)
+            df_acq = run_sql_query(acq_query)
+            
+            if df_mkt.empty or df_acq.empty:
+                return {"text": "Error: One or both tables returned no data for monthly aggregation.", "data": None, "model": None}
+            
+            # Clean time dimensions and merge safely
+            for df_tmp in [df_mkt, df_acq]:
+                df_tmp['year'] = pd.to_numeric(df_tmp['year'], errors='coerce')
+                df_tmp['month'] = pd.to_numeric(df_tmp['month'], errors='coerce')
+                
+            df = pd.merge(df_mkt, df_acq, on=['year', 'month'], how='inner')
+            df = df.sort_values(by=['year', 'month']).reset_index(drop=True)
+            
+        else:
+            # -- STANDARD SINGLE-TABLE MODE --
+            table_str = TABLE_NAME[0] if isinstance(TABLE_NAME, list) else TABLE_NAME
+            columns_to_fetch = [target_variable] + all_features
+            safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
+            columns_str = ", ".join(safe_columns)
+            
+            sql_query = f"SELECT {columns_str} FROM {table_str} ORDER BY RANDOM() LIMIT 100000"
+            df = run_sql_query(sql_query)
+            
+        # Ensure target and features exist in our merged dataframe
+        missing_cols = [col for col in [target_variable] + all_features if col not in df.columns]
+        if missing_cols:
+            return {
+                "text": f"Error: The following required columns were not found after monthly aggregation: {missing_cols}. Available columns: {df.columns.tolist()}", 
+                "data": None, 
+                "model": None
+            }
+
+        # 2. Data Cleaning & Historical Baselines
+        for col in [target_variable] + all_features:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-        df = df.dropna(subset=columns_to_fetch)
+        df = df.dropna(subset=[target_variable] + all_features)
         
-        if df.empty or len(df) <= len(all_features) + 5:
-            return {"text": "Error: Not enough valid historical data points to build a reliable scenario model.", "data": None, "model": None}
-        
-        # 1. Calculate historical baseline and correlations
+        if df.empty or len(df) <= len(all_features) + 3:
+            return {"text": "Error: Not enough overlapping monthly data points to build a reliable scenario model.", "data": None, "model": None}
+            
         historical_target_mean = df[target_variable].mean()
         
-        correlations = {}
-        for col in changes_map.keys():
-            if col in df.columns:
-                correlations[col] = df[col].corr(df[target_variable])
-                
-        # 2. Fit the Multiple Linear Regression (OLS) Model
+        # 3. Fit OLS Regression Model
         Y = df[target_variable]
         X = df[all_features]
         X_with_const = sm.add_constant(X)
         
         model = sm.OLS(Y, X_with_const).fit()
         
-        # 3. Construct the Scenario Data Point (Hold unmentioned variables at historical mean)
+        # 4. Construct the Scenario Data Point & Calculate Elasticity
         scenario_point = pd.Series(index=X_with_const.columns, dtype=float)
         scenario_point['const'] = 1.0  # Intercept
         
         held_constant_log = []
+        elasticity_log = []
+        
         for col in all_features:
+            col_mean = X[col].mean()
+            coef = model.params.get(col, 0.0)
+            
             if col in changes_map:
                 scenario_point[col] = float(changes_map[col])
+                # Calculate Elasticity: (% change in Y) / (% change in X) at the mean
+                if col_mean != 0 and historical_target_mean != 0:
+                    elasticity = (coef * col_mean) / historical_target_mean
+                    elasticity_log.append((col, coef, elasticity))
             else:
-                col_mean = X[col].mean()
                 scenario_point[col] = col_mean
-                held_constant_log.append(f"{col} (held at avg: {col_mean:.4f})")
+                held_constant_log.append(f"{col} (held at avg: {col_mean:,.2f})")
                 
-        # 4. Predict and generate Confidence/Prediction Intervals
+        # 5. Predict & Generate Confidence Intervals
         prediction_results = model.get_prediction(scenario_point)
         pred_df = prediction_results.summary_frame(alpha=1.0 - confidence_level)
         
         predicted_val = pred_df['mean'].values[0]
         ci_lower = pred_df['obs_ci_lower'].values[0]
         ci_upper = pred_df['obs_ci_upper'].values[0]
+        diff_from_baseline = predicted_val - historical_target_mean
         
-        # 5. Build LLM-Friendly Summary Text
-        result_text = f"--- Scenario Planning Results for Target: '{target_variable}' ---\n\n"
-        result_text += f"1. Baseline Context:\n"
-        result_text += f"  • Historical Average of {target_variable}: {historical_target_mean:.4f}\n"
-        result_text += f"  • Model R-Squared (Overall Fit): {model.rsquared:.4f}\n\n"
+        # 6. Build LLM & Business-Friendly Summary Text
+        result_text = f"--- Multi-Table Monthly Scenario Analysis for Target: '{target_variable}' ---\n\n"
+        result_text += f"1. Baseline Monthly Context ({len(df)} overlapping months analyzed):\n"
+        result_text += f"  • Historical Monthly Average of {target_variable}: {historical_target_mean:,.2f}\n"
+        result_text += f"  • Model R-Squared (Overall Trend Fit): {model.rsquared:.4f}\n\n"
         
-        result_text += f"2. Scenario Conditions:\n"
+        result_text += f"2. Scenario Conditions & Sensitivity:\n"
         for col, new_val in changes_map.items():
             hist_mean = X[col].mean()
             pct_change = ((new_val - hist_mean) / hist_mean) * 100 if hist_mean != 0 else 0
-            corr_str = f"Pearson r = {correlations.get(col, 0):.2f}"
-            result_text += f"  • CHANGED: '{col}' set to {new_val:,.4f} (Historical Avg: {hist_mean:,.4f} | Change: {pct_change:+.1f}% | Correlation with target: {corr_str})\n"
+            corr = df[col].corr(df[target_variable])
+            
+            # Find coefficient and elasticity
+            coef_val = model.params.get(col, 0.0)
+            elast_val = next((e[2] for e in elasticity_log if e[0] == col), 0.0)
+            
+            result_text += f"  • CHANGED: '{col}' set to {new_val:,.2f}\n"
+            result_text += f"    - Historical Monthly Avg: {hist_mean:,.2f} ({pct_change:+.1f}% change)\n"
+            result_text += f"    - Pearson Correlation: r = {corr:.2f}\n"
+            result_text += f"    - Marginal Impact (β): {coef_val:+.4f} {target_variable} per +1.0 unit of {col}\n"
+            result_text += f"    - Elasticity: {elast_val:+.2f}% change in {target_variable} per +1% change in {col}\n"
             
         if held_constant_log:
-            result_text += "  • HELD CONSTANT:\n    - " + "\n    - ".join(held_constant_log) + "\n\n"
+            result_text += "\n  • HELD CONSTANT:\n    - " + "\n    - ".join(held_constant_log) + "\n\n"
         else:
             result_text += "\n"
             
-        result_text += f"3. Prediction & Confidence Interval ({int(confidence_level*100)}% Confidence):\n"
-        result_text += f"  • Expected {target_variable}: {predicted_val:,.4f}\n"
-        result_text += f"  • Prediction Interval: [{ci_lower:,.4f} to {ci_upper:,.4f}]\n"
+        result_text += f"3. Scenario Prediction ({int(confidence_level*100)}% Confidence):\n"
+        result_text += f"  • Expected Monthly {target_variable}: {predicted_val:,.2f}\n"
+        result_text += f"  • Net Impact vs Historical Average: {diff_from_baseline:+,.2f} ({((diff_from_baseline)/historical_target_mean)*100:+.1f}%)\n"
+        result_text += f"  • Prediction Interval: [{ci_lower:,.2f} to {ci_upper:,.2f}]\n\n"
         
-        diff_from_baseline = predicted_val - historical_target_mean
-        result_text += f"  • Net Impact vs Historical Average: {diff_from_baseline:+,.4f}\n\n"
-        
-        result_text += "Statistical Interpretation for the User:\n"
-        result_text += f"Based on the historical correlation and regression coefficients, changing the specified variables while holding others constant is projected to move {target_variable} to approximately {predicted_val:,.2f}. "
-        result_text += f"Because relationships are not exact, we can be {int(confidence_level*100)}% confident that the true outcome will fall between {ci_lower:,.2f} and {ci_upper:,.2f} given normal historical variance."
+        result_text += "Executive Interpretation:\n"
+        result_text += f"By analyzing historical monthly trends across marketing spend and activations, our regression model indicates that shifting your scenario variables as specified will move expected monthly {target_variable} from {historical_target_mean:,.2f} to approximately {predicted_val:,.2f}. "
+        result_text += f"Normal historical variance suggests we can be {int(confidence_level*100)}% confident that the actual monthly outcome under these conditions will fall between {ci_lower:,.2f} and {ci_upper:,.2f}."
 
-        return {"text": result_text, "data": pred_df, "model": model}
+        return {"text": result_text, "data": df, "model": model}
         
     except Exception as e:
         return {"text": f"Scenario Planning Error: {str(e)}", "data": None, "model": None}
