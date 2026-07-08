@@ -209,7 +209,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
             
                 # If LLM decides no tool is needed, break immediately
                 if not assistant_msg.get("tool_calls"):
-                    raw_outputs.append(f"Sub-question: {sq}\nAnswer: {assistant_msg.get('content')}")
+                    raw_outputs.append(f"Sub-question: {sq_text}\nAnswer: {assistant_msg.get('content')}")
                     break
                 
                 msgs.append(assistant_msg)
