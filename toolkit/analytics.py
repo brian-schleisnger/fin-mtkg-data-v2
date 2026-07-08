@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import mlflow
 import numpy as np
@@ -458,11 +458,14 @@ def run_scenario_planning_tool(
     target_variable: str, 
     feature_variables: list, 
     scenario_changes: list, 
-    confidence_level: float = 0.95
+    confidence_level: float = 0.95,
+    marketing_where_clause: Optional[str] = None,
+    acquisition_where_clause: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Sub-agent tool: Simulates what-if scenarios using OLS regression across single or multiple tables.
-    Automatically aggregates metrics to the monthly grain (Year, Month) prior to merging to prevent Cartesian explosions.
+    Supports optional SQL WHERE clauses (e.g., filtering by specific marketing accounts, tactics, or cohorts) 
+    before aggregating metrics to the monthly grain (Year, Month) to prevent Cartesian explosions and run channel-specific simulations.
     """
     # 0. SANITIZE INPUTS: Strip accidental double/single quotes added by the LLM
     target_variable = str(target_variable).replace('"', '').replace("'", "").strip()
@@ -487,7 +490,7 @@ def run_scenario_planning_tool(
         is_multi_table = isinstance(TABLE_NAME, list) or (isinstance(TABLE_NAME, str) and "," in TABLE_NAME)
         
         if is_multi_table or any(t in str(TABLE_NAME).lower() for t in ["marketing", "acquisition"]):
-            # -- MULTI-TABLE MONTHLY AGGREGATION MODE --
+            # -- MULTI-TABLE MONTHLY AGGREGATION MODE WITH FILTERING --
             mkt_query = """
                 SELECT 
                     "year" AS year,
@@ -496,8 +499,11 @@ def run_scenario_planning_tool(
                     AVG("amount") AS avg_transaction_spend,
                     COUNT(*) AS marketing_transactions
                 FROM "sandbox"."dbs_marketing_spend_sync"
-                GROUP BY "year", "month"
             """
+            if marketing_where_clause:
+                mkt_query += f" WHERE {marketing_where_clause}"
+            mkt_query += ' GROUP BY "year", "month"'
+
             acq_query = """
                 SELECT 
                     "Activation_Year" AS year,
@@ -507,14 +513,16 @@ def run_scenario_planning_tool(
                     AVG("Ve_Churn") AS avg_churn,
                     SUM("mcf") AS total_mcf
                 FROM "sandbox"."acquisition_data_v3"
-                GROUP BY "Activation_Year", "Activation_Month"
             """
+            if acquisition_where_clause:
+                acq_query += f" WHERE {acquisition_where_clause}"
+            acq_query += ' GROUP BY "Activation_Year", "Activation_Month"'
             
             df_mkt = run_sql_query(mkt_query)
             df_acq = run_sql_query(acq_query)
             
             if df_mkt.empty or df_acq.empty:
-                return {"text": "Error: One or both tables returned no data for monthly aggregation.", "data": None, "model": None}
+                return {"text": "Error: One or both tables returned no data for the specified filters and monthly aggregation.", "data": None, "model": None}
             
             for df_tmp in [df_mkt, df_acq]:
                 df_tmp['year'] = pd.to_numeric(df_tmp['year'], errors='coerce')
@@ -530,9 +538,13 @@ def run_scenario_planning_tool(
             safe_columns = ['"{}"'.format(col) for col in columns_to_fetch]
             columns_str = ", ".join(safe_columns)
             
-            sql_query = f"SELECT {columns_str} FROM {table_str} ORDER BY RANDOM() LIMIT 100000"
+            sql_query = f"SELECT {columns_str} FROM {table_str}"
+            if marketing_where_clause or acquisition_where_clause:
+                combined_where = " AND ".join(filter(None, [marketing_where_clause, acquisition_where_clause]))
+                sql_query += f" WHERE {combined_where}"
+            sql_query += " ORDER BY RANDOM() LIMIT 100000"
+            
             df = run_sql_query(sql_query)
-            # Strip quotes from dataframe column names just in case pg8000 preserved them
             df.columns = [str(col).replace('"', '').replace("'", "").strip() for col in df.columns]
             
         # Ensure target and features exist in our merged dataframe
@@ -592,6 +604,11 @@ def run_scenario_planning_tool(
         
         # 6. Build LLM & Business-Friendly Summary Text
         result_text = f"--- Multi-Table Monthly Scenario Analysis for Target: '{target_variable}' ---\n\n"
+        if marketing_where_clause or acquisition_where_clause:
+            result_text += f"Active Filters Applied:\n"
+            if marketing_where_clause: result_text += f"  • Marketing Spend: {marketing_where_clause}\n"
+            if acquisition_where_clause: result_text += f"  • Acquisition Data: {acquisition_where_clause}\n\n"
+            
         result_text += f"1. Baseline Monthly Context ({len(df)} overlapping months analyzed):\n"
         result_text += f"  • Historical Monthly Average of {target_variable}: {historical_target_mean:,.2f}\n"
         result_text += f"  • Model R-Squared (Overall Trend Fit): {model.rsquared:.4f}\n\n"
@@ -622,7 +639,7 @@ def run_scenario_planning_tool(
         result_text += f"  • Prediction Interval: [{ci_lower:,.2f} to {ci_upper:,.2f}]\n\n"
         
         result_text += "Executive Interpretation:\n"
-        result_text += f"By analyzing historical monthly trends across marketing spend and activations, our regression model indicates that shifting your scenario variables as specified will move expected monthly {target_variable} from {historical_target_mean:,.2f} to approximately {predicted_val:,.2f}. "
+        result_text += f"By analyzing historical monthly trends across marketing spend and activations under the specified filters, our regression model indicates that shifting your scenario variables will move expected monthly {target_variable} from {historical_target_mean:,.2f} to approximately {predicted_val:,.2f}. "
         result_text += f"Normal historical variance suggests we can be {int(confidence_level*100)}% confident that the actual monthly outcome under these conditions will fall between {ci_lower:,.2f} and {ci_upper:,.2f}."
 
         return {"text": result_text, "data": df, "model": model}
