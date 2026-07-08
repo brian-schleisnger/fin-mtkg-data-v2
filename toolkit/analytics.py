@@ -550,7 +550,7 @@ def run_scenario_planning_tool(
         result_text += f"  • Prediction Interval: [{ci_lower:,.4f} to {ci_upper:,.4f}]\n"
         
         diff_from_baseline = predicted_val - historical_target_mean
-        result_text += f"  • Net Impact vs Historical Average: {diff_from_baseline:+,,.4f}\n\n"
+        result_text += f"  • Net Impact vs Historical Average: {diff_from_baseline:+,.4f}\n\n"
         
         result_text += "Statistical Interpretation for the User:\n"
         result_text += f"Based on the historical correlation and regression coefficients, changing the specified variables while holding others constant is projected to move {target_variable} to approximately {predicted_val:,.2f}. "
