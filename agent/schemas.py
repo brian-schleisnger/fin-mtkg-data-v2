@@ -2,11 +2,33 @@ from typing import List, Optional, Literal
 
 from pydantic import BaseModel, Field
 
-# ─── Orchestration Schemas ───
+# ─── 1. Orchestration & Intent Metadata Schemas ───
+
+class SubQuestion(BaseModel):
+    """A single decomposed data question paired with its required execution category."""
+    question: str = Field(
+        ..., 
+        description="The self-contained, specific data question with all pronouns resolved."
+    )
+    target_category: Literal[
+        "SPECIALIZED_ANALYTICS_AND_MODELING", 
+        "SCENARIO_SIMULATION_AND_WHAT_IF", 
+        "VISUALIZATION_AND_PLOTTING", 
+        "BASIC_SQL_AGGREGATION"
+    ] = Field(
+        ..., 
+        description=(
+            "The analytical category required to answer this question. "
+            "RULES: If the prompt mentions regression, forecasting, clustering, PCA, Random Forest, or unit economics, MUST use 'SPECIALIZED_ANALYTICS_AND_MODELING'. "
+            "If it asks 'what if', assumes new values, or simulates changes, MUST use 'SCENARIO_SIMULATION_AND_WHAT_IF'. "
+            "ONLY use 'BASIC_SQL_AGGREGATION' for simple data retrieval, counts, sums, or averages."
+        )
+    )
+
 class DecomposedQuestions(BaseModel):
-    """The broken-down data queries based on the user's prompt."""
-    questions: List[str] = Field(
-        description="A list of specific, actionable data queries. Max 5."
+    """The broken-down data queries based on the user's prompt, enriched with routing categories."""
+    questions: List[SubQuestion] = Field(
+        description="A list of specific, actionable, and categorized data queries. Max 5."
     )
 
 # -------------------- ANALYSIS SCHEMAS --------------------

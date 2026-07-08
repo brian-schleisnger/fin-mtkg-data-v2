@@ -163,8 +163,25 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         # 3. Execute Tools per Question dynamically
         raw_outputs = []
         for sq in sub_questions:
-            prompt = f"""You are a routing assistant. Select the appropriate tool, or answer directly if no tool is needed. 
-                        Use this EXACT schema for column names: {json.dumps(relevant_schema)}"""
+            # UPGRADED
+            sq_text = sq.question
+            category_hint = sq.target_category
+            prompt = f"""You are a routing assistant. Select the most appropriate tool to answer the sub-question.
+
+            STRICT TOOL SELECTION HIERARCHY:
+            Tier 1 - Specialized Analytics & Scenarios (HIGHEST PRIORITY):
+            • If the question involves regression, correlations, forecasting (ARIMA), clustering (K-Means), PCA, Random Forest, or unit economics, you MUST use the specialized tool (e.g., `run_ols_regression_tool`, `run_arima_forecasting_tool`).
+            • If the question involves "what-if" simulations, elasticity, or scenario planning, you MUST use `run_scenario_planning_tool`.
+
+            Tier 2 - Visualizations:
+            • If the user explicitly asks to plot, chart, or visualize data, use the appropriate `generate_*_tool`.
+
+            Tier 3 - General SQL Execution (LOWEST PRIORITY / LAST RESORT):
+            • ONLY use `execute_sql_query_tool` for simple data retrieval, basic filtering (WHERE), or standard mathematical aggregations (SUM, AVG, COUNT, GROUP BY).
+            • NEGATIVE CONSTRAINT: DO NOT write complex SQL queries to attempt regressions, forecasting, or statistical modeling. If a Tier 1 tool can do it, writing SQL is strictly forbidden.
+
+            The upstream planning agent flagged this question as needing a tool from the '{category_hint}' category.
+            Use this EXACT schema for column names: {json.dumps(relevant_schema)}"""
             
             msgs = [{"role": "system", "content": prompt}]
             
