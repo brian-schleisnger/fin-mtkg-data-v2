@@ -413,7 +413,7 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
 
         # 4. Calculate Unit Economics
         df_merged['cpa'] = df_merged['total_spend'] / df_merged['total_activations']
-        df_merged['clv'] = df_merged['avg_mcf'] /(MONTHLY_WACC + df_merged['avg_churn'])
+        df_merged['clv'] = df_merged['avg_mcf'] /(MONTHLY_WACC + (df_merged['avg_churn']/100))
         df_merged['clv_cpa_ratio'] = df_merged['clv'] / df_merged['cpa']
 
         # Clean up infinities if there were months with zero activations
@@ -427,15 +427,6 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
             df_merged['year'].astype(int).astype(str) + '-' + 
             df_merged['month'].astype(int).astype(str) + '-01', 
             errors='coerce'
-        )
-        
-        fig = px.line(
-            df_merged, 
-            x='Date', 
-            y='cpa', 
-            title='Blended Cost per Acquisition (CPA) Trend',
-            markers=True,
-            labels={'cpa': 'CPA ($)', 'Date': 'Activation Month'}
         )
 
         # 6. Generate Business Summary for the LLM
@@ -455,7 +446,7 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
             f"Note: Data is grouped by month. See the attached dataframe and chart for trend lines."
         )
 
-        return {"text": text_output, "data": df_merged, "figure": fig}
+        return {"text": text_output, "data": df_merged}
 
     except Exception as e:
         return {"text": f"Unit Economics Calculation Error: {e}", "data": None}

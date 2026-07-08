@@ -44,6 +44,7 @@ def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_
     5. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item and do NOT generate data queries.
     6. Use the 'Recent Conversation History' to resolve pronouns (e.g., "it", "that metric") or missing context (e.g., "what about next month?"). Ensure EVERY generated sub-question is entirely self-contained and explicitly mentions the required columns or context.
     7. If the user asks for a chart, graph, plot, scatterplot, bar chart, histogram, or line chart, you MUST explicitly include the exact visualization type (e.g., "generate a bar chart", "generate a histogram") in the generated sub-question so the downstream routing agent knows to trigger the specific visualization tool.
+    8. If the user asks for a what-if analysis, scenario planning, or hypothetical simulation, you MUST explicitly include the phrase "run a what-if scenario" in the generated sub-question so the downstream routing agent knows to trigger the scenario planning tool.
     
     Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
     Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""

@@ -14,7 +14,11 @@ class DecomposedQuestions(BaseModel):
 class execute_sql_query_tool(BaseModel):
     """
     Queries the Databricks database using PostgreSQL syntax. Because this is PostgreSQL, you MUST wrap all column names in double quotes to preserve exact capitalization. 
-    Do NOT use this tool if a more specific tool is available for the user's request (e.g., use calculate_unit_economics_tool for CPA/CLV, use regression/forecasting tools for modeling).
+    Do NOT use this tool if a more specific tool is available for the user's request:
+    - Use calculate_unit_economics_tool for CPA or CLV questions.
+    - Use run_scenario_planning_tool for ANY what-if analysis, simulating changes to variables, or holding variables constant.
+    - Use regression/forecasting/clustering tools for modeling.
+    Do NOT attempt to write complex SQL window functions, regressions, or simulations manually if a tool exists for it.
     """
     sql_query: str = Field(
         ..., 
@@ -197,9 +201,11 @@ class ScenarioChange(BaseModel):
 
 class run_scenario_planning_tool(BaseModel):
     """
-    Performs what-if scenario planning by predicting a target variable (Z) when specific features (X) 
-    are changed to hypothetical values, while holding all other control variables (Y) constant at their historical averages.
-    Use this when the user asks questions like 'What would happen to revenue if marketing spend was $50k?' or 'If X is [value] while holding Y constant, what is Z?'.
+    Performs statistical what-if scenario planning and simulations using OLS regression. 
+    Use this tool whenever the user asks:
+    - What would happen to a target variable (Z) if a feature (X) changes by a certain percentage or to a specific value.
+    - Questions containing phrases like "what if", "assume X is", "increase/decrease by X%", or "hold Y constant".
+    This tool automatically computes baseline averages, applies the hypothetical changes, holds specified control variables constant at their historical means, and returns expected predictions with 95% confidence intervals.
     """
     TABLE_NAME: str = Field(
         ..., 
