@@ -184,6 +184,37 @@ class calculate_unit_economics_tool(BaseModel):
         description="Optional. A PostgreSQL WHERE clause to filter the acquisition table (e.g., '\"Sales_Channel\" = ''Direct'''). Exclude the 'WHERE' keyword."
     )
 
+class run_scenario_planning_tool(BaseModel):
+    """
+    Performs what-if scenario planning by predicting a target variable (Z) when specific features (X) 
+    are changed to hypothetical values, while holding all other control variables (Y) constant at their historical averages.
+    Use this when the user asks questions like 'What would happen to revenue if marketing spend was $50k?' or 'If X is [value] while holding Y constant, what is Z?'.
+    """
+    TABLE_NAME: str = Field(
+        ..., 
+        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+    
+    target_variable: str = Field(
+        ..., 
+        description="The exact column name of the target variable to predict (the Z variable)."
+    )
+    
+    feature_variables: List[str] = Field(
+        ..., 
+        description="A list of all relevant predictor columns to include in the model (both the variables being changed AND the variables being held constant)."
+    )
+    
+    scenario_changes: dict[str, float] = Field(
+        ..., 
+        description="A dictionary mapping exact column names to their new hypothetical values. Example: {'Marketing_Spend': 50000.0, 'CAC': 120.5}"
+    )
+    
+    confidence_level: Optional[float] = Field(
+        default=0.95, 
+        description="The statistical confidence level for the prediction interval (default is 0.95 for a 95% interval)."
+    )
+
 
 
 #----------------------------VISUALS SCHEMAAS----------------------------

@@ -14,6 +14,7 @@ from agent.schemas import (
     generate_linechart_tool as generate_linechart_tool_Schema,
     calculate_unit_economics_tool as calculate_unit_economics_tool_Schema,
     compare_monthly_metrics_tool as compare_monthly_metrics_tool_Schema,
+    run_scenario_planning_tool as run_scenario_planning_tool_Schema
 )
 
 # 2. Import actual tool execution functions explicitly
@@ -25,6 +26,7 @@ from .analytics import (
     run_pca_tool,
     run_kmeans_clustering_tool,
     calculate_unit_economics_tool,
+    run_scenario_planning_tool
 )
 from .visuals import (
     generate_scatterplot_tool,
@@ -48,6 +50,7 @@ TOOL_SCHEMAS = [
     generate_linechart_tool_Schema,
     calculate_unit_economics_tool_Schema,
     compare_monthly_metrics_tool_Schema,
+    run_scenario_planning_tool_Schema
 ]
 
 TOOLS = [pydantic_function_tool(schema) for schema in TOOL_SCHEMAS]
@@ -66,4 +69,5 @@ TOOL_DISPATCHER = {
     "generate_linechart_tool": (generate_linechart_tool, generate_linechart_tool_Schema),
     "calculate_unit_economics_tool": (calculate_unit_economics_tool, calculate_unit_economics_tool_Schema),
     "compare_monthly_metrics_tool": (compare_monthly_metrics_tool, compare_monthly_metrics_tool_Schema),
+    "run_scenario_planning_tool": (run_scenario_planning_tool, run_scenario_planning_tool_Schema)
 }

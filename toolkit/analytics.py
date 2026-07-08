@@ -459,3 +459,108 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
 
     except Exception as e:
         return {"text": f"Unit Economics Calculation Error: {e}", "data": None}
+    
+
+@mlflow.trace(name="run_scenario_planning_tool")
+def run_scenario_planning_tool(
+    TABLE_NAME: str, 
+    target_variable: str, 
+    feature_variables: list, 
+    scenario_changes: dict, 
+    confidence_level: float = 0.95
+) -> Dict[str, Any]:
+    """
+    Sub-agent tool: Simulates what-if scenarios using OLS regression.
+    Changes specified variables to hypothetical values while holding all other features at their historical mean.
+    Returns point predictions, confidence intervals, and Pearson correlations.
+    """
+    # Ensure any variables in scenario_changes are included in our feature list
+    all_features = list(set(feature_variables + list(scenario_changes.keys())))
+    columns_to_fetch = [target_variable] + all_features
+    
+    safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
+    columns_str = ", ".join(safe_columns)
+    
+    sql_query = f"SELECT {columns_str} FROM {TABLE_NAME} ORDER BY RANDOM() LIMIT 100000"
+    
+    try:
+        df = run_sql_query(sql_query)
+        
+        # Clean data: coerce to numeric and drop NAs
+        for col in columns_to_fetch:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        df = df.dropna(subset=columns_to_fetch)
+        
+        if df.empty or len(df) <= len(all_features) + 5:
+            return {"text": "Error: Not enough valid historical data points to build a reliable scenario model.", "data": None, "model": None}
+        
+        # 1. Calculate historical baseline and correlations
+        historical_target_mean = df[target_variable].mean()
+        
+        correlations = {}
+        for col in scenario_changes.keys():
+            if col in df.columns:
+                correlations[col] = df[col].corr(df[target_variable])
+                
+        # 2. Fit the Multiple Linear Regression (OLS) Model
+        Y = df[target_variable]
+        X = df[all_features]
+        X_with_const = sm.add_constant(X)
+        
+        model = sm.OLS(Y, X_with_const).fit()
+        
+        # 3. Construct the Scenario Data Point (Hold unmentioned variables at historical mean)
+        scenario_point = pd.Series(index=X_with_const.columns, dtype=float)
+        scenario_point['const'] = 1.0  # Intercept
+        
+        held_constant_log = []
+        for col in all_features:
+            if col in scenario_changes:
+                scenario_point[col] = float(scenario_changes[col])
+            else:
+                col_mean = X[col].mean()
+                scenario_point[col] = col_mean
+                held_constant_log.append(f"{col} (held at avg: {col_mean:.4f})")
+                
+        # 4. Predict and generate Confidence/Prediction Intervals
+        prediction_results = model.get_prediction(scenario_point)
+        pred_df = prediction_results.summary_frame(alpha=1.0 - confidence_level)
+        
+        predicted_val = pred_df['mean'].values[0]
+        # Using obs_ci (observation prediction interval) as it captures real-world variance better for what-ifs
+        ci_lower = pred_df['obs_ci_lower'].values[0]
+        ci_upper = pred_df['obs_ci_upper'].values[0]
+        
+        # 5. Build LLM-Friendly Summary Text
+        result_text = f"--- Scenario Planning Results for Target: '{target_variable}' ---\n\n"
+        result_text += f"1. Baseline Context:\n"
+        result_text += f"  • Historical Average of {target_variable}: {historical_target_mean:.4f}\n"
+        result_text += f"  • Model R-Squared (Overall Fit): {model.rsquared:.4f}\n\n"
+        
+        result_text += f"2. Scenario Conditions:\n"
+        for col, new_val in scenario_changes.items():
+            hist_mean = X[col].mean()
+            pct_change = ((new_val - hist_mean) / hist_mean) * 100 if hist_mean != 0 else 0
+            corr_str = f"Pearson r = {correlations.get(col, 0):.2f}"
+            result_text += f"  • CHANGED: '{col}' set to {new_val:,.4f} (Historical Avg: {hist_mean:,.4f} | Change: {pct_change:+.1f}% | Correlation with target: {corr_str})\n"
+            
+        if held_constant_log:
+            result_text += "  • HELD CONSTANT:\n    - " + "\n    - ".join(held_constant_log) + "\n\n"
+        else:
+            result_text += "\n"
+            
+        result_text += f"3. Prediction & Confidence Interval ({int(confidence_level*100)}% Confidence):\n"
+        result_text += f"  • Expected {target_variable}: {predicted_val:,.4f}\n"
+        result_text += f"  • Prediction Interval: [{ci_lower:,.4f} to {ci_upper:,.4f}]\n"
+        
+        diff_from_baseline = predicted_val - historical_target_mean
+        result_text += f"  • Net Impact vs Historical Average: {diff_from_baseline:+,,.4f}\n\n"
+        
+        result_text += "Statistical Interpretation for the User:\n"
+        result_text += f"Based on the historical correlation and regression coefficients, changing the specified variables while holding others constant is projected to move {target_variable} to approximately {predicted_val:,.2f}. "
+        result_text += f"Because relationships are not exact, we can be {int(confidence_level*100)}% confident that the true outcome will fall between {ci_lower:,.2f} and {ci_upper:,.2f} given normal historical variance."
+
+        return {"text": result_text, "data": pred_df, "model": model}
+        
+    except Exception as e:
+        return {"text": f"Scenario Planning Error: {str(e)}", "data": None, "model": None}
