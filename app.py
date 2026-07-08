@@ -97,8 +97,10 @@ from toolkit.base import MODEL
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
 mlflow.set_experiment("/Workspace/Users/brian.schlesinger@dish.com")
+
+
 def create_excel_buffer(data_list: list) -> bytes:
-    """Extracts DataFrames from the agent's output and writes them to an Excel buffer."""
+    """Extracts DataFrames from the agent's output, strips timezones, and writes them to an Excel buffer."""
     buffer = io.BytesIO()
     
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -107,8 +109,19 @@ def create_excel_buffer(data_list: list) -> bytes:
         
         for item in data_list:
             if isinstance(item, pd.DataFrame):
-                # Write each DataFrame to its own tab
-                item.to_excel(writer, index=False, sheet_name=f"Result_{sheet_counter}")
+                df = item.copy()
+                
+                # 1. Strip timezone from standard pandas 'datetimetz' columns
+                for col in df.select_dtypes(include=['datetimetz']).columns:
+                    df[col] = df[col].dt.tz_localize(None)
+                
+                # 2. Fallback check for any generic datetime dtypes that still hold tz metadata
+                for col in df.columns:
+                    if pd.api.types.is_datetime64_any_dtype(df[col]) and getattr(df[col].dt, 'tz', None) is not None:
+                        df[col] = df[col].dt.tz_localize(None)
+                        
+                # Write each cleaned DataFrame to its own tab
+                df.to_excel(writer, index=False, sheet_name=f"Result_{sheet_counter}")
                 sheet_counter += 1
                 has_data = True
                 
@@ -157,15 +170,18 @@ for i, msg in enumerate(st.session_state.messages):
                 
                 with act_col1:
                     if msg.get("dfs"):
-                        excel_data = create_excel_buffer(msg["dfs"])
-                        st.download_button(
-                            label="📥 Download Excel Export",
-                            data=excel_data,
-                            file_name=f"agent_data_export_{i}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key=f"download_hist_{i}",
-                            use_container_width=True
-                        )
+                        try:
+                            excel_data = create_excel_buffer(msg["dfs"])
+                            st.download_button(
+                                label="📥 Download Excel Export",
+                                data=excel_data,
+                                file_name=f"agent_data_export_{i}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"download_hist_{i}",
+                                use_container_width=True
+                            )
+                        except Exception as e:
+                            st.warning(f"⚠️ Excel export unavailable: {e}")
                 
                 with act_col2:
                     if msg.get("run_log"):
@@ -203,22 +219,25 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                 
                 with act_col1:
                     if result.get("dfs"):
-                        excel_data = create_excel_buffer(result["dfs"])
-                        st.download_button(
-                            label="📥 Download Excel Export",
-                            data=excel_data,
-                            file_name="agent_data_export_current.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key="download_current",
-                            use_container_width=True
-                        )
+                        try:
+                            excel_data = create_excel_buffer(result["dfs"])
+                            st.download_button(
+                                label="📥 Download Excel Export",
+                                data=excel_data,
+                                file_name="agent_data_export_current.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="download_current",
+                                use_container_width=True
+                            )
+                        except Exception as e:
+                            st.warning(f"⚠️ Excel export unavailable: {e}")
                 
                 with act_col2:
                     if result.get("run_log"):
                         with st.expander("🧠 View Agent Execution Trace", expanded=False):
                             for step_num, log in enumerate(result["run_log"], 1):
                                 st.markdown(f"**Step {step_num}:** `{log}`")
-
+                                
             # 5. Update Streamlit session state cleanly in the UI layer
             # Now that no NameError occurs above, these lines will execute properly!
             st.session_state.messages.append({"role": "user", "content": prompt})
