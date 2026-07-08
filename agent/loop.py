@@ -162,10 +162,20 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         
         # 3. Execute Tools per Question dynamically
         raw_outputs = []
-        for sq in sub_questions:
-            # UPGRADED
-            sq_text = sq.question
-            category_hint = sq.target_category
+        for sq_obj in sub_questions:
+            # ─── SAFE TYPE EXTRACTION ───
+            # Handles Pydantic models, dictionaries, and string fallbacks cleanly
+            if isinstance(sq_obj, str):
+                sq_text = sq_obj
+                category_hint = "SPECIALIZED_ANALYTICS_AND_MODELING"
+            elif isinstance(sq_obj, dict):
+                sq_text = sq_obj.get("question", str(sq_obj))
+                category_hint = sq_obj.get("target_category", "SPECIALIZED_ANALYTICS_AND_MODELING")
+            else:
+                # Standard Pydantic SubQuestion model
+                sq_text = getattr(sq_obj, "question", str(sq_obj))
+                category_hint = getattr(sq_obj, "target_category", "SPECIALIZED_ANALYTICS_AND_MODELING")
+
             prompt = f"""You are a routing assistant. Select the most appropriate tool to answer the sub-question.
 
             STRICT TOOL SELECTION HIERARCHY:
@@ -195,7 +205,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                 intra_turn_context = f"Context from previous sub-questions analyzed just now: {raw_outputs}"
                 msgs.append({"role": "system", "content": intra_turn_context})
                 
-            msgs.append({"role": "user", "content": sq})
+            msgs.append({"role": "user", "content": sq_text})
 
             max_retries = 3
             for attempt in range(max_retries):
@@ -206,7 +216,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                 )
                 track_tokens(response)
                 assistant_msg = response.choices[0].message.model_dump(exclude_none=True)
-            
+                
                 # If LLM decides no tool is needed, break immediately
                 if not assistant_msg.get("tool_calls"):
                     raw_outputs.append(f"Sub-question: {sq_text}\nAnswer: {assistant_msg.get('content')}")
