@@ -247,10 +247,10 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                     
                 # If all tool calls in this attempt succeeded, we are done with this sub-question
                 if not has_turn_error:
-                    raw_outputs.append(f"Sub-question: {sq}\nTool Used: {tool_name}\nData: {output_text}")
+                    raw_outputs.append(f"Sub-question: {sq_text}\nTool Used: {tool_name}\nData: {output_text}")
                     break
                 elif attempt == max_retries - 1:
-                    raw_outputs.append(f"Sub-question: {sq}\nFailed after {max_retries} attempts.")
+                    raw_outputs.append(f"Sub-question: {sq_text}\nFailed after {max_retries} attempts.")
 
         # 4. Final Synthesis
         raw_outputs_str = str(raw_outputs)
