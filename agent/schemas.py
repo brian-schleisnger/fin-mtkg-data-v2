@@ -184,6 +184,17 @@ class calculate_unit_economics_tool(BaseModel):
         description="Optional. A PostgreSQL WHERE clause to filter the acquisition table (e.g., '\"Sales_Channel\" = ''Direct'''). Exclude the 'WHERE' keyword."
     )
 
+class ScenarioChange(BaseModel):
+    """A single hypothetical change to a feature variable."""
+    column_name: str = Field(
+        ..., 
+        description="The exact name of the feature column to modify (e.g., 'Marketing_Spend')."
+    )
+    new_value: float = Field(
+        ..., 
+        description="The new hypothetical numerical value for this column (e.g., 50000.0)."
+    )
+
 class run_scenario_planning_tool(BaseModel):
     """
     Performs what-if scenario planning by predicting a target variable (Z) when specific features (X) 
@@ -205,9 +216,10 @@ class run_scenario_planning_tool(BaseModel):
         description="A list of all relevant predictor columns to include in the model (both the variables being changed AND the variables being held constant)."
     )
     
-    scenario_changes: dict[str, float] = Field(
+    # Updated: Replaced dict[str, float] with List[ScenarioChange] to satisfy strict JSON Schema rules
+    scenario_changes: List[ScenarioChange] = Field(
         ..., 
-        description="A dictionary mapping exact column names to their new hypothetical values. Example: {'Marketing_Spend': 50000.0, 'CAC': 120.5}"
+        description="A list of specific feature columns and their new hypothetical values."
     )
     
     confidence_level: Optional[float] = Field(

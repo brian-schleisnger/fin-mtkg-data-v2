@@ -466,7 +466,7 @@ def run_scenario_planning_tool(
     TABLE_NAME: str, 
     target_variable: str, 
     feature_variables: list, 
-    scenario_changes: dict, 
+    scenario_changes: list, 
     confidence_level: float = 0.95
 ) -> Dict[str, Any]:
     """
@@ -474,8 +474,14 @@ def run_scenario_planning_tool(
     Changes specified variables to hypothetical values while holding all other features at their historical mean.
     Returns point predictions, confidence intervals, and Pearson correlations.
     """
-    # Ensure any variables in scenario_changes are included in our feature list
-    all_features = list(set(feature_variables + list(scenario_changes.keys())))
+    # 0. Convert List[dict] (from Pydantic model_dump) into a simple {col: val} mapping
+    changes_map = {
+        item["column_name"]: float(item["new_value"]) if isinstance(item, dict) else float(item.new_value)
+        for item in scenario_changes
+    }
+    
+    # Ensure any variables in changes_map are included in our feature list
+    all_features = list(set(feature_variables + list(changes_map.keys())))
     columns_to_fetch = [target_variable] + all_features
     
     safe_columns = ['"{}"'.format(col.replace('"', '')) for col in columns_to_fetch]
@@ -498,7 +504,7 @@ def run_scenario_planning_tool(
         historical_target_mean = df[target_variable].mean()
         
         correlations = {}
-        for col in scenario_changes.keys():
+        for col in changes_map.keys():
             if col in df.columns:
                 correlations[col] = df[col].corr(df[target_variable])
                 
@@ -515,8 +521,8 @@ def run_scenario_planning_tool(
         
         held_constant_log = []
         for col in all_features:
-            if col in scenario_changes:
-                scenario_point[col] = float(scenario_changes[col])
+            if col in changes_map:
+                scenario_point[col] = float(changes_map[col])
             else:
                 col_mean = X[col].mean()
                 scenario_point[col] = col_mean
@@ -527,7 +533,6 @@ def run_scenario_planning_tool(
         pred_df = prediction_results.summary_frame(alpha=1.0 - confidence_level)
         
         predicted_val = pred_df['mean'].values[0]
-        # Using obs_ci (observation prediction interval) as it captures real-world variance better for what-ifs
         ci_lower = pred_df['obs_ci_lower'].values[0]
         ci_upper = pred_df['obs_ci_upper'].values[0]
         
@@ -538,7 +543,7 @@ def run_scenario_planning_tool(
         result_text += f"  • Model R-Squared (Overall Fit): {model.rsquared:.4f}\n\n"
         
         result_text += f"2. Scenario Conditions:\n"
-        for col, new_val in scenario_changes.items():
+        for col, new_val in changes_map.items():
             hist_mean = X[col].mean()
             pct_change = ((new_val - hist_mean) / hist_mean) * 100 if hist_mean != 0 else 0
             corr_str = f"Pearson r = {correlations.get(col, 0):.2f}"
