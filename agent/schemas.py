@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -52,9 +52,9 @@ class run_ols_regression_tool(BaseModel):
     Performs an Ordinary Least Squares (OLS) multiple regression. cannot perform non-linear regression. 
     Use this when the user asks to analyze the relationship, correlation, or impact of multiple independent numerical variables on a dependent target variable.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
     )
     
     dependent_variable: str = Field(
@@ -72,9 +72,9 @@ class run_arima_forecasting_tool(BaseModel):
     Performs ARIMA time series forecasting grouped by Activation_Year and Activation_Month. 
     Use this when the user asks to predict future values based on historical trends.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
     )
     
     value_column: str = Field(
@@ -112,9 +112,9 @@ class run_pca_tool(BaseModel):
     Performs Principal Component Analysis (PCA) to reduce dimensionality and find the underlying variance/patterns in a set of features. 
     Use this to identify which combinations of variables explain the most variance in the dataset.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
     )
     
     feature_variables: List[str] = Field(
@@ -132,9 +132,9 @@ class run_kmeans_clustering_tool(BaseModel):
     Performs K-Means clustering to group data into distinct segments based on feature similarities. 
     Use this to discover customer segments, group similar behaviors, or identify natural groupings in the data.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
     )
     
     feature_variables: List[str] = Field(
@@ -152,9 +152,9 @@ class run_random_forest_tool(BaseModel):
     Trains a Random Forest machine learning model to predict a target variable based on multiple features. 
     Use this to find non-linear relationships, classify outcomes, or determine the importance/impact of various features.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
     )
     
     target_variable: str = Field(
@@ -229,9 +229,9 @@ class run_scenario_planning_tool(BaseModel):
     - Questions containing phrases like "what if", "assume X is", "increase/decrease by X%", or "hold Y constant".
     This tool automatically computes baseline averages, applies the hypothetical changes, holds specified control variables constant at their historical means, and returns expected predictions with 95% confidence intervals.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
     )
     
     target_variable: str = Field(
@@ -257,133 +257,119 @@ class run_scenario_planning_tool(BaseModel):
 
 
 
-#----------------------------VISUALS SCHEMAAS----------------------------
-
-class AxisConfig(BaseModel):
-    table_name: str = Field(
-        ..., 
-        description="The exact SQL table name."
-    )
-    
-    column_name: str = Field(
-        ..., 
-        description="The raw column name."
-    )
+#----------------------------VISUALS SCHEMAS----------------------------
 
 class generate_scatterplot_tool(BaseModel):
     """
-    Generates a scatterplot. Can pull variables from the same table or across two different tables.
+    Generates an interactive scatterplot to explore relationships between two numerical variables.
+    Supports querying a single table or automatically joining multiple tables.
     """
-    x_config: AxisConfig = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The table and column configuration for the X-axis metric."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"' or a list of tables to join."
     )
-    
-    y_config: AxisConfig = Field(
+    x_column: str = Field(
         ..., 
-        description="The table and column configuration for the Y-axis metric."
+        description="The exact column name for the X-axis numerical variable."
     )
-    
+    y_column: str = Field(
+        ..., 
+        description="The exact column name for the Y-axis numerical variable."
+    )
     category_column: Optional[str] = Field(
         default=None, 
-        description="Optional column to color-code the scatter points."
+        description="Optional column name to color-code and segment the scatter points."
     )
-    
     where_clause: Optional[str] = Field(
         default=None, 
-        description="Optional SQL WHERE clause (exclude the 'WHERE' keyword)."
+        description="Optional PostgreSQL WHERE clause (exclude the 'WHERE' keyword)."
     )
-    
     include_trendline: Optional[bool] = Field(
-        default=None
+        default=False,
+        description="Set to True to overlay an Ordinary Least Squares (OLS) trendline."
     )
 
 class generate_barchart_tool(BaseModel):
     """
-    Generates a bar chart to compare numerical values across categorical variables. 
-    Use this when the user asks for a bar chart or wants to compare totals/averages across different groups.
+    Generates a bar chart to compare aggregated numerical values across categorical groups or time periods.
+    Automatically handles pre-aggregation (SUM, AVG, COUNT) to ensure clean visualizations.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"'."
     )
-    
     x_column: str = Field(
         ..., 
-        description="The exact column name for the X-axis (usually categorical)."
+        description="The exact column name for the X-axis (usually categorical or dates)."
     )
-    
     y_column: str = Field(
         ..., 
-        description="The exact column name for the Y-axis (numerical value to measure)."
+        description="The exact column name for the Y-axis numerical value to measure."
     )
-    
     category_column: Optional[str] = Field(
         default=None, 
-        description="Optional. The exact column name to use for color-coding or grouping the bars."
+        description="Optional column name to group or color-code side-by-side bars."
     )
-    
     where_clause: Optional[str] = Field(
         default=None, 
-        description="Optional. A standard PostgreSQL WHERE clause to filter the data."
+        description="Optional PostgreSQL WHERE clause to filter data before plotting."
+    )
+    aggregation: Optional[Literal["SUM", "AVG", "COUNT", "MAX", "MIN", "NONE"]] = Field(
+        default="SUM",
+        description="The aggregation function applied to the Y-axis variable per X-axis group. Default is SUM."
     )
 
 class generate_histogram_tool(BaseModel):
     """
-    Generates a histogram to visualize the distribution of a single numerical variable. 
-    Use this when the user asks about the distribution, spread, or frequency of a specific metric.
+    Generates a histogram with an executive box-plot marginal to visualize data distributions, spread, and outliers.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query."
     )
-    
     x_column: str = Field(
         ..., 
         description="The exact column name of the numerical variable to analyze."
     )
-    
     n_bins: Optional[int] = Field(
         default=None, 
-        description="Optional. The number of bins to divide the data into."
+        description="Optional. The number of frequency bins to divide the data into."
     )
-    
     category_column: Optional[str] = Field(
         default=None, 
-        description="Optional. The exact column name to use for color-coding the distribution by group."
+        description="Optional column name to overlay multiple distribution cohorts."
     )
-    
     where_clause: Optional[str] = Field(
         default=None, 
-        description="Optional. A standard PostgreSQL WHERE clause to filter the data."
+        description="Optional PostgreSQL WHERE clause."
     )
 
 class generate_linechart_tool(BaseModel):
     """
-    Generates a line chart to visualize trends over time or across a continuous sequence. 
-    Use this when the user asks for a line chart or wants to see how a metric changes over time.
+    Generates a continuous line chart to visualize trends over time or sequences.
+    Automatically groups duplicate timestamps and sorts chronologically to prevent erratic line jumps.
     """
-    TABLE_NAME: str = Field(
+    TABLE_NAME: Union[str, List[str]] = Field(
         ..., 
-        description="The exact SQL-safe table name to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+        description="The exact SQL-safe table name(s) to query."
     )
-    
     x_column: str = Field(
         ..., 
-        description="The exact column name for the X-axis (usually a time, date, or continuous sequence variable)."
+        description="The exact column name for the X-axis time, date, or sequential sequence."
     )
-    
     y_column: str = Field(
         ..., 
-        description="The exact column name for the Y-axis (numerical variable)."
+        description="The exact column name for the Y-axis numerical variable."
     )
-    
     category_column: Optional[str] = Field(
         default=None, 
-        description="Optional. The exact column name to use for color-coding multiple lines."
+        description="Optional column name to plot multiple colored trend lines simultaneously."
     )
-    
     where_clause: Optional[str] = Field(
         default=None, 
-        description="Optional. A standard PostgreSQL WHERE clause to filter the data."
+        description="Optional PostgreSQL WHERE clause."
+    )
+    aggregation: Optional[Literal["SUM", "AVG", "COUNT", "MAX", "MIN", "NONE"]] = Field(
+        default="SUM",
+        description="The aggregation applied if multiple records share the same X-axis timestamp. Default is SUM."
     )
