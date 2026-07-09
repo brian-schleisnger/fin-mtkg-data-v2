@@ -6,7 +6,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Leverage the centralized join engine from analytics.py
 from .analytics import link_tables
 from .base import run_sql_query
 
@@ -19,7 +18,6 @@ __all__ = [
 ]
 
 
-# ─── Helper Functions ────────────────────────────────────────────
 def _resolve_column(requested_col: str, df: pd.DataFrame) -> str:
     """
     Safely resolves column names in Pandas DataFrames after SQL execution.
@@ -48,36 +46,62 @@ def _resolve_column(requested_col: str, df: pd.DataFrame) -> str:
     return clean_req
 
 
-def _aggregate_if_needed(
-    df: pd.DataFrame, 
+def _prepare_query_params(
     x_col: str, 
     y_col: str, 
     cat_col: Optional[str] = None, 
-    agg_func: str = "SUM"
-) -> pd.DataFrame:
+    agg_func: Optional[str] = None,
+    default_limit: int = 50000
+) -> dict:
     """
-    Ensures bar and line charts receive aggregated data (1 row per X/Category coordinate)
-    to prevent stacked slivers or zigzagging spaghetti lines.
+    Determines whether to push aggregation down to the SQL engine (to avoid LIMIT truncation)
+    or fetch raw rows for plotting.
     """
-    if df.empty or not agg_func or agg_func.upper() == "NONE":
-        return df
-        
-    group_cols = [x_col]
-    if cat_col and cat_col in df.columns:
-        group_cols.append(cat_col)
-        
-    # Check if duplicates exist across the X/Category dimensions
-    if df.duplicated(subset=group_cols).any():
-        func = agg_func.lower() if agg_func.lower() in ["sum", "mean", "count", "min", "max"] else "sum"
-        if func == "count":
-            df = df.groupby(group_cols, as_index=False)[y_col].count()
+    x_clean = x_col.replace('"', '').split('.')[-1]
+    y_clean = y_col.replace('"', '').split('.')[-1]
+    cat_clean = cat_col.replace('"', '').split('.')[-1] if cat_col else None
+
+    func = agg_func.upper() if agg_func and agg_func.upper() in ["SUM", "AVG", "COUNT", "MAX", "MIN"] else None
+
+    if func:
+        # SQL Push-Down: Group by X and Category at the database level
+        group_by_cols = [x_clean]
+        if cat_clean:
+            group_by_cols.append(cat_clean)
+
+        if func == "COUNT" and (y_clean == "*" or y_clean.lower() == "count"):
+            y_sql = 'COUNT(*) AS "y_value"'
+            y_label = "COUNT(*)"
         else:
-            df = df.groupby(group_cols, as_index=False)[y_col].agg(func)
-            
-    return df
+            y_sql = f'{func}("{y_clean}") AS "y_value"'
+            y_label = f"{func}({y_clean})"
+
+        cols_to_fetch = [f'"{x_clean}"']
+        if cat_clean:
+            cols_to_fetch.append(f'"{cat_clean}"')
+        cols_to_fetch.append(y_sql)
+
+        return {
+            "columns": cols_to_fetch,
+            "group_by": group_by_cols,
+            "limit": 5000, # Grouped queries only return a few rows, but 5000 prevents runaway memory
+            "y_target": "y_value",
+            "y_label": y_label
+        }
+    else:
+        # Fallback to raw row fetching
+        cols = [f'"{x_clean}"', f'"{y_clean}"']
+        if cat_clean:
+            cols.append(f'"{cat_clean}"')
+        return {
+            "columns": cols,
+            "group_by": None,
+            "limit": default_limit,
+            "y_target": y_clean,
+            "y_label": y_clean
+        }
 
 
-# ─── Plotting Functions ────────────────────────────────────────────
 @mlflow.trace(name="generate_scatterplot_tool")
 def generate_scatterplot_tool(
     TABLE_NAME: Union[str, List[str]], 
@@ -136,27 +160,30 @@ def generate_barchart_tool(
     where_clause: Optional[str] = None,
     aggregation: str = "SUM"
 ) -> Dict[str, Any]:
-    """Sub-agent tool: Generates an aggregated bar chart across single or joined tables."""
-    cols_to_fetch = [x_column, y_column]
-    if category_column:
-        cols_to_fetch.append(category_column)
+    """Sub-agent tool: Generates an aggregated bar chart using SQL push-down aggregation."""
+    params = _prepare_query_params(x_column, y_column, category_column, aggregation)
+    x_clean = x_column.replace('"', '').split('.')[-1]
 
     try:
-        df = link_tables(TABLE_NAME, columns=cols_to_fetch, where_clause=where_clause, limit=50000)
+        # Pushing aggregation down to the database to prevent LIMIT truncation
+        df = link_tables(
+            TABLE_NAME, 
+            columns=params["columns"], 
+            where_clause=where_clause, 
+            group_by=params["group_by"],
+            order_by=f'"{x_clean}" ASC',
+            limit=params["limit"]
+        )
         if df.empty:
             return {"text": "Error: No data returned for bar chart.", "data": None, "figure": None}
 
-        x_col = _resolve_column(x_column, df)
-        y_col = _resolve_column(y_column, df)
+        x_col = _resolve_column(x_clean, df)
+        y_col = _resolve_column(params["y_target"], df)
         cat_col = _resolve_column(category_column, df) if category_column else None
 
         df[y_col] = pd.to_numeric(df[y_col], errors='coerce')
         df = df.dropna(subset=[x_col, y_col])
-
-        # Automatically group and aggregate to prevent sliver bars
-        df = _aggregate_if_needed(df, x_col, y_col, cat_col, agg_func=aggregation)
         
-        # Sort X-axis naturally if possible, otherwise by Y value descending
         try:
             df = df.sort_values(by=x_col, ascending=True)
         except Exception:
@@ -164,7 +191,7 @@ def generate_barchart_tool(
 
         kwargs = {
             "x": x_col, "y": y_col,
-            "title": f"{aggregation.upper()} of {y_col} by {x_col}",
+            "title": f"{params['y_label']} by {x_clean}",
             "template": "plotly_white"
         }
         if cat_col and cat_col in df.columns:
@@ -174,6 +201,7 @@ def generate_barchart_tool(
 
         fig = px.bar(df, **kwargs)
         fig.update_layout(margin=dict(l=40, r=40, t=60, b=40))
+        fig.update_yaxes(title_text=params['y_label'])
 
         return {"text": f"Successfully generated bar chart ({len(df)} aggregated bars).", "data": df, "figure": fig}
     except Exception as e:
@@ -206,7 +234,7 @@ def generate_histogram_tool(
 
         kwargs = {
             "x": x_col, "title": f"Distribution of {x_col}",
-            "template": "plotly_white", "marginal": "box", # Adds executive box plot above histogram
+            "template": "plotly_white", "marginal": "box",
             "opacity": 0.8
         }
         if n_bins:
@@ -233,32 +261,38 @@ def generate_linechart_tool(
     where_clause: Optional[str] = None,
     aggregation: str = "SUM"
 ) -> Dict[str, Any]:
-    """Sub-agent tool: Generates a clean, sorted time-series or sequential line chart."""
-    cols_to_fetch = [x_column, y_column]
-    if category_column:
-        cols_to_fetch.append(category_column)
+    """Sub-agent tool: Generates a clean, sorted time-series line chart using SQL push-down aggregation."""
+    params = _prepare_query_params(x_column, y_column, category_column, aggregation)
+    x_clean = x_column.replace('"', '').split('.')[-1]
 
     try:
-        df = link_tables(TABLE_NAME, columns=cols_to_fetch, where_clause=where_clause, limit=50000)
+        # Pushing GROUP BY and ORDER BY down to SQL prevents row truncation!
+        df = link_tables(
+            TABLE_NAME, 
+            columns=params["columns"], 
+            where_clause=where_clause, 
+            group_by=params["group_by"],
+            order_by=f'"{x_clean}" ASC',
+            limit=params["limit"]
+        )
         if df.empty:
             return {"text": "Error: No data returned for line chart.", "data": None, "figure": None}
 
-        x_col = _resolve_column(x_column, df)
-        y_col = _resolve_column(y_column, df)
+        x_col = _resolve_column(x_clean, df)
+        y_col = _resolve_column(params["y_target"], df)
         cat_col = _resolve_column(category_column, df) if category_column else None
 
         df[y_col] = pd.to_numeric(df[y_col], errors='coerce')
         df = df.dropna(subset=[x_col, y_col])
 
-        # Group and aggregate to eliminate zigzagging spaghetti lines
-        df = _aggregate_if_needed(df, x_col, y_col, cat_col, agg_func=aggregation)
-        
-        # Mandatory sort by X-axis for chronological sequence
-        df = df.sort_values(by=x_col, ascending=True)
+        try:
+            df = df.sort_values(by=x_col, ascending=True)
+        except Exception:
+            pass
 
         kwargs = {
             "x": x_col, "y": y_col, "markers": True,
-            "title": f"Trend of {aggregation.upper()}({y_col}) over {x_col}",
+            "title": f"Trend of {params['y_label']} over {x_clean}",
             "template": "plotly_white"
         }
         if cat_col and cat_col in df.columns:
@@ -267,6 +301,7 @@ def generate_linechart_tool(
 
         fig = px.line(df, **kwargs)
         fig.update_layout(hovermode="x unified", margin=dict(l=40, r=40, t=60, b=40))
+        fig.update_yaxes(title_text=params['y_label'])
 
         return {"text": f"Successfully generated line chart over {len(df)} intervals.", "data": df, "figure": fig}
     except Exception as e:
