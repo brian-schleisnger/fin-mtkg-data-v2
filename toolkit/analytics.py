@@ -111,7 +111,13 @@ def link_tables(
         sql_query += f" WHERE {where_clause}"
         
     if group_by:
-        safe_group = [f'"{col.replace('"', '').strip()}"' if "." not in col else col for col in group_by]
+        safe_group = []
+        for col in group_by:
+            if "." not in col:
+                clean_col = col.replace('"', '').replace("'", "").strip()
+                safe_group.append(f'"{clean_col}"')
+            else:
+                safe_group.append(col)
         sql_query += f" GROUP BY {', '.join(safe_group)}"
         
     if random_order:
