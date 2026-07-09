@@ -108,33 +108,38 @@ def run_sql_query(query: str) -> pd.DataFrame:
         return pd.read_sql(sa.text(query), conn)
 
 def llm_call(messages: list, response_model: BaseModel):
-    """Replaces raw_llm_call for tasks that require strict JSON outputs."""
-    # Instantiates a fresh instructor client using the dynamic token wrapper
+    """Replaces raw_llm_call for tasks that require strict JSON outputs, tracking tokens accurately."""
     fresh_instructor_client = instructor.from_openai(
         OpenAI(
             api_key=get_auth_token(),
             base_url=f"{databricks_host}/serving-endpoints"
         )
     )
-    return fresh_instructor_client.chat.completions.create(
+    # Use create_with_completion to get both the Pydantic model AND the raw OpenAI response
+    model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
         model=MODEL,
         messages=messages,
         response_model=response_model,
         max_retries=3
     )
-
-def get_join_clause(table_a: str, table_b: str) -> str:
-    """Returns the correct ON clause regardless of the order the tables are passed."""
-    return TABLE_RELATIONSHIPS.get((table_a, table_b)) or TABLE_RELATIONSHIPS.get((table_b, table_a))
+    track_tokens(raw_res)  # Now decomposition tokens are accurately tracked!
+    return model_res
 
 def track_tokens(response):
     """Directly extracts token usage from a live OpenAI/Databricks SDK response object."""
     if hasattr(response, "usage") and response.usage:
-        # Check both OpenAI (.prompt_tokens) and OTel/Databricks (.input_tokens) naming conventions
-        prompt_t = getattr(response.usage, "prompt_tokens", 0) or getattr(response.usage, "input_tokens", 0)
-        comp_t = getattr(response.usage, "completion_tokens", 0) or getattr(response.usage, "output_tokens", 0)
-        total_t = getattr(response.usage, "total_tokens", 0) or (prompt_t + comp_t)
+        # Explicitly check modern input/output naming first, then fall back to prompt/completion
+        input_t = getattr(response.usage, "input_tokens", 0) or getattr(response.usage, "prompt_tokens", 0)
+        output_t = getattr(response.usage, "output_tokens", 0) or getattr(response.usage, "completion_tokens", 0)
+        total_t = getattr(response.usage, "total_tokens", 0) or (input_t + output_t)
         
-        st.session_state.prompt_tokens += prompt_t
-        st.session_state.completion_tokens += comp_t
-        st.session_state.total_tokens += total_t
+        if "input_tokens" in st.session_state:
+            st.session_state.input_tokens += input_t
+        if "output_tokens" in st.session_state:
+            st.session_state.output_tokens += output_t
+        if "total_tokens" in st.session_state:
+            st.session_state.total_tokens += total_t
+
+def get_join_clause(table_a: str, table_b: str) -> str:
+    """Returns the correct ON clause regardless of the order the tables are passed."""
+    return TABLE_RELATIONSHIPS.get((table_a, table_b)) or TABLE_RELATIONSHIPS.get((table_b, table_a))

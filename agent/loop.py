@@ -127,6 +127,8 @@ def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str]) -> Tupl
 
 # ─── 3. Main Agent Orchestrator ──────────────────────────────────────────
 
+import time
+
 @mlflow.trace(name="run_agent_loop")
 def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]:
     """
@@ -135,36 +137,56 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
     """
     run_log: List[str] = []
     current_turn_dfs: List[Any] = []
+    step_latencies: Dict[str, float] = {}
+    
+    t_start_total = time.perf_counter()
+
+    # Capture token counts at the start of the turn to compute per-turn MLflow metrics
+    start_input_tokens = st.session_state.get("input_tokens", 0)
+    start_output_tokens = st.session_state.get("output_tokens", 0)
+    start_total_tokens = st.session_state.get("total_tokens", 0)
 
     with mlflow.start_run(run_name="Agent_Interaction"):
         mlflow.log_param("user_prompt", user_prompt)
         
         # ─── 0. SEMANTIC CACHE INTERCEPT ───
+        t0 = time.perf_counter()
         cached_result = agent_cache.check_cache(user_prompt)
+        step_latencies["Cache Check"] = round(time.perf_counter() - t0, 2)
+        
         if cached_result:
+            step_latencies["Total Execution"] = round(time.perf_counter() - t_start_total, 2)
             run_log.append(f"⚡ Served from Semantic Cache. Matched Prompt: '{cached_result['matched_prompt']}' ({cached_result['similarity']*100:.1f}% similarity)")
+            
+            mlflow.log_metrics({
+                "latency_cache_check_sec": step_latencies["Cache Check"],
+                "latency_total_sec": step_latencies["Total Execution"],
+                "cache_hit": 1
+            })
             
             return {
                 "final_text": cached_result["content"],
                 "dfs": cached_result["dfs"],
                 "figures": cached_result["figures"],
                 "run_log": run_log,
+                "step_latencies": step_latencies,
                 "is_cached": True,
                 "cache_info": cached_result
             }
     
-        # 1. Filter Context
+        mlflow.log_metric("cache_hit", 0)
+
+        # ─── 1. DECOMPOSITION & CONTEXT ───
+        t0 = time.perf_counter()
         relevant_schema = filter_schema(user_prompt)
-        
-        # 2. Decompose Intent
         sub_questions = decompose_question(user_prompt, relevant_schema, chat_history, run_log)
+        step_latencies["1. Decomposition"] = round(time.perf_counter() - t0, 2)
         run_log.append(f"Sub-questions identified: {sub_questions}")
         
-        # 3. Execute Tools per Question dynamically
+        # ─── 2. TOOL ROUTING & EXECUTION ───
+        t0 = time.perf_counter()
         raw_outputs = []
         for sq_obj in sub_questions:
-            # ─── SAFE TYPE EXTRACTION ───
-            # Handles Pydantic models, dictionaries, and string fallbacks cleanly
             if isinstance(sq_obj, str):
                 sq_text = sq_obj
                 category_hint = "SPECIALIZED_ANALYTICS_AND_MODELING"
@@ -172,7 +194,6 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                 sq_text = sq_obj.get("question", str(sq_obj))
                 category_hint = sq_obj.get("target_category", "SPECIALIZED_ANALYTICS_AND_MODELING")
             else:
-                # Standard Pydantic SubQuestion model
                 sq_text = getattr(sq_obj, "question", str(sq_obj))
                 category_hint = getattr(sq_obj, "target_category", "SPECIALIZED_ANALYTICS_AND_MODELING")
 
@@ -195,12 +216,10 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
             
             msgs = [{"role": "system", "content": prompt}]
             
-            # Inject historical memory (last 4 turns)
             if chat_history:
                 clean_history = [{"role": m["role"], "content": m.get("content", "")} for m in chat_history[-4:]]
                 msgs.extend(clean_history)
                 
-            # Inject intra-turn memory from previous sub-questions in this same loop
             if raw_outputs:
                 intra_turn_context = f"Context from previous sub-questions analyzed just now: {raw_outputs}"
                 msgs.append({"role": "system", "content": intra_turn_context})
@@ -217,7 +236,6 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                 track_tokens(response)
                 assistant_msg = response.choices[0].message.model_dump(exclude_none=True)
                 
-                # If LLM decides no tool is needed, break immediately
                 if not assistant_msg.get("tool_calls"):
                     raw_outputs.append(f"Sub-question: {sq_text}\nAnswer: {assistant_msg.get('content')}")
                     break
@@ -229,7 +247,6 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                     call_id = tool_call.get("id", "call_id")
                     tool_name = tool_call["function"]["name"]
                     
-                    # Call our cleanly extracted execution engine
                     output_text, has_error, extracted_objects = execute_tool_call(tool_call, attempt, run_log)
                     
                     if has_error:
@@ -237,7 +254,6 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                     else:
                         current_turn_dfs.extend(extracted_objects)
                         
-                    # Feed the result (or formatted validation/execution error) back to the LLM
                     msgs.append({
                         "role": "tool",
                         "tool_call_id": call_id,
@@ -245,14 +261,16 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                         "content": output_text
                     })
                     
-                # If all tool calls in this attempt succeeded, we are done with this sub-question
                 if not has_turn_error:
                     raw_outputs.append(f"Sub-question: {sq_text}\nTool Used: {tool_name}\nData: {output_text}")
                     break
                 elif attempt == max_retries - 1:
                     raw_outputs.append(f"Sub-question: {sq_text}\nFailed after {max_retries} attempts.")
 
-        # 4. Final Synthesis
+        step_latencies["2. Tool Routing & Execution"] = round(time.perf_counter() - t0, 2)
+
+        # ─── 3. FINAL SYNTHESIS ───
+        t0 = time.perf_counter()
         raw_outputs_str = str(raw_outputs)
         if context_optimizer.count_tokens(raw_outputs_str) > 20000:
             raw_outputs_str = context_optimizer.compress_text(
@@ -278,13 +296,28 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         )
         track_tokens(response)
         final_text = response.choices[0].message.content
+        step_latencies["3. Final Synthesis"] = round(time.perf_counter() - t0, 2)
         
-        # ─── Standardize Type Checking & Deduplicate Extractors ───
-        # Safely split Plotly figures from tabular DataFrames/Models using isinstance
+        step_latencies["Total Execution"] = round(time.perf_counter() - t_start_total, 2)
+        
         turn_figures = [item for item in current_turn_dfs if isinstance(item, go.Figure)]
         turn_dfs = [item for item in current_turn_dfs if isinstance(item, pd.DataFrame)]
 
-        # 5. Save to Semantic Cache
+        # ─── 4. MLFLOW TELEMETRY LOGGING ───
+        turn_input_tokens = st.session_state.get("input_tokens", 0) - start_input_tokens
+        turn_output_tokens = st.session_state.get("output_tokens", 0) - start_output_tokens
+        turn_total_tokens = st.session_state.get("total_tokens", 0) - start_total_tokens
+
+        mlflow.log_metrics({
+            "turn_input_tokens": turn_input_tokens,
+            "turn_output_tokens": turn_output_tokens,
+            "turn_total_tokens": turn_total_tokens,
+            "latency_1_decomposition_sec": step_latencies.get("1. Decomposition", 0.0),
+            "latency_2_tools_sec": step_latencies.get("2. Tool Routing & Execution", 0.0),
+            "latency_3_synthesis_sec": step_latencies.get("3. Final Synthesis", 0.0),
+            "latency_total_sec": step_latencies["Total Execution"]
+        })
+
         agent_cache.save_to_cache(
             user_prompt=user_prompt,
             final_text=final_text,
@@ -292,11 +325,11 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
             figures=turn_figures
         )
 
-        # 6. Return structured payload to UI
         return {
             "final_text": final_text,
             "dfs": turn_dfs,
             "figures": turn_figures,
             "run_log": run_log,
+            "step_latencies": step_latencies,
             "is_cached": False
         }

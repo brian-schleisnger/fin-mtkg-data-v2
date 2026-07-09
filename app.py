@@ -132,12 +132,12 @@ def create_excel_buffer(data_list: list) -> bytes:
     return buffer.getvalue()
 
 # ─── 4. SESSION STATE INITIALIZATION ─────────────────────────────────────
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
-    st.session_state.prompt_tokens = 0
-    st.session_state.completion_tokens = 0
+    st.session_state.input_tokens = 0   # Changed from prompt_tokens
+    st.session_state.output_tokens = 0  # Changed from completion_tokens
+if "last_step_latencies" not in st.session_state:
+    st.session_state.last_step_latencies = {}
 
 # ─── 4.5 WELCOME SCREEN (EMPTY STATE) ────────────────────────────────────
 if not st.session_state.messages:
@@ -200,6 +200,9 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             with st.spinner("Analyzing..."):
                 result = run_agent_loop(prompt, st.session_state.messages)
             
+            # Save latest turn execution times for sidebar rendering
+            st.session_state.last_step_latencies = result.get("step_latencies", {})
+            
             # 2. Render response text
             if result.get("is_cached"):
                 st.toast("⚡ Served instantly from Semantic Cache!", icon="⚡")
@@ -237,7 +240,7 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                         with st.expander("🧠 View Agent Execution Trace", expanded=False):
                             for step_num, log in enumerate(result["run_log"], 1):
                                 st.markdown(f"**Step {step_num}:** `{log}`")
-                                
+
             # 5. Update Streamlit session state cleanly in the UI layer
             # Now that no NameError occurs above, these lines will execute properly!
             st.session_state.messages.append({"role": "user", "content": prompt})
@@ -257,26 +260,40 @@ with st.sidebar:
     st.title("🤖 Dataset Agent")
     st.markdown("---")
     
-    # Visual card for Token Metrics
+    # 1. Token Usage Tracker Card
     with st.container(border=True):
         st.subheader("📊 Token Usage Tracker")
         st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
         
         col1, col2 = st.columns(2)
         with col1:
-            st.metric(label="Prompt", value=f"{st.session_state.prompt_tokens:,}")
+            st.metric(label="Input", value=f"{st.session_state.input_tokens:,}")
         with col2:
-            st.metric(label="Completion", value=f"{st.session_state.completion_tokens:,}")
+            st.metric(label="Output", value=f"{st.session_state.output_tokens:,}")
+            
+    # 2. Step Latency Card (NEW)
+    with st.container(border=True):
+        st.subheader("⏱️ Execution Latency")
+        latencies = st.session_state.get("last_step_latencies", {})
+        if latencies:
+            total_time = latencies.get("Total Execution", 0.0)
+            st.metric(label="Last Turn Total", value=f"{total_time:.2f} s")
+            
+            st.markdown("---")
+            for step_name, duration in latencies.items():
+                if step_name != "Total Execution":
+                    st.caption(f"**{step_name}:** {duration:.2f} s")
+        else:
+            st.caption("No query executed yet.")
     
-    # High-contrast model status badge
     st.success(f"**Connected Model:**\n`{MODEL}`", icon="🟢")
-    
     st.divider()
     
-    # Essential UX: Reset Session Button
+    # Reset Session Button
     if st.button("🗑️ Clear Chat History", use_container_width=True, type="secondary"):
         st.session_state.messages = []
         st.session_state.total_tokens = 0
-        st.session_state.prompt_tokens = 0
-        st.session_state.completion_tokens = 0
+        st.session_state.input_tokens = 0
+        st.session_state.output_tokens = 0
+        st.session_state.last_step_latencies = {}
         st.rerun()
