@@ -52,9 +52,14 @@ class run_ols_regression_tool(BaseModel):
     Performs an Ordinary Least Squares (OLS) multiple regression. cannot perform non-linear regression. 
     Use this when the user asks to analyze the relationship, correlation, or impact of multiple independent numerical variables on a dependent target variable.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
         description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     
     dependent_variable: str = Field(
@@ -72,9 +77,14 @@ class run_arima_forecasting_tool(BaseModel):
     Performs ARIMA time series forecasting grouped by Activation_Year and Activation_Month. 
     Use this when the user asks to predict future values based on historical trends.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
         description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     
     value_column: str = Field(
@@ -112,9 +122,14 @@ class run_pca_tool(BaseModel):
     Performs Principal Component Analysis (PCA) to reduce dimensionality and find the underlying variance/patterns in a set of features. 
     Use this to identify which combinations of variables explain the most variance in the dataset.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
         description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     
     feature_variables: List[str] = Field(
@@ -132,9 +147,14 @@ class run_kmeans_clustering_tool(BaseModel):
     Performs K-Means clustering to group data into distinct segments based on feature similarities. 
     Use this to discover customer segments, group similar behaviors, or identify natural groupings in the data.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
         description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     
     feature_variables: List[str] = Field(
@@ -152,9 +172,14 @@ class run_random_forest_tool(BaseModel):
     Trains a Random Forest machine learning model to predict a target variable based on multiple features. 
     Use this to find non-linear relationships, classify outcomes, or determine the importance/impact of various features.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
         description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     
     target_variable: str = Field(
@@ -229,9 +254,14 @@ class run_scenario_planning_tool(BaseModel):
     - Questions containing phrases like "what if", "assume X is", "increase/decrease by X%", or "hold Y constant".
     This tool automatically computes baseline averages, applies the hypothetical changes, holds specified control variables constant at their historical means, and returns expected predictions with 95% confidence intervals.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
         description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     
     target_variable: str = Field(
@@ -264,9 +294,14 @@ class generate_scatterplot_tool(BaseModel):
     Generates an interactive scatterplot to explore relationships between two numerical variables.
     Supports querying a single table or automatically joining multiple tables.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"' or a list of tables to join."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     x_column: str = Field(
         ..., 
@@ -294,9 +329,14 @@ class generate_barchart_tool(BaseModel):
     Generates a bar chart to compare aggregated numerical values across categorical groups or time periods.
     Automatically handles pre-aggregation (SUM, AVG, COUNT) to ensure clean visualizations.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     x_column: str = Field(
         ..., 
@@ -323,9 +363,14 @@ class generate_histogram_tool(BaseModel):
     """
     Generates a histogram with an executive box-plot marginal to visualize data distributions, spread, and outliers.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     x_column: str = Field(
         ..., 
@@ -349,9 +394,14 @@ class generate_linechart_tool(BaseModel):
     Generates a continuous line chart to visualize trends over time or sequences.
     Automatically groups duplicate timestamps and sorts chronologically to prevent erratic line jumps.
     """
-    TABLE_NAME: Union[str, List[str]] = Field(
+    TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_no_id\"' or '\"sandbox\".\"dbs_marketing_spend_sync\"'."
+    )
+
+    dataframe_id: Optional[str] = Field(
+        default=None,
+        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
     )
     x_column: str = Field(
         ..., 

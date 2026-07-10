@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from agent.cache import agent_cache
-from agent.memory import context_optimizer
+from agent.memory import context_optimizer, df_memory
 from agent.schemas import DecomposedQuestions
 from toolkit import TOOLS, TOOL_DISPATCHER
 from toolkit.base import DATA_DICTIONARY, llm_call, MODEL, raw_client, track_tokens
@@ -106,8 +106,15 @@ def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str]) -> Tupl
                 return output_text, True, []
             
             output_text = result.get("text", "Tool executed successfully.")
-            # Collect data structures (DataFrames, Models, Figures) for UI rendering
-            for key in ["data", "model", "figure"]:
+            
+            # --- NEW MEMORY INJECTION ---
+            if result.get("data") is not None and isinstance(result["data"], pd.DataFrame):
+                # Save to registry and append the ID to the LLM's view
+                df_id = df_memory.save_df(result["data"])
+                output_text += f"\n[System Note: Data saved to Python memory with ID: {df_id}]"
+                extracted_objects.append(result["data"])
+                
+            for key in ["model", "figure"]:
                 if result.get(key) is not None:
                     extracted_objects.append(result[key])
         else:
@@ -202,15 +209,17 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
 
             STRICT TOOL SELECTION HIERARCHY:
             Tier 1 - Specialized Analytics & Scenarios (HIGHEST PRIORITY):
-            • If the question involves regression, correlations, forecasting (ARIMA), clustering (K-Means), PCA, Random Forest, or unit economics, you MUST use the specialized tool (e.g., `run_ols_regression_tool`, `run_arima_forecasting_tool`).
+            • If the question involves regression, correlations, forecasting (ARIMA), clustering (K-Means), PCA, Random Forest, or unit economics, you MUST use the specialized tool.
             • If the question involves "what-if" simulations, elasticity, or scenario planning, you MUST use `run_scenario_planning_tool`.
 
             Tier 2 - Visualizations:
             • If the user explicitly asks to plot, chart, or visualize data, use the appropriate `generate_*_tool`.
 
             Tier 3 - General SQL Execution (LOWEST PRIORITY / LAST RESORT):
-            • ONLY use `execute_sql_query_tool` for simple data retrieval, basic filtering (WHERE), or standard mathematical aggregations (SUM, AVG, COUNT, GROUP BY).
-            • NEGATIVE CONSTRAINT: DO NOT write complex SQL queries to attempt regressions, forecasting, or statistical modeling. If a Tier 1 tool can do it, writing SQL is strictly forbidden.
+            • ONLY use `execute_sql_query_tool` for simple data retrieval, basic filtering (WHERE), or standard mathematical aggregations.
+
+            DATA MEMORY RULE:
+            • If previous tool calls saved data to memory and returned an ID (e.g., `df_a1b2c3`), you MUST pass that exact ID into the `dataframe_id` argument of downstream charting or modeling tools instead of querying a base table.
 
             The upstream planning agent flagged this question as needing a tool from the '{category_hint}' category.
             Use this EXACT schema for column names: {json.dumps(relevant_schema)}"""

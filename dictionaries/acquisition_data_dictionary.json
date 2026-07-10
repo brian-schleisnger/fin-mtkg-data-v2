@@ -200,7 +200,7 @@
       "formula": null
     },
     {
-      "name": "WA Churn",
+      "name": "WA_Churn",
       "description": "estimated months the customer will stay on",
       "data_type": "Numeric",
       "range_of_outcomes": "non-integer positive number",

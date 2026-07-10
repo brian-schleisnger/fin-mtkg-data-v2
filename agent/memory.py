@@ -1,8 +1,10 @@
 import json
-from typing import List, Dict, Any, Optional
 import logging
+from typing import List, Dict, Any, Optional
+import uuid
 
 from llmlingua import PromptCompressor
+import pandas as pd
 import streamlit as st
 import tiktoken
 
@@ -154,6 +156,32 @@ class ContextOptimizer:
             history_text = self.compress_text(history_text, target_rate=0.6)
 
         return history_text
+    
+
+class DataFrameMemory:
+    """
+    In-memory registry to hold DataFrames generated during a conversation turn.
+    Allows downstream tools to reference upstream data via string IDs.
+    """
+    def __init__(self):
+        self.registry: Dict[str, pd.DataFrame] = {}
+
+    def save_df(self, df: pd.DataFrame) -> str:
+        """Saves a DataFrame and returns a unique reference ID."""
+        df_id = f"df_{uuid.uuid4().hex[:8]}"
+        self.registry[df_id] = df
+        return df_id
+
+    def get_df(self, df_id: str) -> Optional[pd.DataFrame]:
+        """Retrieves a DataFrame by its ID."""
+        return self.registry.get(df_id)
+
+    def clear(self):
+        """Clears the registry to free up memory between isolated runs."""
+        self.registry.clear()
+
+# Global instance for the active session
+df_memory = DataFrameMemory()
 
 # Instantiate a global memory optimizer object to be imported into app.py
 context_optimizer = ContextOptimizer()

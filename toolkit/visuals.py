@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 
 from .analytics import link_tables
 from .base import run_sql_query
+from agent.memory import df_memory
 
 __all__ = [
     "generate_scatterplot_tool",
@@ -19,123 +20,132 @@ __all__ = [
 
 
 def _resolve_column(requested_col: str, df: pd.DataFrame) -> str:
-    """
-    Safely resolves column names in Pandas DataFrames after SQL execution.
-    Handles stripped quotes, table prefixes (table.col vs col), and case sensitivity.
-    """
+    """Safely resolves column names in Pandas DataFrames after SQL execution."""
     if not requested_col or df.empty:
         return requested_col
         
     clean_req = str(requested_col).replace('"', '').replace("'", "").strip()
+    if clean_req in df.columns: return clean_req
     
-    # 1. Exact match
-    if clean_req in df.columns:
-        return clean_req
-        
-    # 2. Match without table prefix (e.g., 'table.col' -> 'col')
     simple_req = clean_req.split('.')[-1]
     for col in df.columns:
-        if str(col).split('.')[-1] == simple_req:
-            return str(col)
-            
-    # 3. Case-insensitive match
+        if str(col).split('.')[-1] == simple_req: return str(col)
     for col in df.columns:
-        if str(col).split('.')[-1].lower() == simple_req.lower():
-            return str(col)
+        if str(col).split('.')[-1].lower() == simple_req.lower(): return str(col)
             
     return clean_req
 
 
-def _prepare_query_params(
-    x_col: str, 
-    y_col: str, 
-    cat_col: Optional[str] = None, 
-    agg_func: Optional[str] = None,
-    default_limit: int = 50000
-) -> dict:
+def _fetch_chart_data(
+    TABLE_NAME: Optional[Union[str, List[str]]],
+    dataframe_id: Optional[str],
+    x_column: str,
+    y_column: Optional[str] = None,
+    category_column: Optional[str] = None,
+    where_clause: Optional[str] = None,
+    aggregation: Optional[str] = None,
+    limit: int = 50000
+) -> tuple:
     """
-    Determines whether to push aggregation down to the SQL engine (to avoid LIMIT truncation)
-    or fetch raw rows for plotting.
+    SHARED LOGIC HELPER: Handles routing between SQL and Python Memory.
+    Automatically applies Pandas .groupby() or SQL GROUP BY if an aggregation is requested.
+    Returns: (df, resolved_x, resolved_y, resolved_cat, y_axis_label)
     """
-    x_clean = x_col.replace('"', '').split('.')[-1]
-    y_clean = y_col.replace('"', '').split('.')[-1]
-    cat_clean = cat_col.replace('"', '').split('.')[-1] if cat_col else None
+    x_clean = x_column.replace('"', '').split('.')[-1] if x_column else None
+    y_clean = y_column.replace('"', '').split('.')[-1] if y_column else None
+    cat_clean = category_column.replace('"', '').split('.')[-1] if category_column else None
+    func = aggregation.upper() if aggregation and aggregation.upper() in ["SUM", "AVG", "COUNT", "MAX", "MIN"] else None
 
-    func = agg_func.upper() if agg_func and agg_func.upper() in ["SUM", "AVG", "COUNT", "MAX", "MIN"] else None
+    y_label = y_clean
+    if func and y_clean:
+        y_label = "COUNT(*)" if (func == "COUNT" and y_clean in ["*", "count"]) else f"{func}({y_clean})"
 
-    if func:
-        # SQL Push-Down: Group by X and Category at the database level
-        group_by_cols = [x_clean]
-        if cat_clean:
-            group_by_cols.append(cat_clean)
+    # --- BRANCH 1: PYTHON MEMORY ---
+    if dataframe_id:
+        df = df_memory.get_df(dataframe_id)
+        if df is None:
+            raise ValueError(f"No DataFrame found for ID '{dataframe_id}'.")
+            
+        x_col = _resolve_column(x_clean, df)
+        y_col = _resolve_column(y_clean, df) if y_clean else None
+        cat_col = _resolve_column(cat_clean, df) if cat_clean else None
 
-        if func == "COUNT" and (y_clean == "*" or y_clean.lower() == "count"):
-            y_sql = 'COUNT(*) AS "y_value"'
-            y_label = "COUNT(*)"
+        # Apply Pandas Aggregation if needed
+        if func and y_col:
+            group_cols = [x_col]
+            if cat_col: group_cols.append(cat_col)
+            
+            if func == "SUM": df = df.groupby(group_cols, as_index=False)[y_col].sum()
+            elif func == "AVG": df = df.groupby(group_cols, as_index=False)[y_col].mean()
+            elif func == "MAX": df = df.groupby(group_cols, as_index=False)[y_col].max()
+            elif func == "MIN": df = df.groupby(group_cols, as_index=False)[y_col].min()
+            elif func == "COUNT": 
+                df = df.groupby(group_cols, as_index=False)[y_col].count()
+
+        return df, x_col, y_col, cat_col, y_label
+
+    # --- BRANCH 2: SQL DATABASE ---
+    elif TABLE_NAME:
+        if func and y_clean:
+            # SQL Push-Down Aggregation
+            y_sql = 'COUNT(*) AS "y_value"' if (func == "COUNT" and y_clean in ["*", "count"]) else f'{func}("{y_clean}") AS "y_value"'
+            cols_to_fetch = [f'"{x_clean}"']
+            if cat_clean: cols_to_fetch.append(f'"{cat_clean}"')
+            cols_to_fetch.append(y_sql)
+            
+            df = link_tables(
+                TABLE_NAME, 
+                columns=cols_to_fetch, 
+                where_clause=where_clause, 
+                group_by=[x_clean] + ([cat_clean] if cat_clean else []),
+                order_by=f'"{x_clean}" ASC',
+                limit=5000
+            )
+            y_target = "y_value"
         else:
-            y_sql = f'{func}("{y_clean}") AS "y_value"'
-            y_label = f"{func}({y_clean})"
+            # Raw Row Fetching
+            cols_to_fetch = [f'"{x_clean}"']
+            if y_clean: cols_to_fetch.append(f'"{y_clean}"')
+            if cat_clean: cols_to_fetch.append(f'"{cat_clean}"')
+            
+            df = link_tables(TABLE_NAME, columns=cols_to_fetch, where_clause=where_clause, random_order=True, limit=limit)
+            y_target = y_clean
 
-        cols_to_fetch = [f'"{x_clean}"']
-        if cat_clean:
-            cols_to_fetch.append(f'"{cat_clean}"')
-        cols_to_fetch.append(y_sql)
+        if df.empty:
+            raise ValueError("Query executed successfully but returned 0 rows.")
 
-        return {
-            "columns": cols_to_fetch,
-            "group_by": group_by_cols,
-            "limit": 5000, # Grouped queries only return a few rows, but 5000 prevents runaway memory
-            "y_target": "y_value",
-            "y_label": y_label
-        }
+        x_col = _resolve_column(x_clean, df)
+        y_col = _resolve_column(y_target, df) if y_clean else None
+        cat_col = _resolve_column(cat_clean, df) if cat_clean else None
+        
+        return df, x_col, y_col, cat_col, y_label
+
     else:
-        # Fallback to raw row fetching
-        cols = [f'"{x_clean}"', f'"{y_clean}"']
-        if cat_clean:
-            cols.append(f'"{cat_clean}"')
-        return {
-            "columns": cols,
-            "group_by": None,
-            "limit": default_limit,
-            "y_target": y_clean,
-            "y_label": y_clean
-        }
+        raise ValueError("Must provide either TABLE_NAME or dataframe_id.")
 
 
 @mlflow.trace(name="generate_scatterplot_tool")
 def generate_scatterplot_tool(
-    TABLE_NAME: Union[str, List[str]], 
     x_column: str, 
     y_column: str, 
+    TABLE_NAME: Optional[Union[str, List[str]]] = None,
+    dataframe_id: Optional[str] = None,
     category_column: Optional[str] = None, 
     where_clause: Optional[str] = None, 
     include_trendline: bool = False
 ) -> Dict[str, Any]:
-    """Sub-agent tool: Generates a robust scatterplot across single or joined tables."""
-    cols_to_fetch = [x_column, y_column]
-    if category_column:
-        cols_to_fetch.append(category_column)
-
     try:
-        df = link_tables(TABLE_NAME, columns=cols_to_fetch, where_clause=where_clause, random_order=True, limit=10000)
-        if df.empty:
-            return {"text": "Error: No data returned. Check filters or table relationships.", "data": None, "figure": None}
-
-        x_col = _resolve_column(x_column, df)
-        y_col = _resolve_column(y_column, df)
-        cat_col = _resolve_column(category_column, df) if category_column else None
-
+        df, x_col, y_col, cat_col, _ = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, y_column, category_column, where_clause)
+        
         df[x_col] = pd.to_numeric(df[x_col], errors='coerce')
         df[y_col] = pd.to_numeric(df[y_col], errors='coerce')
         df = df.dropna(subset=[x_col, y_col])
 
         if len(df) < 2:
-            return {"text": "Error: Not enough valid numeric data points to generate scatterplot.", "data": None, "figure": None}
+            return {"text": "Error: Not enough valid numeric data points.", "data": None, "figure": None}
 
-        t_line = "ols" if include_trendline and len(df) > 3 else None
-        
         kwargs = {
-            "x": x_col, "y": y_col, "trendline": t_line,
+            "x": x_col, "y": y_col, "trendline": "ols" if (include_trendline and len(df) > 3) else None,
             "title": f"Scatterplot: {y_col} vs {x_col}",
             "template": "plotly_white", "opacity": 0.75
         }
@@ -146,54 +156,30 @@ def generate_scatterplot_tool(
         fig = px.scatter(df, **kwargs)
         fig.update_layout(hovermode="closest", margin=dict(l=40, r=40, t=60, b=40))
 
-        return {"text": f"Successfully generated scatterplot for {y_col} vs {x_col} ({len(df)} points).", "data": df, "figure": fig}
+        return {"text": f"Successfully generated scatterplot ({len(df)} points).", "data": df, "figure": fig}
     except Exception as e:
         return {"text": f"Scatterplot Error: {str(e)}", "data": None, "figure": None}
 
 
 @mlflow.trace(name="generate_barchart_tool")
 def generate_barchart_tool(
-    TABLE_NAME: Union[str, List[str]], 
     x_column: str, 
     y_column: str, 
+    TABLE_NAME: Optional[Union[str, List[str]]] = None, 
+    dataframe_id: Optional[str] = None,
     category_column: Optional[str] = None, 
     where_clause: Optional[str] = None,
     aggregation: str = "SUM"
 ) -> Dict[str, Any]:
-    """Sub-agent tool: Generates an aggregated bar chart using SQL push-down aggregation."""
-    params = _prepare_query_params(x_column, y_column, category_column, aggregation)
-    x_clean = x_column.replace('"', '').split('.')[-1]
-
     try:
-        # Pushing aggregation down to the database to prevent LIMIT truncation
-        df = link_tables(
-            TABLE_NAME, 
-            columns=params["columns"], 
-            where_clause=where_clause, 
-            group_by=params["group_by"],
-            order_by=f'"{x_clean}" ASC',
-            limit=params["limit"]
-        )
-        if df.empty:
-            return {"text": "Error: No data returned for bar chart.", "data": None, "figure": None}
-
-        x_col = _resolve_column(x_clean, df)
-        y_col = _resolve_column(params["y_target"], df)
-        cat_col = _resolve_column(category_column, df) if category_column else None
-
+        df, x_col, y_col, cat_col, y_label = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, y_column, category_column, where_clause, aggregation)
+        
         df[y_col] = pd.to_numeric(df[y_col], errors='coerce')
         df = df.dropna(subset=[x_col, y_col])
-        
-        try:
-            df = df.sort_values(by=x_col, ascending=True)
-        except Exception:
-            df = df.sort_values(by=y_col, ascending=False)
+        try: df = df.sort_values(by=x_col, ascending=True)
+        except Exception: df = df.sort_values(by=y_col, ascending=False)
 
-        kwargs = {
-            "x": x_col, "y": y_col,
-            "title": f"{params['y_label']} by {x_clean}",
-            "template": "plotly_white"
-        }
+        kwargs = {"x": x_col, "y": y_col, "title": f"{y_label} by {x_col}", "template": "plotly_white"}
         if cat_col and cat_col in df.columns:
             df[cat_col] = df[cat_col].astype(str)
             kwargs["color"] = cat_col
@@ -201,44 +187,30 @@ def generate_barchart_tool(
 
         fig = px.bar(df, **kwargs)
         fig.update_layout(margin=dict(l=40, r=40, t=60, b=40))
-        fig.update_yaxes(title_text=params['y_label'])
+        fig.update_yaxes(title_text=y_label)
 
-        return {"text": f"Successfully generated bar chart ({len(df)} aggregated bars).", "data": df, "figure": fig}
+        return {"text": f"Successfully generated bar chart ({len(df)} bars).", "data": df, "figure": fig}
     except Exception as e:
         return {"text": f"Bar Chart Error: {str(e)}", "data": None, "figure": None}
 
 
 @mlflow.trace(name="generate_histogram_tool")
 def generate_histogram_tool(
-    TABLE_NAME: Union[str, List[str]], 
     x_column: str, 
+    TABLE_NAME: Optional[Union[str, List[str]]] = None,
+    dataframe_id: Optional[str] = None,
     n_bins: Optional[int] = None, 
     category_column: Optional[str] = None, 
     where_clause: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Sub-agent tool: Generates a distribution histogram with statistical box marginals."""
-    cols_to_fetch = [x_column]
-    if category_column:
-        cols_to_fetch.append(category_column)
-
     try:
-        df = link_tables(TABLE_NAME, columns=cols_to_fetch, where_clause=where_clause, random_order=True, limit=50000)
-        if df.empty:
-            return {"text": "Error: No data returned for histogram.", "data": None, "figure": None}
-
-        x_col = _resolve_column(x_column, df)
-        cat_col = _resolve_column(category_column, df) if category_column else None
-
+        df, x_col, _, cat_col, _ = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, None, category_column, where_clause)
+        
         df[x_col] = pd.to_numeric(df[x_col], errors='coerce')
         df = df.dropna(subset=[x_col])
 
-        kwargs = {
-            "x": x_col, "title": f"Distribution of {x_col}",
-            "template": "plotly_white", "marginal": "box",
-            "opacity": 0.8
-        }
-        if n_bins:
-            kwargs["nbins"] = n_bins
+        kwargs = {"x": x_col, "title": f"Distribution of {x_col}", "template": "plotly_white", "marginal": "box", "opacity": 0.8}
+        if n_bins: kwargs["nbins"] = n_bins
         if cat_col and cat_col in df.columns:
             df[cat_col] = df[cat_col].astype(str)
             kwargs["color"] = cat_col
@@ -247,63 +219,39 @@ def generate_histogram_tool(
         fig = px.histogram(df, **kwargs)
         fig.update_layout(margin=dict(l=40, r=40, t=60, b=40))
 
-        return {"text": f"Successfully generated histogram for {x_col} across {len(df)} records.", "data": df, "figure": fig}
+        return {"text": f"Successfully generated histogram ({len(df)} records).", "data": df, "figure": fig}
     except Exception as e:
         return {"text": f"Histogram Error: {str(e)}", "data": None, "figure": None}
 
 
 @mlflow.trace(name="generate_linechart_tool")
 def generate_linechart_tool(
-    TABLE_NAME: Union[str, List[str]], 
     x_column: str, 
     y_column: str, 
+    TABLE_NAME: Optional[Union[str, List[str]]] = None, 
+    dataframe_id: Optional[str] = None,
     category_column: Optional[str] = None, 
     where_clause: Optional[str] = None,
     aggregation: str = "SUM"
 ) -> Dict[str, Any]:
-    """Sub-agent tool: Generates a clean, sorted time-series line chart using SQL push-down aggregation."""
-    params = _prepare_query_params(x_column, y_column, category_column, aggregation)
-    x_clean = x_column.replace('"', '').split('.')[-1]
-
     try:
-        # Pushing GROUP BY and ORDER BY down to SQL prevents row truncation!
-        df = link_tables(
-            TABLE_NAME, 
-            columns=params["columns"], 
-            where_clause=where_clause, 
-            group_by=params["group_by"],
-            order_by=f'"{x_clean}" ASC',
-            limit=params["limit"]
-        )
-        if df.empty:
-            return {"text": "Error: No data returned for line chart.", "data": None, "figure": None}
-
-        x_col = _resolve_column(x_clean, df)
-        y_col = _resolve_column(params["y_target"], df)
-        cat_col = _resolve_column(category_column, df) if category_column else None
+        df, x_col, y_col, cat_col, y_label = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, y_column, category_column, where_clause, aggregation)
 
         df[y_col] = pd.to_numeric(df[y_col], errors='coerce')
         df = df.dropna(subset=[x_col, y_col])
+        try: df = df.sort_values(by=x_col, ascending=True)
+        except Exception: pass
 
-        try:
-            df = df.sort_values(by=x_col, ascending=True)
-        except Exception:
-            pass
-
-        kwargs = {
-            "x": x_col, "y": y_col, "markers": True,
-            "title": f"Trend of {params['y_label']} over {x_clean}",
-            "template": "plotly_white"
-        }
+        kwargs = {"x": x_col, "y": y_col, "markers": True, "title": f"Trend of {y_label} over {x_col}", "template": "plotly_white"}
         if cat_col and cat_col in df.columns:
             df[cat_col] = df[cat_col].astype(str)
             kwargs["color"] = cat_col
 
         fig = px.line(df, **kwargs)
         fig.update_layout(hovermode="x unified", margin=dict(l=40, r=40, t=60, b=40))
-        fig.update_yaxes(title_text=params['y_label'])
+        fig.update_yaxes(title_text=y_label)
 
-        return {"text": f"Successfully generated line chart over {len(df)} intervals.", "data": df, "figure": fig}
+        return {"text": f"Successfully generated line chart.", "data": df, "figure": fig}
     except Exception as e:
         return {"text": f"Line Chart Error: {str(e)}", "data": None, "figure": None}
 
@@ -314,7 +262,7 @@ def compare_monthly_metrics_tool(
     acquisition_metric_func: str = "COUNT", 
     acquisition_column: str = "*"
 ) -> Dict[str, Any]:
-    """Aggregates acquisition data and joins with marketing spend to generate a dual-metric trend line."""
+    """Kept as SQL-only because it relies on a very specific cross-table join macro."""
     marketing_clean = marketing_metric.replace('"', '').split('.')[-1]
     acq_clean = acquisition_column.replace('"', '').split('.')[-1] if acquisition_column != "*" else "*"
     func_clean = acquisition_metric_func.upper() if acquisition_metric_func.upper() in ["COUNT", "SUM", "AVG"] else "COUNT"
@@ -335,29 +283,20 @@ def compare_monthly_metrics_tool(
     try:
         df = run_sql_query(sql_query)
         if df.empty:
-            return {"text": "Error: No data returned for monthly metric comparison.", "data": None, "figure": None}
+            return {"text": "Error: No data returned.", "data": None, "figure": None}
 
         df['Date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str) + '-01', errors='coerce')
         df = df.dropna(subset=['Date', 'marketing_total', 'acquisition_total']).sort_values(by='Date')
 
-        df_melted = df.melt(
-            id_vars=['Date'], 
-            value_vars=['marketing_total', 'acquisition_total'], 
-            var_name='Metric', 
-            value_name='Value'
-        )
+        df_melted = df.melt(id_vars=['Date'], value_vars=['marketing_total', 'acquisition_total'], var_name='Metric', value_name='Value')
         df_melted['Metric'] = df_melted['Metric'].replace({
             'marketing_total': f'Marketing Spend ({marketing_clean})',
             'acquisition_total': f'Acquisitions ({func_clean} of {acq_clean})'
         })
 
-        fig = px.line(
-            df_melted, x='Date', y='Value', color='Metric', markers=True,
-            title=f"Monthly Trend Comparison: Marketing vs. Acquisitions",
-            template="plotly_white"
-        )
+        fig = px.line(df_melted, x='Date', y='Value', color='Metric', markers=True, title="Monthly Trend Comparison", template="plotly_white")
         fig.update_layout(hovermode="x unified", margin=dict(l=40, r=40, t=60, b=40))
 
-        return {"text": f"Successfully generated monthly comparison chart across {len(df)} months.", "data": df, "figure": fig}
+        return {"text": f"Successfully generated monthly comparison chart.", "data": df, "figure": fig}
     except Exception as e:
         return {"text": f"Monthly Comparison Error: {str(e)}", "data": None, "figure": None}
