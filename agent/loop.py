@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 import mlflow
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 
 from agent.cache import agent_cache
 from agent.memory import context_optimizer
