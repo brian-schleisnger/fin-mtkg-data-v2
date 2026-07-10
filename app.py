@@ -132,10 +132,12 @@ def create_excel_buffer(data_list: list) -> bytes:
     return buffer.getvalue()
 
 # ─── 4. SESSION STATE INITIALIZATION ─────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
-    st.session_state.input_tokens = 0   # Changed from prompt_tokens
-    st.session_state.output_tokens = 0  # Changed from completion_tokens
+    st.session_state.input_tokens = 0   
+    st.session_state.output_tokens = 0  
 if "last_step_latencies" not in st.session_state:
     st.session_state.last_step_latencies = {}
 
