@@ -442,30 +442,45 @@ def run_kmeans_clustering_tool(
 def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisition_where_clause: str = None) -> dict:
     # Kept as-is since the schema explicitly handles the two-table where clauses without a TABLE_NAME arg.
     try:
+        # 1. Marketing Data
         df_mkt = link_tables(
             tables='"sandbox"."dbs_marketing_spend_sync"',
-            columns=['"year" AS year', '"month" AS month', 'SUM("amount") AS total_spend'],
+            # Keep the quotes for Postgres, but drop the 'AS' alias
+            columns=['"year"', '"month"', 'SUM("amount") AS total_spend'], 
             where_clause=marketing_where_clause,
-            group_by=['year', 'month'],
+            group_by=['"year"', '"month"'],
             limit=None
         )
         
+        # Strip the quotes out of the resulting pandas column names if the driver leaves them in
+        if not df_mkt.empty:
+            df_mkt.columns = [col.replace('"', '') for col in df_mkt.columns]
+
+        # 2. Acquisition Data
         df_acq = link_tables(
             tables='"sandbox"."acquisition_data_v3"',
+            # Keep the quotes to protect the capital letters for Postgres
             columns=[
-                '"Activation_Year" AS year', 
-                '"Activation_Month" AS month', 
+                '"Activation_Year"', 
+                '"Activation_Month"', 
                 'COUNT(*) AS total_activations', 
                 'AVG("mcf") AS avg_mcf', 
                 'AVG("Ve_Churn") AS avg_churn'
             ],
             where_clause=acquisition_where_clause,
-            group_by=['Activation_Year', 'Activation_Month'],
+            group_by=['"Activation_Year"', '"Activation_Month"'],
             limit=None
         )
 
-        if df_mkt.empty or df_acq.empty:
-            return {"text": "Error: One or both tables returned no data for the specified filters.", "data": None}
+        # Standardize the column names for the merge
+        if not df_acq.empty:
+            # First, clean any lingering double quotes from the column names
+            df_acq.columns = [col.replace('"', '') for col in df_acq.columns]
+            # Then rename to match df_mkt
+            df_acq.rename(columns={
+                'Activation_Year': 'year', 
+                'Activation_Month': 'month'
+            }, inplace=True)
 
         for df_tmp in [df_mkt, df_acq]:
             df_tmp['year'] = pd.to_numeric(df_tmp['year'], errors='coerce')
