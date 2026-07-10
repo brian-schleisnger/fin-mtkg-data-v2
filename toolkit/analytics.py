@@ -19,7 +19,7 @@ from statsmodels.tsa.arima.model import ARIMA
 
 # Project imports
 from .base import run_sql_query, get_join_clause
-from agent.memory import df_memory
+from agent.memory import get_df_memory
 
 YEARLY_WACC = 0.1
 MONTHLY_WACC = (1 + YEARLY_WACC) ** (1 / 12) - 1
@@ -148,7 +148,7 @@ def run_ols_regression_tool(
     
     try:
         if dataframe_id:
-            df = df_memory.get_df(dataframe_id)
+            df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
         elif TABLE_NAME:
@@ -188,7 +188,7 @@ def run_arima_forecasting_tool(
     
     try:
         if dataframe_id:
-            df = df_memory.get_df(dataframe_id)
+            df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
             
@@ -260,7 +260,7 @@ def run_random_forest_tool(
     
     try:
         if dataframe_id:
-            df = df_memory.get_df(dataframe_id)
+            df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "model": None}
         elif TABLE_NAME:
@@ -326,7 +326,7 @@ def run_pca_tool(
 ) -> Dict[str, Any]:
     try:
         if dataframe_id:
-            df = df_memory.get_df(dataframe_id)
+            df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "model": None}
         elif TABLE_NAME:
@@ -389,7 +389,7 @@ def run_kmeans_clustering_tool(
 ) -> Dict[str, Any]:
     try:
         if dataframe_id:
-            df = df_memory.get_df(dataframe_id)
+            df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "model": None}
         elif TABLE_NAME:
@@ -550,7 +550,7 @@ def run_scenario_planning_tool(
     
     try:
         if dataframe_id:
-            df = df_memory.get_df(dataframe_id)
+            df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None, "model": None}
         elif TABLE_NAME:

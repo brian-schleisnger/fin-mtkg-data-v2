@@ -180,8 +180,29 @@ class DataFrameMemory:
         """Clears the registry to free up memory between isolated runs."""
         self.registry.clear()
 
-# Global instance for the active session
-df_memory = DataFrameMemory()
+# ─── Session-Scoped Getters ──────────────────────────────────────────────
+# These replace the old module-level globals.  Each Streamlit browser session
+# gets its own isolated DataFrameMemory and ContextOptimizer instance stored
+# in st.session_state, so two users never share the same registry or tokenizer.
 
-# Instantiate a global memory optimizer object to be imported into app.py
-context_optimizer = ContextOptimizer()
+def get_df_memory() -> DataFrameMemory:
+    """
+    Returns the DataFrameMemory instance for the current Streamlit session.
+    Creates a new one on first call within a session.
+    """
+    if "df_memory" not in st.session_state:
+        st.session_state["df_memory"] = DataFrameMemory()
+    return st.session_state["df_memory"]
+
+
+def get_context_optimizer() -> ContextOptimizer:
+    """
+    Returns the ContextOptimizer instance for the current Streamlit session.
+    Creates a new one on first call within a session.  ContextOptimizer holds
+    only a tiktoken encoding (stateless beyond that), so sharing it is safe,
+    but keeping it in session_state is consistent and avoids cross-session
+    confusion if the tokenizer model ever becomes configurable per user.
+    """
+    if "context_optimizer" not in st.session_state:
+        st.session_state["context_optimizer"] = ContextOptimizer()
+    return st.session_state["context_optimizer"]

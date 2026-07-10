@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 
 from .analytics import link_tables
 from .base import run_sql_query
-from agent.memory import df_memory
+from agent.memory import get_df_memory
 
 __all__ = [
     "generate_scatterplot_tool",
@@ -62,7 +62,7 @@ def _fetch_chart_data(
 
     # --- BRANCH 1: PYTHON MEMORY ---
     if dataframe_id:
-        df = df_memory.get_df(dataframe_id)
+        df = get_df_memory().get_df(dataframe_id)
         if df is None:
             raise ValueError(f"No DataFrame found for ID '{dataframe_id}'.")
             

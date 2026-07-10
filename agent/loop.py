@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from agent.cache import agent_cache
-from agent.memory import context_optimizer, df_memory
+from agent.memory import get_df_memory, get_context_optimizer
 from agent.schemas import DecomposedQuestions
 from toolkit import TOOLS, TOOL_DISPATCHER
 from toolkit.base import DATA_DICTIONARY, llm_call, MODEL, raw_client, track_tokens
@@ -22,7 +22,7 @@ def filter_schema(user_prompt: str) -> dict:
     return DATA_DICTIONARY
 
 
-def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_log: List[str]) -> List[str]:
+def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_log: List[str], context_optimizer) -> List[str]:
     """Step 1: Breaks the user's prompt into specific data questions using chat history."""
     
     # Prune by exact token budget and compress dense historical context
@@ -64,7 +64,7 @@ def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_
 
 # ─── 2. Extracted Tool Execution Engine ──────────────────────────────────
 
-def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str]) -> Tuple[str, bool, List[Any]]:
+def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str], df_memory) -> Tuple[str, bool, List[Any]]:
     """
     Handles parsing, Pydantic validation, and execution of a single tool call.
     Returns: (output_text, has_error, extracted_data_objects)
@@ -146,6 +146,15 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
     run_log: List[str] = []
     current_turn_dfs: List[Any] = []
     step_latencies: Dict[str, float] = {}
+
+    # ─── Resolve session-scoped singletons ───────────────────────────────
+    # Both objects are stored in st.session_state so every browser session
+    # (i.e. every user) gets its own isolated instance.
+    df_memory = get_df_memory()
+    context_optimizer = get_context_optimizer()
+    # Clear the DataFrame registry at the start of each new turn so IDs from
+    # a previous conversation turn don't leak into this one.
+    df_memory.clear()
     
     t_start_total = time.perf_counter()
 
@@ -187,7 +196,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         # ─── 1. DECOMPOSITION & CONTEXT ───
         t0 = time.perf_counter()
         relevant_schema = filter_schema(user_prompt)
-        sub_questions = decompose_question(user_prompt, relevant_schema, chat_history, run_log)
+        sub_questions = decompose_question(user_prompt, relevant_schema, chat_history, run_log, context_optimizer)
         step_latencies["1. Decomposition"] = round(time.perf_counter() - t0, 2)
         run_log.append(f"Sub-questions identified: {sub_questions}")
         
@@ -257,7 +266,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                     call_id = tool_call.get("id", "call_id")
                     tool_name = tool_call["function"]["name"]
                     
-                    output_text, has_error, extracted_objects = execute_tool_call(tool_call, attempt, run_log)
+                    output_text, has_error, extracted_objects = execute_tool_call(tool_call, attempt, run_log, df_memory)
                     
                     if has_error:
                         has_turn_error = True
