@@ -26,12 +26,12 @@ def filter_schema(user_prompt: str, run_log: List[str] = None) -> dict:
         schema_summaries[table_name] = {"description": desc, "related_concepts": concepts}
         
     prompt = f"""You are a data architect. The user asked: '{user_prompt}'
-Here are the available tables and their related concepts:
-{json.dumps(schema_summaries, indent=2)}
+                Here are the available tables and their related concepts:
+                {json.dumps(schema_summaries, indent=2)}
 
-Return a strict JSON list of table names that are required to answer the user's question. 
-If the question is completely irrelevant, return an empty list.
-Example: {{"required_tables": ["\\"sandbox\\".\\"acquisition_data_v3\\""]}}"""
+                Return a strict JSON list of table names that are required to answer the user's question. 
+                If the question is completely irrelevant, return an empty list.
+                Example: {{"required_tables": ["\\"sandbox\\".\\"acquisition_data_v3\\""]}}"""
 
     msgs = [{"role": "user", "content": prompt}]
     
@@ -233,9 +233,10 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         run_log.append(f"Sub-questions identified: {sub_questions}")
         
         # ─── 2. TOOL ROUTING & EXECUTION ───
-        t0 = time.perf_counter()
+        t0_tools = time.perf_counter()
         raw_outputs = []
-        for sq_obj in sub_questions:
+        for idx, sq_obj in enumerate(sub_questions):
+            t0_sq = time.perf_counter()
             if isinstance(sq_obj, str):
                 sq_text = sq_obj
                 category_hint = "SPECIALIZED_ANALYTICS_AND_MODELING"
@@ -317,8 +318,12 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                     break
                 elif attempt == max_retries - 1:
                     raw_outputs.append(f"Sub-question: {sq_text}\nFailed after {max_retries} attempts.")
+            
+            # <--- RECORD SUB-QUESTION LATENCY HERE (at the bottom of the loop)
+            step_latencies[f"  ↳ Tool Exec {idx + 1}"] = round(time.perf_counter() - t0_sq, 2)
 
-        step_latencies["2. Tool Routing & Execution"] = round(time.perf_counter() - t0, 2)
+        # Record the total routing execution time
+        step_latencies["2. Tool Routing & Execution"] = round(time.perf_counter() - t0_tools, 2)
 
         # ─── 3. FINAL SYNTHESIS ───
         t0 = time.perf_counter()

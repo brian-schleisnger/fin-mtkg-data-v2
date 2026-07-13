@@ -186,10 +186,13 @@ for i, msg in enumerate(st.session_state.messages):
                             st.warning(f"⚠️ Excel export unavailable: {e}")
                 
                 with act_col2:
-                    if msg.get("run_log"):
+                    if msg.get("run_log"): # (or result.get("run_log") for the current turn)
                         with st.expander("🧠 View Agent Execution Trace", expanded=False):
-                            for step_num, log in enumerate(msg["run_log"], 1):
-                                st.markdown(f"**Step {step_num}:** `{log}`")
+                            for step_num, log in enumerate(msg["run_log"], 1): # (or result["run_log"])
+                                st.markdown(f"**Step {step_num}:**")
+                                # UPDATE: Use st.code instead of inline backticks for clean, readable wrapping
+                                st.code(log, language="text", wrap_lines=True)
+                                st.markdown("---") # Optional: adds a nice separator between steps
 
 # ─── 6. CHAT INPUT & EXECUTION ───────────────────────────────────────────
 if prompt := st.chat_input("Ask a question about the marketing data..."):
@@ -295,9 +298,14 @@ with st.sidebar:
             st.markdown("---")
             for step_name, duration in latencies.items():
                 if step_name != "Total Execution":
-                    st.caption(f"**{step_name}:** {duration:.2f} s")
+                    # UPDATE: Use unsafe_allow_html to force black text and proper sizing
+                    st.markdown(
+                        f"<div style='color: black; font-size: 0.9em; margin-bottom: 4px;'>"
+                        f"<b>{step_name}:</b> {duration:.2f} s</div>", 
+                        unsafe_allow_html=True
+                    )
         else:
-            st.caption("No query executed yet.")
+            st.markdown("<div style='color: black; font-size: 0.9em;'>No query executed yet.</div>", unsafe_allow_html=True)
     
     st.success(f"**Synthesis Model:**\n`{ModelConfig.SYNTHESIS_MODEL}`\n\n**Routing Model:**\n`{ModelConfig.ROUTING_MODEL}`", icon="🟢")
     st.divider()
