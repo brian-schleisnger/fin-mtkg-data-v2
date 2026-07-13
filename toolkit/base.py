@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 from pathlib import Path
@@ -55,9 +56,30 @@ class DynamicOpenAIClient:
         fresh_token = get_auth_token()
         client = OpenAI(
             api_key=fresh_token,
-            # UPDATE THIS LINE:
-            base_url=f"{databricks_host}/ai-gateway/mlflow/v1" 
+            base_url=f"{databricks_host}/ai-gateway/mlflow/v1"
         )
+        
+        # Intercept the chat module to sanitize inputs for Claude
+        if name == "chat":
+            class ChatProxy:
+                @property
+                def completions(self):
+                    class CompletionsProxy:
+                        def create(self, *args, **kwargs):
+                            model = kwargs.get("model", "")
+                            
+                            # Claude strictly rejects 'strict: True' in tool definitions
+                            if "claude" in model.lower() and "tools" in kwargs:
+                                safe_tools = copy.deepcopy(kwargs["tools"])
+                                for tool in safe_tools:
+                                    if "function" in tool and "strict" in tool["function"]:
+                                        del tool["function"]["strict"]
+                                kwargs["tools"] = safe_tools
+                                
+                            return client.chat.completions.create(*args, **kwargs)
+                    return CompletionsProxy()
+            return ChatProxy()
+            
         return getattr(client, name)
 
 # 1. CREATE THE RAW CLIENT PROXY (Zero changes needed in app.py!)
