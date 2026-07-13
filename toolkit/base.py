@@ -15,7 +15,17 @@ import streamlit as st
 
 
 # ─── Configuration ───────────────────────────────────────────────
-MODEL = "databricks-gpt-5-4-nano"
+class ModelConfig:
+    ROUTING_MODEL = "databricks-gpt-5-4-nano"
+    SYNTHESIS_MODEL = "databricks-gpt-5-4-nano"
+
+def set_model_tier(tier: str):
+    if tier == "Advanced (Thorough)":
+        ModelConfig.ROUTING_MODEL = "databricks-gpt-5-4-nano"
+        ModelConfig.SYNTHESIS_MODEL = "databricks-dbrx-instruct" # Or any frontier model you gain access to
+    else:
+        ModelConfig.ROUTING_MODEL = "databricks-gpt-5-4-nano"
+        ModelConfig.SYNTHESIS_MODEL = "databricks-gpt-5-4-nano"
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
@@ -107,7 +117,7 @@ def run_sql_query(query: str) -> pd.DataFrame:
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)
 
-def llm_call(messages: list, response_model: BaseModel):
+def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
     """Replaces raw_llm_call for tasks that require strict JSON outputs, tracking tokens accurately."""
     fresh_instructor_client = instructor.from_openai(
         OpenAI(
@@ -117,7 +127,7 @@ def llm_call(messages: list, response_model: BaseModel):
     )
     # Use create_with_completion to get both the Pydantic model AND the raw OpenAI response
     model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
-        model=MODEL,
+        model=model_name or ModelConfig.ROUTING_MODEL,
         messages=messages,
         response_model=response_model,
         max_retries=3

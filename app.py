@@ -92,7 +92,7 @@ bootstrap_environment()
 # ─── 2. AGENT & TOOLKIT IMPORTS ──────────────────────────────────────────
 # Now importing our cleanly extracted backend loop from the agent module
 from agent.loop import run_agent_loop
-from toolkit.base import MODEL
+from toolkit.base import ModelConfig, set_model_tier
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
@@ -260,6 +260,14 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
 # ─── 7. SIDEBAR & METRICS ────────────────────────────────────────────────
 with st.sidebar:
     st.title("🤖 Dataset Agent")
+    
+    intelligence_tier = st.selectbox(
+        "🧠 Intelligence Tier",
+        ["Standard (Fast)", "Advanced (Thorough)"],
+        help="Select the reasoning tier. Advanced uses frontier models for synthesis."
+    )
+    set_model_tier(intelligence_tier)
+    
     st.markdown("---")
     
     # 1. Token Usage Tracker Card
@@ -288,7 +296,7 @@ with st.sidebar:
         else:
             st.caption("No query executed yet.")
     
-    st.success(f"**Connected Model:**\n`{MODEL}`", icon="🟢")
+    st.success(f"**Synthesis Model:**\n`{ModelConfig.SYNTHESIS_MODEL}`\n\n**Routing Model:**\n`{ModelConfig.ROUTING_MODEL}`", icon="🟢")
     st.divider()
     
     # Reset Session Button

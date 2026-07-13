@@ -11,7 +11,7 @@ from agent.cache import agent_cache
 from agent.memory import get_df_memory, get_context_optimizer
 from agent.schemas import DecomposedQuestions
 from toolkit import TOOLS, TOOL_DISPATCHER
-from toolkit.base import DATA_DICTIONARY, llm_call, MODEL, raw_client, track_tokens
+from toolkit.base import DATA_DICTIONARY, llm_call, ModelConfig, raw_client, track_tokens
 
 # ─── 1. Context & Schema Helpers ─────────────────────────────────────────
 
@@ -248,7 +248,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
             max_retries = 3
             for attempt in range(max_retries):
                 response = raw_client.chat.completions.create(
-                    model=MODEL,
+                    model=ModelConfig.ROUTING_MODEL,
                     messages=msgs,
                     tools=TOOLS
                 )
@@ -310,7 +310,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         final_msgs = clean_messages + [{"role": "user", "content": synthesis_prompt}]
         
         response = raw_client.chat.completions.create(
-            model=MODEL,
+            model=ModelConfig.SYNTHESIS_MODEL,
             messages=final_msgs
         )
         track_tokens(response)
