@@ -13,7 +13,7 @@ from agent.cache import agent_cache
 from agent.memory import get_df_memory, get_context_optimizer
 from agent.schemas import DecomposedQuestions
 from toolkit import TOOLS, TOOL_DISPATCHER
-from toolkit.base import DATA_DICTIONARY, llm_call, ModelConfig, raw_client, track_tokens
+from toolkit.base import DATA_DICTIONARY, _extract_text_content, llm_call, ModelConfig, raw_client, track_tokens
 
 # ─── 1. Context & Schema Helpers ─────────────────────────────────────────
 
@@ -289,7 +289,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                 assistant_msg = response.choices[0].message.model_dump(exclude_none=True)
                 
                 if not assistant_msg.get("tool_calls"):
-                    raw_outputs.append(f"Sub-question: {sq_text}\nAnswer: {assistant_msg.get('content')}")
+                    raw_outputs.append(f"Sub-question: {sq_text}\nAnswer: {_extract_text_content(response.choices[0].message)}")
                     break
                 
                 msgs.append(assistant_msg)
@@ -352,7 +352,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                 messages=final_msgs
             )
             track_tokens(response)
-            final_text = response.choices[0].message.content
+            final_text = _extract_text_content(response.choices[0].message)
         except Exception as e:
             import traceback
             error_trace = traceback.format_exc()
