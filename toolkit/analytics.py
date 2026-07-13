@@ -1,4 +1,8 @@
+import contextlib
+import io
+import traceback
 from typing import Any, Dict, List, Optional, Union
+
 
 import mlflow
 import numpy as np
@@ -6,6 +10,7 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from scipy.optimize import linprog
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -13,9 +18,11 @@ from sklearn.metrics import (
     r2_score,
 )
 from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.preprocessing import StandardScaler
 import statsmodels.api as sm
 from statsmodels.tsa.arima.model import ARIMA
+
 
 # Project imports
 from .base import run_sql_query, get_join_clause
@@ -676,6 +683,7 @@ def run_scenario_planning_tool(
         
         return {"text": result_text, "data": df, "model": model}
         
+    except Exception as e:
         return {"text": f"Scenario Planning Error: {str(e)}", "data": None, "model": None}
 
 @mlflow.trace(name="run_neural_network_tool")
@@ -688,11 +696,6 @@ def run_neural_network_tool(
     hidden_layer_sizes: List[int] = [100, 50],
     max_iter: int = 500
 ) -> Dict[str, Any]:
-    from sklearn.neural_network import MLPRegressor, MLPClassifier
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler
-    import traceback
-    
     try:
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)
@@ -740,7 +743,6 @@ def run_optimization_tool(
     equality_constraints_bounds: Optional[List[float]] = None,
     bounds: Optional[List[List[Optional[float]]]] = None
 ) -> Dict[str, Any]:
-    from scipy.optimize import linprog
     
     try:
         formatted_bounds = None
@@ -773,8 +775,6 @@ def execute_python_tool(
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    import io
-    import contextlib
     
     try:
         if dataframe_id:
