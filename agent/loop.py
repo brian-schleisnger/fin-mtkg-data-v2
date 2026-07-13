@@ -12,7 +12,7 @@ import streamlit as st
 from agent.cache import agent_cache
 from agent.memory import get_df_memory, get_context_optimizer
 from agent.schemas import DecomposedQuestions
-from toolkit import TOOLS, TOOL_DISPATCHER
+from toolkit import TOOLS, TOOL_DISPATCHER, CATEGORY_TOOLS
 from toolkit.base import DATA_DICTIONARY, _extract_text_content, llm_call, ModelConfig, raw_client, track_tokens
 
 # ─── 1. Context & Schema Helpers ─────────────────────────────────────────
@@ -61,7 +61,7 @@ def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_
     # Prune by exact token budget and compress dense historical context
     history_text = context_optimizer.format_history_for_prompt(history, max_tokens=50000)
     
-    prompt = f"""You are a data strategist. Break the user's broad request down into specific, actionable data queries.
+    prompt = f"""You are a data strategist. Break the user's broad request down into specific, actionable sub-questions, and assign each one the correct category.
     
     Available Data Schema: {json.dumps(schema)}
     
@@ -72,16 +72,18 @@ def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_
 
     RULES:
     1. ONLY generate data queries if the user is explicitly asking for data analysis, metrics, or insights.
-    2. Do not generate more than five queries.
-    3. If the user asks for a specific tool in their prompt (e.g., "generate a bar chart" or "run a regression"), ensure that the sub-questions explicitly mention that tool and its required inputs.
-    4. Do NOT break down statistical models (like Regression, Random Forest, or ARIMA) into separate questions for their sub-metrics (e.g., coefficients, R-squared, p-values, residuals). Group all requirements for a single model into ONE unified question.
-    5. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item and do NOT generate data queries.
-    6. Use the 'Recent Conversation History' to resolve pronouns (e.g., "it", "that metric") or missing context (e.g., "what about next month?"). Ensure EVERY generated sub-question is entirely self-contained and explicitly mentions the required columns or context.
-    7. If the user asks for a chart, graph, plot, scatterplot, bar chart, histogram, or line chart, you MUST explicitly include the exact visualization type (e.g., "generate a bar chart", "generate a histogram") in the generated sub-question so the downstream routing agent knows to trigger the specific visualization tool.
-    8. If the user asks for a what-if analysis, scenario planning, or hypothetical simulation, you MUST explicitly include the phrase "run a what-if scenario" in the generated sub-question so the downstream routing agent knows to trigger the scenario planning tool.
-    
-    Respond STRICTLY with a JSON object containing a 'questions' key mapped to a list of strings.
-    Example: {{"questions": ["What is the sum of NC_COGS in 2025?", "What is the average NPV?"]}}"""
+    2. Generate at most five sub-questions.
+    3. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item with category SQL_RETRIEVAL and do NOT generate data queries.
+    4. Use the 'Recent Conversation History' to resolve pronouns and missing context. Every sub-question must be fully self-contained.
+    5. Do NOT break a single statistical model (Regression, Random Forest, ARIMA, etc.) into separate sub-questions for each metric. Group all requirements for one model into ONE sub-question.
+    6. VISUALIZATION: if the user asks for a chart, graph, plot, bar chart, histogram, scatterplot, or line chart, that sub-question MUST be categorised as VISUALIZATION and must name the exact chart type. If the user wants both analysis AND a chart, create two sub-questions — one for the analysis category and one for VISUALIZATION.
+    7. SCENARIO_SIMULATION: if the user asks a what-if, hypothetical, or simulation question ("what if", "assume X is", "increase by X%", "hold Y constant"), categorise it as SCENARIO_SIMULATION.
+    8. UNIT_ECONOMICS: if the user asks about CPA, CLV, cost per acquisition, lifetime value, or marketing efficiency, categorise it as UNIT_ECONOMICS.
+    9. FORECASTING: if the user asks to predict or forecast future values, categorise it as FORECASTING.
+    10. STATISTICAL_MODELING: regression, correlation, PCA, clustering → STATISTICAL_MODELING.
+    11. ML_MODELING: Random Forest, neural network, or optimization/budget allocation → ML_MODELING.
+    12. SQL_RETRIEVAL: simple lookups, filters, counts, sums, averages with no modeling or charting → SQL_RETRIEVAL.
+    13. CUSTOM_PYTHON: complex multi-step analysis combining multiple tables that no single dedicated tool can handle → CUSTOM_PYTHON."""
     
     msgs = [{"role": "user", "content": prompt}]
     
@@ -239,32 +241,40 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
             t0_sq = time.perf_counter()
             if isinstance(sq_obj, str):
                 sq_text = sq_obj
-                category_hint = "SPECIALIZED_ANALYTICS_AND_MODELING"
+                category_hint = "SQL_RETRIEVAL"
             elif isinstance(sq_obj, dict):
                 sq_text = sq_obj.get("question", str(sq_obj))
-                category_hint = sq_obj.get("target_category", "SPECIALIZED_ANALYTICS_AND_MODELING")
+                category_hint = sq_obj.get("target_category", "SQL_RETRIEVAL")
             else:
                 sq_text = getattr(sq_obj, "question", str(sq_obj))
-                category_hint = getattr(sq_obj, "target_category", "SPECIALIZED_ANALYTICS_AND_MODELING")
+                category_hint = getattr(sq_obj, "target_category", "SQL_RETRIEVAL")
 
-            prompt = f"""You are a routing assistant. Select the most appropriate tool to answer the sub-question.
+            prompt = f"""You are a tool-selection assistant. Your only job is to call the right tool for the sub-question below.
 
-            STRICT TOOL SELECTION HIERARCHY:
-            Tier 1 - Specialized Analytics & Scenarios (HIGHEST PRIORITY):
-            • If the question involves regression, correlations, forecasting (ARIMA), clustering (K-Means), PCA, Random Forest, or unit economics, you MUST use the specialized tool.
-            • If the question involves "what-if" simulations, elasticity, or scenario planning, you MUST use `run_scenario_planning_tool`.
+            Category: {category_hint}
+            Available tools for this category:
 
-            Tier 2 - Visualizations:
-            • If the user explicitly asks to plot, chart, or visualize data, use the appropriate `generate_*_tool`.
+            SQL_RETRIEVAL          → execute_sql_query_tool: simple lookup, filter, or aggregation (SUM/AVG/COUNT/GROUP BY).
+            UNIT_ECONOMICS         → calculate_unit_economics_tool: CPA, CLV, CLV:CPA ratio, marketing efficiency.
+            STATISTICAL_MODELING   → run_ols_regression_tool (linear relationships / impact of X on Y),
+                                     run_pca_tool (dimensionality reduction / variance decomposition),
+                                     run_kmeans_clustering_tool (segmentation / natural groupings).
+            ML_MODELING            → run_random_forest_tool (non-linear prediction / feature importance),
+                                     run_neural_network_tool (complex non-linear modeling),
+                                     run_optimization_tool (budget allocation / linear programming).
+            FORECASTING            → run_arima_forecasting_tool: time-series prediction of future values.
+            SCENARIO_SIMULATION    → run_scenario_planning_tool: what-if analysis, simulate variable changes, confidence intervals.
+            VISUALIZATION          → generate_barchart_tool (compare across categories/time),
+                                     generate_linechart_tool (trends over time),
+                                     generate_scatterplot_tool (relationship between two numeric variables),
+                                     generate_histogram_tool (distribution / outliers),
+                                     compare_monthly_metrics_tool (monthly spend vs acquisition side-by-side).
+            CUSTOM_PYTHON          → execute_python_tool: multi-step or cross-table analysis no single tool can handle.
 
-            Tier 3 - General SQL Execution (LOWEST PRIORITY / LAST RESORT):
-            • ONLY use `execute_sql_query_tool` for simple data retrieval, basic filtering (WHERE), or standard mathematical aggregations.
+            DATA MEMORY: if a previous step saved data and returned an ID (e.g. df_a1b2c3), pass it as
+            dataframe_id instead of re-querying the database.
 
-            DATA MEMORY RULE:
-            • If previous tool calls saved data to memory and returned an ID (e.g., `df_a1b2c3`), you MUST pass that exact ID into the `dataframe_id` argument of downstream charting or modeling tools instead of querying a base table.
-
-            The upstream planning agent flagged this question as needing a tool from the '{category_hint}' category.
-            Use this EXACT schema for column names: {json.dumps(relevant_schema)}"""
+            Use this exact schema for all column names: {json.dumps(relevant_schema)}"""
             
             msgs = [{"role": "system", "content": prompt}]
             
@@ -280,10 +290,19 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
 
             max_retries = 3
             for attempt in range(max_retries):
+                # Filter the toolset to only the tools valid for this category.
+                # Falls back to the full toolset if the category isn't mapped
+                # (e.g. plain-string fallback path).
+                allowed_names = CATEGORY_TOOLS.get(category_hint)
+                active_tools = (
+                    [t for t in TOOLS if t["function"]["name"] in allowed_names]
+                    if allowed_names else TOOLS
+                )
+
                 response = raw_client.chat.completions.create(
                     model=ModelConfig.ACTIVE_MODEL,
                     messages=msgs,
-                    tools=TOOLS
+                    tools=active_tools
                 )
                 track_tokens(response)
                 assistant_msg = response.choices[0].message.model_dump(exclude_none=True)
@@ -341,7 +360,10 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         Relevant Schema: {json.dumps(relevant_schema)}
         
         Synthesize the raw data into a clear, business-friendly summary answering the original prompt.
-        If any tools failed or returned errors in the raw data, briefly mention what analysis could not be completed and why, alongside the successful insights."""
+        If any tools failed or returned errors in the raw data, briefly mention what analysis could not be completed and why, alongside the successful insights.
+        
+        CRITICAL FORMATTING RULE: 
+        Do not use LaTeX formatting for regular text. When mentioning currency, you MUST escape the dollar sign (e.g., \\$10M) so it does not accidentally trigger markdown math blocks."""
         
         clean_messages = [{"role": m["role"], "content": m.get("content", "")} for m in chat_history]
         final_msgs = clean_messages + [{"role": "user", "content": synthesis_prompt}]

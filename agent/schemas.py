@@ -11,17 +11,50 @@ class SubQuestion(BaseModel):
         description="The self-contained, specific data question with all pronouns resolved."
     )
     target_category: Literal[
-        "SPECIALIZED_ANALYTICS_AND_MODELING", 
-        "SCENARIO_SIMULATION_AND_WHAT_IF", 
-        "VISUALIZATION_AND_PLOTTING", 
-        "BASIC_SQL_AGGREGATION"
+        "SQL_RETRIEVAL",
+        "UNIT_ECONOMICS",
+        "STATISTICAL_MODELING",
+        "ML_MODELING",
+        "FORECASTING",
+        "SCENARIO_SIMULATION",
+        "VISUALIZATION",
+        "CUSTOM_PYTHON",
     ] = Field(
         ..., 
         description=(
-            "The analytical category required to answer this question. "
-            "RULES: If the prompt mentions regression, forecasting, clustering, PCA, Random Forest, or unit economics, MUST use 'SPECIALIZED_ANALYTICS_AND_MODELING'. "
-            "If it asks 'what if', assumes new values, or simulates changes, MUST use 'SCENARIO_SIMULATION_AND_WHAT_IF'. "
-            "ONLY use 'BASIC_SQL_AGGREGATION' for simple data retrieval, counts, sums, or averages."
+            "The single most appropriate execution category for this sub-question. "
+            "Choose using these EXCLUSIVE rules — apply the FIRST rule that matches:\n\n"
+
+            "• SQL_RETRIEVAL — simple data lookup, filtering, counting, summing, or averaging "
+            "with no modeling, no chart, and no cross-table unit economics. "
+            "Examples: 'how many activations in Q1 2025', 'list all spend by channel'.\n\n"
+
+            "• UNIT_ECONOMICS — any question about CPA (cost per acquisition), CLV (customer lifetime value), "
+            "CLV:CPA ratio, or marketing efficiency/ROI that requires merging spend and acquisition data. "
+            "Trigger words: 'CPA', 'cost per acquisition', 'CLV', 'lifetime value', 'unit economics', 'marketing efficiency'.\n\n"
+
+            "• STATISTICAL_MODELING — linear relationships, impact analysis, or dimensionality/segmentation work. "
+            "Use when the user asks for: OLS/linear regression, correlation analysis, "
+            "PCA / principal components, or K-Means / customer segmentation / clustering.\n\n"
+
+            "• ML_MODELING — non-linear predictive modeling or optimization. "
+            "Use when the user asks for: Random Forest, neural network / MLP, or linear programming / budget optimization.\n\n"
+
+            "• FORECASTING — predicting future values from a time series. "
+            "Trigger words: 'forecast', 'predict future', 'next N months', 'ARIMA', 'trend projection'.\n\n"
+
+            "• SCENARIO_SIMULATION — hypothetical or what-if analysis. "
+            "Trigger words: 'what if', 'what would happen if', 'assume X is', 'if we increase/decrease', "
+            "'simulate', 'hold Y constant', 'elasticity'.\n\n"
+
+            "• VISUALIZATION — the user explicitly asks for a chart, graph, or plot. "
+            "Trigger words: 'plot', 'chart', 'graph', 'visualize', 'show me a bar chart', "
+            "'line chart', 'histogram', 'scatterplot', 'compare monthly'. "
+            "IMPORTANT: if the question asks for BOTH analysis AND a chart, generate TWO sub-questions — "
+            "one for the analysis category and one for VISUALIZATION.\n\n"
+
+            "• CUSTOM_PYTHON — complex multi-step analytics that combine multiple tables or operations "
+            "and cannot be satisfied by any single dedicated tool above. Use as a last resort."
         )
     )
 

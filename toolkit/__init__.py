@@ -111,6 +111,46 @@ TOOL_SCHEMAS = [
 
 TOOLS = [_flatten_tool(pydantic_function_tool(schema)) for schema in TOOL_SCHEMAS]
 
+# ─── Category → Tool Name Mapping ────────────────────────────────────────────
+# Maps each SubQuestion.target_category value to the exact set of tool names the
+# router is allowed to choose from. loop.py uses this to filter TOOLS before
+# passing them to the model, preventing the router from ever selecting an
+# out-of-category tool regardless of prompt wording.
+CATEGORY_TOOLS: dict[str, list[str]] = {
+    "SQL_RETRIEVAL": [
+        "execute_sql_query_tool",
+    ],
+    "UNIT_ECONOMICS": [
+        "calculate_unit_economics_tool",
+    ],
+    "STATISTICAL_MODELING": [
+        "run_ols_regression_tool",
+        "run_pca_tool",
+        "run_kmeans_clustering_tool",
+    ],
+    "ML_MODELING": [
+        "run_random_forest_tool",
+        "run_neural_network_tool",
+        "run_optimization_tool",
+    ],
+    "FORECASTING": [
+        "run_arima_forecasting_tool",
+    ],
+    "SCENARIO_SIMULATION": [
+        "run_scenario_planning_tool",
+    ],
+    "VISUALIZATION": [
+        "generate_barchart_tool",
+        "generate_linechart_tool",
+        "generate_scatterplot_tool",
+        "generate_histogram_tool",
+        "compare_monthly_metrics_tool",
+    ],
+    "CUSTOM_PYTHON": [
+        "execute_python_tool",
+    ],
+}
+
 # 4. Centralized routing map: maps tool names to (execution_function, pydantic_validator) tuples
 TOOL_DISPATCHER = {
     "execute_sql_query_tool": (execute_sql_query_tool, execute_sql_query_tool_Schema),

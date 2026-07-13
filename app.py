@@ -244,7 +244,8 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                     if result.get("run_log"):
                         with st.expander("🧠 View Agent Execution Trace", expanded=False):
                             for step_num, log in enumerate(result["run_log"], 1):
-                                st.markdown(f"**Step {step_num}:** `{log}`")
+                                st.markdown(f"**Step {step_num}:**")
+                                st.code(log, language="text", wrap_lines=True) # <--- Updated formatting
 
             # 5. Update Streamlit session state cleanly in the UI layer
             # Now that no NameError occurs above, these lines will execute properly!
