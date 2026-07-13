@@ -130,22 +130,42 @@ def run_sql_query(query: str) -> pd.DataFrame:
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)
 
+def _is_gpt_model(model_name: str) -> bool:
+    """Returns True if the endpoint name indicates a GPT model (OpenAI-native tool-calling)."""
+    return "gpt" in model_name.lower()
+
 def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
-    """Replaces raw_llm_call for tasks that require strict JSON outputs, tracking tokens accurately."""
-    fresh_instructor_client = instructor.from_openai(
-        OpenAI(
-            api_key=get_auth_token(),
-            base_url=f"{databricks_host}/serving-endpoints"
-        )
+    """
+    Structured-output LLM call via instructor.
+    - GPT endpoints: uses instructor's default TOOLS mode (tool-calling).
+    - All other endpoints (Gemini, Claude, etc.): uses JSON_SCHEMA mode, which
+      injects the schema into the system prompt instead of a tool definition,
+      avoiding $defs/$ref rejections from non-OpenAI APIs.
+    """
+    resolved_model = model_name or ModelConfig.ACTIVE_MODEL
+
+    openai_client = OpenAI(
+        api_key=get_auth_token(),
+        base_url=f"{databricks_host}/serving-endpoints"
     )
+
+    if _is_gpt_model(resolved_model):
+        fresh_instructor_client = instructor.from_openai(openai_client)
+    else:
+        # Non-GPT models (Gemini, Claude, etc.) reject $defs/$ref in tool schemas
+        fresh_instructor_client = instructor.from_openai(
+            openai_client,
+            mode=instructor.Mode.JSON_SCHEMA
+        )
+
     # Use create_with_completion to get both the Pydantic model AND the raw OpenAI response
     model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
-        model=model_name or ModelConfig.ACTIVE_MODEL,
+        model=resolved_model,
         messages=messages,
         response_model=response_model,
         max_retries=3
     )
-    track_tokens(raw_res)  # Now decomposition tokens are accurately tracked!
+    track_tokens(raw_res)
     return model_res
 
 def track_tokens(response):
