@@ -54,7 +54,8 @@ class DynamicOpenAIClient:
         fresh_token = get_auth_token()
         client = OpenAI(
             api_key=fresh_token,
-            base_url=f"{databricks_host}/serving-endpoints"
+            # UPDATE THIS LINE:
+            base_url=f"{databricks_host}/ai-gateway/mlflow/v1" 
         )
         return getattr(client, name)
 
@@ -169,7 +170,8 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
 
     openai_client = OpenAI(
         api_key=get_auth_token(),
-        base_url=f"{databricks_host}/serving-endpoints"
+        # UPDATE THIS LINE:
+        base_url=f"{databricks_host}/ai-gateway/mlflow/v1"
     )
 
     if _is_gpt_model(resolved_model):
@@ -184,17 +186,25 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
         track_tokens(raw_res)
         return model_res
     else:
-        # Non-GPT (Gemini, Claude, etc.): inject a plain-text JSON instruction,
-        # call the raw client, extract the text block, and parse with Pydantic.
+        # Non-GPT (Gemini, Claude, etc.): inject a plain-text JSON instruction.
         schema_str = json.dumps(response_model.model_json_schema(), indent=2)
-        injection = {
-            "role": "system",
-            "content": (
-                f"You MUST respond with a single valid JSON object that strictly conforms "
-                f"to this schema and nothing else — no markdown, no explanation:\n{schema_str}"
-            )
-        }
-        augmented_messages = [injection] + list(messages)
+        json_instruction = (
+            f"\n\nYou MUST respond with a single valid JSON object that strictly conforms "
+            f"to this schema and nothing else — no markdown, no explanation:\n{schema_str}"
+        )
+
+        augmented_messages = list(messages)
+        
+        # Check if a system prompt already exists in the message history
+        system_prompt_index = next((i for i, msg in enumerate(augmented_messages) if msg.get("role") == "system"), -1)
+
+        if system_prompt_index != -1:
+            # Safely append our JSON instructions to the EXISTING system prompt
+            augmented_messages[system_prompt_index] = dict(augmented_messages[system_prompt_index])
+            augmented_messages[system_prompt_index]["content"] += json_instruction
+        else:
+            # Create a brand new system prompt if none exists
+            augmented_messages = [{"role": "system", "content": json_instruction.strip()}] + augmented_messages
 
         last_exc = None
         for attempt in range(3):
