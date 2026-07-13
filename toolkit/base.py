@@ -71,6 +71,11 @@ SCHEMA_CONFIG = {
     '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json"
 }
 
+ALIASES = {
+    '"sandbox"."acquisition_data_v3"': ['arpu', 'cogs', 'sac', 'churn', 'mcf', 'npv', 'activations', 'retention', 'revenue', 'cost of goods sold', 'subscriber acquisition cost', 'lifetime value', 'clv', 'profitability'],
+    '"sandbox"."dbs_marketing_spend_sync"': ['marketing', 'spend', 'budget', 'cpa', 'tactic', 'digital', 'tv', 'cost per acquisition', 'ad spend', 'campaign', 'media', 'advertising']
+}
+
 DATA_DICTIONARY = {}
 
 # Step up from /toolkit/base.py to the root project folder
@@ -81,7 +86,8 @@ for table_name, file_name in SCHEMA_CONFIG.items():
     try:
         with dict_path.open("r", encoding="utf-8") as f:
             schema_data = json.load(f)
-            schema_data["table_name"] = table_name 
+            schema_data["table_name"] = table_name
+            schema_data["related_concepts"] = ALIASES.get(table_name, [])
             DATA_DICTIONARY[table_name] = schema_data
     except Exception as e:
         st.error(f"Error loading schema {file_name}: {e}")

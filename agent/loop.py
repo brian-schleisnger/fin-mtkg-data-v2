@@ -2,6 +2,8 @@ import json
 import traceback
 from typing import Any, Dict, List, Tuple
 
+from pydantic import BaseModel
+
 import mlflow
 import pandas as pd
 import plotly.graph_objects as go
@@ -15,11 +17,42 @@ from toolkit.base import DATA_DICTIONARY, llm_call, ModelConfig, raw_client, tra
 
 # ─── 1. Context & Schema Helpers ─────────────────────────────────────────
 
-def filter_schema(user_prompt: str) -> dict:
-    """Filters the dictionary so the LLM isn't overwhelmed by irrelevant tables."""
-    # For now, passing the whole combined dictionary. 
-    # Can be upgraded to semantic search over table schemas later.
-    return DATA_DICTIONARY
+def filter_schema(user_prompt: str, run_log: List[str] = None) -> dict:
+    """Uses the ROUTING_MODEL to intelligently filter the schema down to only relevant tables."""
+    schema_summaries = {}
+    for table_name, table_data in DATA_DICTIONARY.items():
+        desc = table_data.get("description") or table_data.get("database_context", {}).get("table_metadata", {}).get("table_description", "")
+        concepts = table_data.get("related_concepts", [])
+        schema_summaries[table_name] = {"description": desc, "related_concepts": concepts}
+        
+    prompt = f"""You are a data architect. The user asked: '{user_prompt}'
+Here are the available tables and their related concepts:
+{json.dumps(schema_summaries, indent=2)}
+
+Return a strict JSON list of table names that are required to answer the user's question. 
+If the question is completely irrelevant, return an empty list.
+Example: {{"required_tables": ["\\"sandbox\\".\\"acquisition_data_v3\\""]}}"""
+
+    msgs = [{"role": "user", "content": prompt}]
+    
+    class SchemaSelection(BaseModel):
+        required_tables: List[str]
+        
+    try:
+        parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ROUTING_MODEL)
+        filtered_dict = {t: DATA_DICTIONARY[t] for t in parsed_result.required_tables if t in DATA_DICTIONARY}
+        
+        if not filtered_dict:
+            return DATA_DICTIONARY
+            
+        if run_log is not None:
+            run_log.append(f"Schema filtering selected: {list(filtered_dict.keys())}")
+            
+        return filtered_dict
+    except Exception as e:
+        if run_log is not None:
+            run_log.append(f"Schema filtering failed ({type(e).__name__}: {str(e)}). Defaulting to full schema.")
+        return DATA_DICTIONARY
 
 
 def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_log: List[str], context_optimizer) -> List[str]:
@@ -193,9 +226,8 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
     
         mlflow.log_metric("cache_hit", 0)
 
-        # ─── 1. DECOMPOSITION & CONTEXT ───
         t0 = time.perf_counter()
-        relevant_schema = filter_schema(user_prompt)
+        relevant_schema = filter_schema(user_prompt, run_log=run_log)
         sub_questions = decompose_question(user_prompt, relevant_schema, chat_history, run_log, context_optimizer)
         step_latencies["1. Decomposition"] = round(time.perf_counter() - t0, 2)
         run_log.append(f"Sub-questions identified: {sub_questions}")
