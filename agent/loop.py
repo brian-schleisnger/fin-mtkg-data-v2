@@ -341,12 +341,18 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         clean_messages = [{"role": m["role"], "content": m.get("content", "")} for m in chat_history]
         final_msgs = clean_messages + [{"role": "user", "content": synthesis_prompt}]
         
-        response = raw_client.chat.completions.create(
-            model=ModelConfig.SYNTHESIS_MODEL,
-            messages=final_msgs
-        )
-        track_tokens(response)
-        final_text = response.choices[0].message.content
+        try:
+            response = raw_client.chat.completions.create(
+                model=ModelConfig.SYNTHESIS_MODEL,
+                messages=final_msgs
+            )
+            track_tokens(response)
+            final_text = response.choices[0].message.content
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            run_log.append(f"Synthesis Model Failed: {e}")
+            final_text = f"**⚠️ Synthesis Failed:** The synthesis model encountered an error.\n\n**Error:** {e}\n\n**Raw Extracted Data:**\n```text\n{raw_outputs_str[:2000]}...\n```"
         step_latencies["3. Final Synthesis"] = round(time.perf_counter() - t0, 2)
         
         step_latencies["Total Execution"] = round(time.perf_counter() - t_start_total, 2)

@@ -255,7 +255,10 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             })
                     
         except Exception as e:
+            import traceback
             st.error(f"Agent Orchestration Error: {e}")
+            with st.expander("Show Traceback"):
+                st.code(traceback.format_exc(), language="python")
 
 # ─── 7. SIDEBAR & METRICS ────────────────────────────────────────────────
 with st.sidebar:
