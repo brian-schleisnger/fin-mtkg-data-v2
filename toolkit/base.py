@@ -22,10 +22,11 @@ class ModelConfig:
 def set_model_tier(tier: str):
     if tier == "Advanced (Thorough)":
         ModelConfig.ROUTING_MODEL = "databricks-gpt-5-4-nano"
-        ModelConfig.SYNTHESIS_MODEL = "databricks-dbrx-instruct" # Or any frontier model you gain access to
+        ModelConfig.SYNTHESIS_MODEL = "databricks-gpt-5-4-nano" 
     else:
         ModelConfig.ROUTING_MODEL = "databricks-gpt-5-4-nano"
         ModelConfig.SYNTHESIS_MODEL = "databricks-gpt-5-4-nano"
+        
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 PGHOST = os.environ.get("PGHOST")
 PGDATABASE = "databricks_postgres" 
