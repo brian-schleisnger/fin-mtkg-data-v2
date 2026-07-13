@@ -15,7 +15,9 @@ from agent.schemas import (
     calculate_unit_economics_tool as calculate_unit_economics_tool_Schema,
     compare_monthly_metrics_tool as compare_monthly_metrics_tool_Schema,
     run_scenario_planning_tool as run_scenario_planning_tool_Schema,
-    execute_python_tool as execute_python_tool_Schema
+    execute_python_tool as execute_python_tool_Schema,
+    run_neural_network_tool as run_neural_network_tool_Schema,
+    run_optimization_tool as run_optimization_tool_Schema
 )
 
 # 2. Import actual tool execution functions explicitly
@@ -28,7 +30,9 @@ from .analytics import (
     run_kmeans_clustering_tool,
     calculate_unit_economics_tool,
     run_scenario_planning_tool,
-    execute_python_tool
+    execute_python_tool,
+    run_neural_network_tool,
+    run_optimization_tool
 )
 from .visuals import (
     generate_scatterplot_tool,
@@ -53,7 +57,9 @@ TOOL_SCHEMAS = [
     calculate_unit_economics_tool_Schema,
     compare_monthly_metrics_tool_Schema,
     run_scenario_planning_tool_Schema,
-    execute_python_tool_Schema
+    execute_python_tool_Schema,
+    run_neural_network_tool_Schema,
+    run_optimization_tool_Schema
 ]
 
 TOOLS = [pydantic_function_tool(schema) for schema in TOOL_SCHEMAS]
@@ -73,5 +79,7 @@ TOOL_DISPATCHER = {
     "calculate_unit_economics_tool": (calculate_unit_economics_tool, calculate_unit_economics_tool_Schema),
     "compare_monthly_metrics_tool": (compare_monthly_metrics_tool, compare_monthly_metrics_tool_Schema),
     "run_scenario_planning_tool": (run_scenario_planning_tool, run_scenario_planning_tool_Schema),
-    "execute_python_tool": (execute_python_tool, execute_python_tool_Schema)
+    "execute_python_tool": (execute_python_tool, execute_python_tool_Schema),
+    "run_neural_network_tool": (run_neural_network_tool, run_neural_network_tool_Schema),
+    "run_optimization_tool": (run_optimization_tool, run_optimization_tool_Schema)
 }

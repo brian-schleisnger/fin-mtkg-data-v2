@@ -34,7 +34,9 @@ __all__ = [
     "run_kmeans_clustering_tool",
     "calculate_unit_economics_tool",
     "run_scenario_planning_tool",
-    "execute_python_tool"
+    "execute_python_tool",
+    "run_neural_network_tool",
+    "run_optimization_tool"
 ]
 
 
@@ -675,6 +677,95 @@ def run_scenario_planning_tool(
         return {"text": result_text, "data": df, "model": model}
         
         return {"text": f"Scenario Planning Error: {str(e)}", "data": None, "model": None}
+
+@mlflow.trace(name="run_neural_network_tool")
+def run_neural_network_tool(
+    target_variable: str,
+    feature_variables: List[str],
+    task_type: str,
+    TABLE_NAME: Optional[Union[str, List[str]]] = None,
+    dataframe_id: Optional[str] = None,
+    hidden_layer_sizes: List[int] = [100, 50],
+    max_iter: int = 500
+) -> Dict[str, Any]:
+    from sklearn.neural_network import MLPRegressor, MLPClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler
+    import traceback
+    
+    try:
+        if dataframe_id:
+            df = get_df_memory().get_df(dataframe_id)
+            if df is None:
+                return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None, "model": None}
+        elif TABLE_NAME:
+            df = link_tables(TABLE_NAME, random_order=True, limit=100000)
+        else:
+            return {"text": "Error: Must provide either TABLE_NAME or dataframe_id.", "data": None, "model": None}
+            
+        df_clean = df.dropna(subset=[target_variable] + feature_variables)
+        X = df_clean[feature_variables]
+        y = df_clean[target_variable]
+        
+        X = pd.get_dummies(X, drop_first=True)
+        
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        if task_type == 'regression':
+            model = MLPRegressor(hidden_layer_sizes=tuple(hidden_layer_sizes), max_iter=max_iter, early_stopping=True, random_state=42)
+            model.fit(X_train_scaled, y_train)
+            score = model.score(X_test_scaled, y_test)
+            result_text = f"MLP Regression completed.\nTarget: {target_variable}\nR^2 Score on test set: {score:.4f}"
+        else:
+            model = MLPClassifier(hidden_layer_sizes=tuple(hidden_layer_sizes), max_iter=max_iter, early_stopping=True, random_state=42)
+            model.fit(X_train_scaled, y_train)
+            score = model.score(X_test_scaled, y_test)
+            result_text = f"MLP Classification completed.\nTarget: {target_variable}\nAccuracy on test set: {score:.4f}"
+            
+        return {"text": result_text, "data": df_clean, "model": model}
+        
+    except Exception as e:
+        return {"text": f"Neural Network Error: {e}\n{traceback.format_exc()}", "data": None, "model": None}
+
+@mlflow.trace(name="run_optimization_tool")
+def run_optimization_tool(
+    objective_coefficients: List[float],
+    inequality_constraints_matrix: Optional[List[List[float]]] = None,
+    inequality_constraints_bounds: Optional[List[float]] = None,
+    equality_constraints_matrix: Optional[List[List[float]]] = None,
+    equality_constraints_bounds: Optional[List[float]] = None,
+    bounds: Optional[List[List[Optional[float]]]] = None
+) -> Dict[str, Any]:
+    from scipy.optimize import linprog
+    
+    try:
+        formatted_bounds = None
+        if bounds is not None:
+            formatted_bounds = [(b[0], b[1]) if len(b) >= 2 else (None, None) for b in bounds]
+            
+        res = linprog(
+            c=objective_coefficients,
+            A_ub=inequality_constraints_matrix,
+            b_ub=inequality_constraints_bounds,
+            A_eq=equality_constraints_matrix,
+            b_eq=equality_constraints_bounds,
+            bounds=formatted_bounds,
+            method='highs'
+        )
+        
+        if res.success:
+            result_text = f"Optimization Successful!\nOptimal Objective Value: {res.fun:.4f}\nOptimal Variables: {res.x}"
+        else:
+            result_text = f"Optimization Failed: {res.message}"
+            
+        return {"text": result_text, "data": None, "model": res}
+        
+    except Exception as e:
+        return {"text": f"Optimization Error: {str(e)}", "data": None, "model": None}
 
 @mlflow.trace(name="execute_python_tool")
 def execute_python_tool(
