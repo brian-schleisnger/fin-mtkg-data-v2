@@ -1,4 +1,51 @@
+import copy
+
 from openai import pydantic_function_tool
+
+
+# ─── Schema Compatibility Helpers ────────────────────────────────────────────
+# Gemini (and some other non-OpenAI endpoints) reject JSON Schemas that contain
+# $defs / $ref, which Pydantic v2 emits for any nested or Union type.
+# _resolve_refs() recursively inlines all $ref pointers so the final schema is
+# a plain, self-contained object that every model API accepts.
+
+def _resolve_refs(schema: dict) -> dict:
+    """
+    Recursively resolves all $ref pointers in a JSON Schema dict by inlining
+    the referenced $defs entries, then strips the $defs key entirely.
+    Returns a deep-copied, fully-flattened schema.
+    """
+    schema = copy.deepcopy(schema)
+    defs = schema.pop("$defs", {})
+
+    def _inline(node):
+        if isinstance(node, dict):
+            if "$ref" in node:
+                ref_key = node["$ref"].split("/")[-1]  # e.g. "#/$defs/ScenarioChange" → "ScenarioChange"
+                resolved = copy.deepcopy(defs.get(ref_key, {}))
+                node.clear()
+                node.update(_inline(resolved))
+            else:
+                for k, v in node.items():
+                    node[k] = _inline(v)
+        elif isinstance(node, list):
+            return [_inline(item) for item in node]
+        return node
+
+    return _inline(schema)
+
+
+def _flatten_tool(tool: dict) -> dict:
+    """
+    Takes a pydantic_function_tool dict and returns a copy with its parameters
+    schema fully resolved (no $defs / $ref).
+    """
+    tool = copy.deepcopy(tool)
+    params = tool.get("function", {}).get("parameters")
+    if params:
+        tool["function"]["parameters"] = _resolve_refs(params)
+    return tool
+
 
 # 1. Import schemas explicitly with aliases to prevent name collisions
 from agent.schemas import (
@@ -62,7 +109,7 @@ TOOL_SCHEMAS = [
     run_optimization_tool_Schema
 ]
 
-TOOLS = [pydantic_function_tool(schema) for schema in TOOL_SCHEMAS]
+TOOLS = [_flatten_tool(pydantic_function_tool(schema)) for schema in TOOL_SCHEMAS]
 
 # 4. Centralized routing map: maps tool names to (execution_function, pydantic_validator) tuples
 TOOL_DISPATCHER = {
