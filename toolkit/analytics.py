@@ -782,7 +782,20 @@ def execute_python_tool(
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
         elif TABLE_NAME:
-            df = link_tables(TABLE_NAME, random_order=True, limit=100000)
+            # Normalise to a list
+            if isinstance(TABLE_NAME, str):
+                table_list = [t.strip() for t in TABLE_NAME.split(",")] if "," in TABLE_NAME else [TABLE_NAME]
+            else:
+                table_list = list(TABLE_NAME)
+
+            if len(table_list) == 1:
+                # Single table: load normally, expose as plain `df`
+                df = link_tables(table_list[0], limit=100000)
+            else:
+                # Multiple tables: load each independently to avoid a costly cross-join.
+                # `df` is a list where df[i] corresponds to table_list[i].
+                # The generated code can merge/join however it needs with pandas.
+                df = [link_tables(t, limit=100000) for t in table_list]
         else:
             return {"text": "Error: Must provide either TABLE_NAME or dataframe_id.", "data": None}
             
@@ -793,7 +806,7 @@ def execute_python_tool(
                 return {"text": f"Error: Python code contains forbidden term: '{term}'. Execution blocked for security.", "data": None}
                 
         local_env = {
-            'df': df.copy() if df is not None else None,
+            'df': df.copy() if isinstance(df, pd.DataFrame) else df,
             'pd': pd,
             'np': np,
             'result_df': None,
@@ -815,7 +828,7 @@ def execute_python_tool(
             
         return {
             "text": final_text, 
-            "data": local_env.get('result_df') if isinstance(local_env.get('result_df'), pd.DataFrame) else local_env.get('df')
+            "data": local_env.get('result_df') if isinstance(local_env.get('result_df'), pd.DataFrame) else (local_env.get('df') if isinstance(local_env.get('df'), pd.DataFrame) else None)
         }
         
     except Exception as e:

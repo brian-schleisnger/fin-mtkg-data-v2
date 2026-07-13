@@ -1,0 +1,172 @@
+{
+  "table_metadata": {
+    "table_name": "subscriber_activity_and_balances",
+    "table_description": "A long-form financial and operational dataset tracking subscriber additions, disconnects, and balances over time. The data includes strict metadata columns (Row_Type, Parent_Rollup, Time_Aggregation_Rule) to guide correct querying, prevent double-counting of subtotals, and dictate how metrics should be handled across time periods.",
+    "special_rules": "NEVER SUM() the 'Amount' column without first filtering by 'Row_Type' or 'Parent_Rollup'. If querying across multiple months, strictly obey the 'Time_Aggregation_Rule'."
+  },
+  "schema_definition": [
+    {
+      "column_name": "Metric",
+      "data_type": "String",
+      "description": "The specific business metric, channel, or balance being recorded for the given time period.",
+      "range_of_outcomes": "Beginning Period Subscribers, Local Retail Activations, Sales Partner Activations,  National Retail Activations, Telco Activations, Other Activations, Caliber Activations, Commercial 1:1 Activations, Commercial EBU Activations, Commercial Activations, Indirect Activations, Direct Activations, Gross Adds, Disconnects, Net Adds, Ending Period Subscribers, Average Subscriber Balance, Churn Rate"
+    },
+    {
+      "column_name": "Row_Type",
+      "data_type": "String",
+      "description": "Categorizes the metric to prevent double-counting during aggregation.",
+      "range_of_outcomes": {
+        "Base_Truth": "Raw input metrics. Safe to sum together to build custom rollups.",
+        "Subtotal_Sum": "Pre-calculated intermediate aggregations (e.g., Indirect Activations, Gross Adds). Do not sum these with Base_Truth rows.",
+        "Total_Sum": "Pre-calculated final balances (e.g., Ending Period Subscribers).",
+        "Calculated_Ratio": "Pre-calculated rates or averages (e.g., Churn Rate, Average Subscriber Balance)."
+      }
+    },
+    {
+      "column_name": "Parent_Rollup",
+      "data_type": "String",
+      "description": "Indicates the direct parent metric that this row feeds into mathematically. Useful for filtering a specific category. (example: every column with the value 'Gross Adds' in Parent_Rollup will have values in the amount column that sum to the value in the amount column for the row with Gross adds in the Metric column). All mathematical feeding is done monthly. 'None' indicates a top-level metric.",
+      "range_of_outcomes": "Ending Period Subscribers, Indirect Activations, Commercial Activations, Gross Adds, Net Adds, Ending Balance, None"
+    },
+    {
+      "column_name": "Time_Aggregation_Rule",
+      "data_type": "String",
+      "description": "Explicit instructions for how the LLM must handle this metric if aggregating across multiple months or years.",
+      "range_of_outcomes": {
+        "Additive": "It is mathematically safe to use SUM(Amount) across time (e.g., summing Jan and Feb Gross Adds).",
+        "Point_In_Time": "DO NOT SUM across time. To get the balance for a quarter, query the specific month required (e.g., the last month of the quarter for Ending Balance, or the first month for Beginning Balance).",
+        "Recalculate_Only": "DO NOT SUM OR AVERAGE across time. To get this metric for a custom time range, the LLM must sum the underlying Base_Truth components and recalculate the formula (e.g., Total Disconnects / Recalculated Average Balance)."
+      }
+    },
+    {
+      "column_name": "Year",
+      "data_type": "Numeric",
+      "description": "The calendar year of the recorded metric.",
+      "range_of_outcomes": "YYYY format (e.g., 2018)"
+    },
+    {
+      "column_name": "Month",
+      "data_type": "Numeric",
+      "description": "The calendar month of the recorded metric.",
+      "range_of_outcomes": "1 through 12"
+    },
+    {
+      "column_name": "Amount",
+      "data_type": "Numeric",
+      "description": "The numerical value of the metric. Note: Disconnects are recorded as negative values. Ratios like Churn Rate may be recorded as whole numbers representing percentages (e.g., 2 = 2%).",
+      "range_of_outcomes": "Positive integers, negative integers (for churn/disconnects), or small numbers (for ratios)."
+    }
+  ],
+  "reference_mappings": {
+    "metric_hierarchy": [
+      {
+        "Metric": "Beginning Period Subscribers",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Ending Period Subscribers",
+        "Time_Aggregation_Rule": "Point_In_Time"
+      },
+      {
+        "Metric": "Local Retail Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Indirect Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Sales Partner Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Indirect Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "National Retail Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Indirect Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Telco Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Indirect Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Other Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Indirect Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Caliber Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Indirect Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Commercial 1:1 Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Commercial Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Commercial EBU Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Commercial Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Commercial Activations",
+        "Row_Type": "Subtotal_Sum",
+        "Parent_Rollup": "Indirect Activations",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Indirect Activations",
+        "Row_Type": "Subtotal_Sum",
+        "Parent_Rollup": "Gross Adds",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Direct Activations",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Gross Adds",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Gross Adds",
+        "Row_Type": "Subtotal_Sum",
+        "Parent_Rollup": "Net Adds",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Disconnects",
+        "Row_Type": "Base_Truth",
+        "Parent_Rollup": "Net Adds",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Net Adds",
+        "Row_Type": "Subtotal_Sum",
+        "Parent_Rollup": "Ending Balance",
+        "Time_Aggregation_Rule": "Additive"
+      },
+      {
+        "Metric": "Ending Period Subscribers",
+        "Row_Type": "Total_Sum",
+        "Parent_Rollup": "None",
+        "Time_Aggregation_Rule": "Point_In_Time"
+      },
+      {
+        "Metric": "Average Subscriber Balance",
+        "Row_Type": "Calculated_Ratio",
+        "Parent_Rollup": "None",
+        "Time_Aggregation_Rule": "Recalculate_Only"
+      },
+      {
+        "Metric": "Churn Rate",
+        "Row_Type": "Calculated_Ratio",
+        "Parent_Rollup": "None",
+        "Time_Aggregation_Rule": "Recalculate_Only"
+      }
+    ]
+  }
+}
