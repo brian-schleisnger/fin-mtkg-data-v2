@@ -1,0 +1,36 @@
+2026 Intern Project Scope
+Manager Name and Title: Justin Manalansan, Finance Manager, Marketing - Video Services
+Intern Name and Title: Brian Schlesinger - Finance Intern
+Office Location: Meridian
+Start Date/End Date: June 8th 2026 - August 14th 2026
+
+Project Title: AI Driven Video Services Knowledge & Predictive Economics Engine
+
+Project Summary: This project creates an AI-powered portal that serves as a knowledge hub for Video Services acquisition economics and previous marketing and offer performance.
+- Phase 1: Build a retrieval generation assistant that allows users to query complex acquisition documentation to understand previous offer economics, terminology explanations, and specific economic detail on the life cycle of a customer acquisition.
+- Phase 2: Build a logic model to identify optimal Subscriber Acquisition Cost (SAC) based on user prompts and historical financials.
+Deliverables:
+? Interactive Knowledge Portal: A web-based AI assistant for real-time reference of DISH/Sling financial and operational documentation.
+? SAC Optimization Model: A functional model that identifies optimized SAC for different acquisition scenarios.
+? Unified Acquisition Tool: A clean, cross-functional data library linking the different departments associated with an acquisition (Marketing, Sales, IHS, etc.)
+Business Relevance: 
+? Scalable Onboarding: This project digitizes historical knowledge from all departments in the customer acquisition life cycle and provides a reference tool for new employees (terminology) and current employees (historical performance).
+? SAC Optimization: By creating a library of knowledge and historical datasets and creating a clear modeling structure, this project will be able to provide an optimized SAC based on historicals and variable acquisition scenarios.
+
+Skills Required/To Be Developed:
+Skills Required:
+? Financial Modeling (NPV, CLV), Experience using SQL, Python, AI.
+Skills to Be Developed:
+? Leverage no-code/low code Enterprise AI platforms to create reference tools and optimizer
+Key Milestones/Timeline:
+? Week 1-3: Onboarding and gathering/identifying and cleaning data from cross-functional teams
+? Week 4-6: Developing "Reference Tool" assistant using out of the box Enterprise AI platform to ingest cleaned data
+? Week 7-9: Building "SAC Optimizer" using financial formulas and historical data
+? Week 10: Prepare and focus on executive presentation to leadership on August 14th.
+
+Measurement of Success:
+The success of the project will be measured using the following criteria: 
+? Successful deployment of both a "Reference" chat interface and a "Predictive" profitability model
+? AI Integration: The tool achieves >90% accuracy in retrieving specific offer details and >85% accuracy in SAC of new acquisition.
+? Scalability: The framework allows for easy "uploading" of new marketing offer excel models and PDF documents for immediate AI ingestion.
+

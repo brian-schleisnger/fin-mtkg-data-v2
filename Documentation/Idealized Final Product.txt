@@ -1,0 +1,56 @@
+What I envision the final project to be like
+? Ideally anyone within Echostar has access to the website to use
+? If this isn't possible, than everyone with databricks sandbox access can access it
+? The user interface looks like atypical chatbot, with the type box at the bottom, a large central window to show the conversations, and then a tracker for the cost of the current conversation
+? If possible, the cost is not only tracking token costs, but also maybe compute costs
+? When the user enters a prompt, whether it be very non-technical or highly specific, that is passed to an llm using some sort of sdk/api type thing, databricks sdk or otherwise
+? The model performs a few tasks on this front end, such as:
+? Make the user's prompt more specific
+? Determine which table(s) to pull from
+? Determine what tool(s) to use
+? Determine if there are other pieces of information needed to contextualize what the user is asking, and then asking those other questions
+? It does all of this will access to data dictionaries so it understands each table and the columns within it
+? The llms interface with a variety of tools, such as:
+? A small amount of hard-coded functions that are frequent asks
+¦ Marketing cpa, for example, ahs been built out
+? SQL query tool
+? Traditional data mining methods:
+¦ Regression tool
+¦ Time series tool
+¦ Dimension reduction tool
+¦ Classification tool
+¦ Clustering tool
+¦ Anomaly detection tool
+? Data visualization tools
+¦ Histogram
+¦ Bar chart
+¦ Line chart
+¦ Scatter plot
+¦ Tree visualizations
+¦ Heat maps
+? machine-learning methods
+¦ Survival curve modeling
+¦ Uplift modeling
+¦ Neural network?
+¦ Maybe some sort of kernel method / a thing to turn distribution continuous
+? Optimization method
+¦ Linear programming or otherwise
+? Scenario analysis
+¦ (e.g. it understands the prompt "if we increase spend on this marketing tactic, how will our activations be affected?")
+? Llm-derived solution
+¦ It tries to answer the problem with a pre-built tool, but if there's too complex of an ask it can write and execute it's own python function (that is read-only on the data)
+? In a perfect world, the llm also "learns" as much as it can
+? Achievable solution is within-conversation memory that relates outputs to each other
+? Stretch solution is long-term deep learning where as it answers more questions those questions help it answer future ones better
+? Those tools then interface with the data tables which are mostly pre-cleaned but fairly large
+? Looking on the scale of 10ish gbs of data to access
+? Some data will be per-customer, but some data will be per-time, both of which can be married to each other
+? Data tables either are tied into our redshift tables, or they're tables like right now which are just imported to databricks and added onto each month/quarter
+? Once the tool has run, the output is passed back through an llm to:
+? Determine if an error occurred, and if so, pass the error back to the front end llm
+? Link any multiple questions up and see how they relate
+? Contextualize the output and make it understandable for executives/non-technical/non-statistician users
+? Maybe this is also where visualizations get made instead of the toolbox, but not how I have it set up 
+? This will also likely be a more expensive model - through testing nano is good at the front end but bad at contextualizing
+? The user sees the output (words, tables, charts), the cost is updated, they have the option to download the data to excel, and they have the option to see an output of the process the model followed to get the output
+? This tool gets used by most of the video services finance team, as well as members of the video services marketing, retention, etc. 

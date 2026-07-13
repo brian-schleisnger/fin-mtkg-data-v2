@@ -1,0 +1,18 @@
+Tech stack specifics
+? This whole project file is in a github repository tied to my work email
+? I use standard VSCode to edit the code
+? The app is built and deployed using databricks
+? The tables it's sourcing from are in databricks
+¦ There's a table in the unity catalog, but I couldn't give the app's service principal access to this original table because of restrictions by admin
+¦ I created a synced table that's a copy, which I was able to give the app access to
+¦ Because of this I believe it's running through Lakebase Postgres, even though the data is mostly static and it would I think make more sense running in the SQL warehouse in databricks
+¦ I don't have access to create my own schema, so right now everything's in the sandbox schema (and sandbox volume if i want to use that)
+? I think (but aren't 100% sure) that the compute is running through databricks as well
+? On databricks, the "app" pulls from the github repository when it deploys
+? Databricks is also the SDK Im usin to access the LLM
+¦ Currently tied into GPT 5.4 nano, but should be getting access to other models soon
+? I believe most of the original source of data is redshift tables and Onestream financial reporting cubes
+? Currently the data is copied and formatted into excel files
+? Eventually Ill work to tie it directly into te tables/cubes tat contain actual data
+? The corporate firewall blocks the app when it deploys from using a requirements.txt to pull python libraries from pypi.org, and as a result, if a package needs to be added, I have to manually go to pypi.org, download the whl file, and add it locally to the repository
+? Google cloud is an emerging alternative to databricks, and my understanding is I could use GCP to do everything I want, but I just ot access to it and it is highly firewalled

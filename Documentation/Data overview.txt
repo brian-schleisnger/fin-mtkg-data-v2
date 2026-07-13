@@ -1,0 +1,12 @@
+Current data sources
+? Acquisition file: this has per-customer data going back to 4Q 2018, for most of the unique activations on Dish TV. it contains the customer's attributed information (account id, city/state/zipcode, geobucket, credit score range, package, activation plan, sales chanel, etc.), the subscriber acquisition cost attributed to that customer (marketing spend, activation incentives, installation, etc.), as well as (not my but a whole separate team's) model projected future data (estimated churn, arpu, costs, monthly cash flow, and npv value), all pulled at the end of the month they activated so the cash flow type stuff is all estimates
+? Marketing spend file: this has by-month spend for the marketing (and some from sales) department, broken out by account(digital, mail, etc.) and activity (for digital: search, social, etc.)
+Data sources that are coming soon
+? Sales file: this will ideally connect the marketing spend with by-day data on total calls, total sales, total activations, and maybe some others
+? PayTV internal P&L stuff: montly total and by-chanel revenue, cogs, and other tasks, as well as total subscriber count data
+Data sources I could get
+? IHS file: this in-home-services data to get granular about the early lifecycle of a customer and see how sales convert to equipment installs convert to activations, as well as more granular on the costs of repairs, ec.
+? Active file: I might be able to get a file with account id, data of first activation, date of deactivation, and an active indicator
+Data I likely won't be able to get
+? A true by-customer file with all of their cash flow data from their account (what they've paid each month, what our cogs have been) and whether they're still active
+You can also suggest and add more data I might want to integrate

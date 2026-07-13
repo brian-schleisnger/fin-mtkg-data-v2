@@ -1,0 +1,12 @@
+The things I'm looking to add/update, in the order in which I'm trying to achieve them, knowing I likely won't achieve them all. 
+1. Boost model reliability - make sure when the user asks questions, the output is what the user wants
+2. Answer the questions: Am I underutilizing Databricks, and how can I use it in addition to how I'm already using it?
+3. Add the optimization-style thing
+4. Identify and implement a way to ingest all data dictionaries once instead of each time a prompt runs
+5. Add some sort of deep learning type thing
+6. add python-writing function
+7. Add a better model to the back end so that outputs are better
+a. This right now is dependent on me getting higher tier of databricks access
+8. Write a more formal document for the FTE this project will be passed off to on how to update the project (adding more data, adding more tools )
+9. Somehow connect the project to the redshift tables with some kind of service account
+
