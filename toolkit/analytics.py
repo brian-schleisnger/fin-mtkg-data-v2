@@ -33,7 +33,8 @@ __all__ = [
     "run_pca_tool",
     "run_kmeans_clustering_tool",
     "calculate_unit_economics_tool",
-    "run_scenario_planning_tool"
+    "run_scenario_planning_tool",
+    "execute_python_tool"
 ]
 
 
@@ -673,5 +674,58 @@ def run_scenario_planning_tool(
         
         return {"text": result_text, "data": df, "model": model}
         
-    except Exception as e:
         return {"text": f"Scenario Planning Error: {str(e)}", "data": None, "model": None}
+
+@mlflow.trace(name="execute_python_tool")
+def execute_python_tool(
+    code: str, 
+    TABLE_NAME: Optional[Union[str, List[str]]] = None,
+    dataframe_id: Optional[str] = None
+) -> Dict[str, Any]:
+    import io
+    import contextlib
+    
+    try:
+        if dataframe_id:
+            df = get_df_memory().get_df(dataframe_id)
+            if df is None:
+                return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
+        elif TABLE_NAME:
+            df = link_tables(TABLE_NAME, random_order=True, limit=100000)
+        else:
+            return {"text": "Error: Must provide either TABLE_NAME or dataframe_id.", "data": None}
+            
+        forbidden_terms = ['os', 'sys', 'subprocess', 'shutil', 'databricks', 'pg8000', 'sqlalchemy', 'requests', 'urllib', 'eval(', 'exec(', 'open(', 'drop table', 'delete from', 'update ', 'insert into']
+        code_lower = code.lower()
+        for term in forbidden_terms:
+            if term in code_lower:
+                return {"text": f"Error: Python code contains forbidden term: '{term}'. Execution blocked for security.", "data": None}
+                
+        local_env = {
+            'df': df.copy() if df is not None else None,
+            'pd': pd,
+            'np': np,
+            'result_df': None,
+            'result_text': None
+        }
+        
+        stdout_buffer = io.StringIO()
+        with contextlib.redirect_stdout(stdout_buffer):
+            exec(code, {"__builtins__": __builtins__}, local_env)
+            
+        output = stdout_buffer.getvalue()
+        
+        final_text = "Python Execution Successful.\n"
+        if output:
+            final_text += f"Console Output:\n{output}\n"
+            
+        if local_env.get('result_text'):
+            final_text += f"Model Result Text:\n{local_env['result_text']}\n"
+            
+        return {
+            "text": final_text, 
+            "data": local_env.get('result_df') if isinstance(local_env.get('result_df'), pd.DataFrame) else local_env.get('df')
+        }
+        
+    except Exception as e:
+        return {"text": f"Python Execution Error: {e}", "data": None}
