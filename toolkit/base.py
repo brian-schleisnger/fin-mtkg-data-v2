@@ -134,13 +134,34 @@ def _is_gpt_model(model_name: str) -> bool:
     """Returns True if the endpoint name indicates a GPT model (OpenAI-native tool-calling)."""
     return "gpt" in model_name.lower()
 
+
+def _extract_text_content(message) -> str:
+    """
+    Safely extracts the text string from a ChatCompletionMessage regardless of
+    whether content is a plain string or a Gemini-style list of content blocks
+    (e.g. [{'type': 'text', 'text': '...', 'thoughtSignature': '...'}]).
+    """
+    content = message.content
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        # Grab the first block with type='text' and return its text value
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                return block.get("text", "")
+    return str(content)
+
+
 def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
     """
-    Structured-output LLM call via instructor.
-    - GPT endpoints: uses instructor's default TOOLS mode (tool-calling).
-    - All other endpoints (Gemini, Claude, etc.): uses JSON_SCHEMA mode, which
-      injects the schema into the system prompt instead of a tool definition,
-      avoiding $defs/$ref rejections from non-OpenAI APIs.
+    Structured-output LLM call with cross-model compatibility.
+
+    - GPT endpoints: uses instructor TOOLS mode (native tool-calling + JSON schema).
+    - All other endpoints (Gemini, Claude, etc.): calls the raw client directly,
+      extracts the text from Gemini's content-block list format, then parses with
+      Pydantic. This avoids both the $defs/$ref tool-schema rejection AND the
+      instructor parse failure caused by Gemini returning content as a list when
+      extended thinking is enabled.
     """
     resolved_model = model_name or ModelConfig.ACTIVE_MODEL
 
@@ -150,23 +171,56 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
     )
 
     if _is_gpt_model(resolved_model):
+        # GPT: let instructor handle everything via tool-calling
         fresh_instructor_client = instructor.from_openai(openai_client)
-    else:
-        # Non-GPT models (Gemini, Claude, etc.) reject $defs/$ref in tool schemas
-        fresh_instructor_client = instructor.from_openai(
-            openai_client,
-            mode=instructor.Mode.JSON_SCHEMA
+        model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
+            model=resolved_model,
+            messages=messages,
+            response_model=response_model,
+            max_retries=3
         )
+        track_tokens(raw_res)
+        return model_res
+    else:
+        # Non-GPT (Gemini, Claude, etc.): inject a plain-text JSON instruction,
+        # call the raw client, extract the text block, and parse with Pydantic.
+        schema_str = json.dumps(response_model.model_json_schema(), indent=2)
+        injection = {
+            "role": "system",
+            "content": (
+                f"You MUST respond with a single valid JSON object that strictly conforms "
+                f"to this schema and nothing else — no markdown, no explanation:\n{schema_str}"
+            )
+        }
+        augmented_messages = [injection] + list(messages)
 
-    # Use create_with_completion to get both the Pydantic model AND the raw OpenAI response
-    model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
-        model=resolved_model,
-        messages=messages,
-        response_model=response_model,
-        max_retries=3
-    )
-    track_tokens(raw_res)
-    return model_res
+        last_exc = None
+        for attempt in range(3):
+            raw_res = openai_client.chat.completions.create(
+                model=resolved_model,
+                messages=augmented_messages
+            )
+            track_tokens(raw_res)
+            text = _extract_text_content(raw_res.choices[0].message).strip()
+
+            # Strip markdown fences if the model wrapped the JSON anyway
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+
+            try:
+                return response_model.model_validate_json(text)
+            except Exception as exc:
+                last_exc = exc
+                # Feed the error back so the model can self-correct on the next attempt
+                augmented_messages = augmented_messages + [
+                    {"role": "assistant", "content": text},
+                    {"role": "user", "content": f"That response failed validation: {exc}. Please return only valid JSON."}
+                ]
+
+        raise last_exc
 
 def track_tokens(response):
     """Directly extracts token usage from a live OpenAI/Databricks SDK response object."""
