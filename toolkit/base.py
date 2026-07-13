@@ -20,11 +20,8 @@ import streamlit as st
 # Keys are the display names shown in the UI dropdown.
 # Values are the Databricks serving endpoint names passed to the OpenAI-compatible API.
 AVAILABLE_MODELS: dict[str, str] = {
-    # "Display Name": "databricks-endpoint-name",
-    # Example:
-    # "GPT-4o Mini (Fast)":   "databricks-gpt-4o-mini",
-    # "GPT-4.1 (Balanced)":   "databricks-gpt-4-1",
-    "GPT 5.4 Nano (Low)": "system.ai.gpt-5-4-nano"
+    "Gemini Flash (Low-Medium)": "databricks-gemini-3-1-flash-lite",
+    "GPT 5.4 Nano (Low)": "databricks-gpt-5-4-nano"
 }
 
 class ModelConfig:
