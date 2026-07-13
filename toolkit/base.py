@@ -15,17 +15,26 @@ import streamlit as st
 
 
 # ─── Configuration ───────────────────────────────────────────────
-class ModelConfig:
-    ROUTING_MODEL = "databricks-gpt-5-4-nano"
-    SYNTHESIS_MODEL = "databricks-gpt-5-4-nano"
 
-def set_model_tier(tier: str):
-    if tier == "Advanced (Thorough)":
-        ModelConfig.ROUTING_MODEL = "databricks-gpt-5-4-nano"
-        ModelConfig.SYNTHESIS_MODEL = "databricks-gpt-5-4-nano" 
-    else:
-        ModelConfig.ROUTING_MODEL = "databricks-gpt-5-4-nano"
-        ModelConfig.SYNTHESIS_MODEL = "databricks-gpt-5-4-nano"
+# !! ADD YOUR MODEL ENDPOINTS HERE !!
+# Keys are the display names shown in the UI dropdown.
+# Values are the Databricks serving endpoint names passed to the OpenAI-compatible API.
+AVAILABLE_MODELS: dict[str, str] = {
+    # "Display Name": "databricks-endpoint-name",
+    # Example:
+    # "GPT-4o Mini (Fast)":   "databricks-gpt-4o-mini",
+    # "GPT-4.1 (Balanced)":   "databricks-gpt-4-1",
+    "GPT 5.4 Nano (Low)": "system.ai.gpt-5-4-nano"
+}
+
+class ModelConfig:
+    # The single model used for all LLM calls (routing, decomposition, synthesis).
+    # Updated at runtime by set_active_model() when the user picks from the sidebar.
+    ACTIVE_MODEL: str = next(iter(AVAILABLE_MODELS.values()), "")
+
+def set_active_model(display_name: str) -> None:
+    """Updates the single active model endpoint based on the user's sidebar selection."""
+    ModelConfig.ACTIVE_MODEL = AVAILABLE_MODELS.get(display_name, ModelConfig.ACTIVE_MODEL)
         
 DATABRICKS_HOST = os.environ.get('DATABRICKS_HOST', '').rstrip('/')
 PGHOST = os.environ.get("PGHOST")
@@ -134,7 +143,7 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
     )
     # Use create_with_completion to get both the Pydantic model AND the raw OpenAI response
     model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
-        model=model_name or ModelConfig.ROUTING_MODEL,
+        model=model_name or ModelConfig.ACTIVE_MODEL,
         messages=messages,
         response_model=response_model,
         max_retries=3

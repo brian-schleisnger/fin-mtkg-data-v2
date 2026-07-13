@@ -39,7 +39,7 @@ def filter_schema(user_prompt: str, run_log: List[str] = None) -> dict:
         required_tables: List[str]
         
     try:
-        parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ROUTING_MODEL)
+        parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ACTIVE_MODEL)
         filtered_dict = {t: DATA_DICTIONARY[t] for t in parsed_result.required_tables if t in DATA_DICTIONARY}
         
         if not filtered_dict:
@@ -281,7 +281,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
             max_retries = 3
             for attempt in range(max_retries):
                 response = raw_client.chat.completions.create(
-                    model=ModelConfig.ROUTING_MODEL,
+                    model=ModelConfig.ACTIVE_MODEL,
                     messages=msgs,
                     tools=TOOLS
                 )
@@ -348,7 +348,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         
         try:
             response = raw_client.chat.completions.create(
-                model=ModelConfig.SYNTHESIS_MODEL,
+                model=ModelConfig.ACTIVE_MODEL,
                 messages=final_msgs
             )
             track_tokens(response)
