@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.preprocessing import StandardScaler
 import statsmodels.api as sm
-from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 
 # Project imports
@@ -185,16 +185,16 @@ def run_ols_regression_tool(
         return {"text": f"Regression Error: {e}", "data": None}
     
 
-@mlflow.trace(name="run_arima_forecasting_tool")
-def run_arima_forecasting_tool(
+@mlflow.trace(name="run_forecasting_tool")
+def run_forecasting_tool(
     value_column: str, 
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None,
     aggregation: str = "SUM", 
-    steps: int = 5, 
-    p: int = 1, 
-    d: int = 1, 
-    q: int = 1
+    steps: int = 6,
+    trend: str = "add",      # 'add' or 'mul'
+    seasonal: str = "add",   # 'add' or 'mul'
+    seasonal_periods: int = 12 # 12 for monthly seasonality
 ) -> dict:
     safe_value = '"{}"'.format(value_column.replace('"', ''))
     agg_func = aggregation.upper() if aggregation.upper() in ["SUM", "AVG", "COUNT"] else "SUM"
@@ -266,19 +266,26 @@ def run_arima_forecasting_tool(
 
         series = df["target_value"].values
 
-        model = ARIMA(series, order=(p, d, q))
-        model_fit = model.fit()
+        model = ExponentialSmoothing(
+            series, 
+            trend=trend, 
+            seasonal=seasonal, 
+            seasonal_periods=seasonal_periods
+        )
+        # Using optimized=True allows statsmodels to find the best smoothing weights
+        model_fit = model.fit(optimized=True) 
         forecast = model_fit.forecast(steps=steps)
 
-        result_text = f"ARIMA({p},{d},{q}) Forecasting Results for {agg_func} of {value_column}:\n"
-        result_text += f"Based on {len(series)} periods of historical data, predictions for the next {steps} periods:\n"
+        result_text = f"Holt-Winters Forecasting Results for {agg_func} of {value_column}:\n"
+        result_text += f"Based on {len(series)} periods (Trend: {trend}, Seasonal: {seasonal}, Periods: {seasonal_periods})\n"
+        result_text += f"Predictions for the next {steps} periods:\n"
         for i, val in enumerate(forecast, start=1):
             result_text += f"  • Period +{i}: {val:.4f}\n"
 
         return {"text": result_text, "data": model_fit}
 
     except Exception as e:
-        return {"text": f"ARIMA Forecasting Error: {e}", "data": None}
+        return {"text": f"Holt-Winters Forecasting Error: {e}", "data": None}
 
 
 @mlflow.trace(name="run_random_forest_tool")

@@ -202,9 +202,9 @@ class run_ols_regression_tool(BaseModel):
         description="A list of exact column names for the numerical predictor variables (the X variables)."
     )
 
-class run_arima_forecasting_tool(BaseModel):
+class run_forecasting_tool(BaseModel):
     """
-    Performs ARIMA time series forecasting. Automatically resolves the correct year/month 
+    Performs Holt-Winters time series forecasting. Automatically resolves the correct year/month 
     column names for any table registered in TABLE_DIMENSIONS (e.g., acquisition_data_v3, 
     dbs_marketing_spend_sync, subcount_data_synced). Use this when the user asks to predict 
     future values based on historical trends.

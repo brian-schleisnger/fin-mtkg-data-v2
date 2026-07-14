@@ -51,7 +51,7 @@ def _flatten_tool(tool: dict) -> dict:
 from agent.schemas import (
     execute_sql_query_tool as execute_sql_query_tool_Schema,
     run_ols_regression_tool as run_ols_regression_tool_Schema,
-    run_arima_forecasting_tool as run_arima_forecasting_tool_Schema,
+    run_forecasting_tool as run_forecasting_tool_Schema,
     run_random_forest_tool as run_random_forest_tool_Schema,
     run_pca_tool as run_pca_tool_Schema,
     run_kmeans_clustering_tool as run_kmeans_clustering_tool_Schema,
@@ -71,7 +71,7 @@ from agent.schemas import (
 from .analytics import (
     execute_sql_query_tool,
     run_ols_regression_tool,
-    run_arima_forecasting_tool,
+    run_forecasting_tool,
     run_random_forest_tool,
     run_pca_tool,
     run_kmeans_clustering_tool,
@@ -93,7 +93,7 @@ from .visuals import (
 TOOL_SCHEMAS = [
     execute_sql_query_tool_Schema,
     run_ols_regression_tool_Schema,
-    run_arima_forecasting_tool_Schema,
+    run_forecasting_tool_Schema,
     run_random_forest_tool_Schema,
     run_pca_tool_Schema,
     run_kmeans_clustering_tool_Schema,
@@ -155,7 +155,7 @@ CATEGORY_TOOLS: dict[str, list[str]] = {
 TOOL_DISPATCHER = {
     "execute_sql_query_tool": (execute_sql_query_tool, execute_sql_query_tool_Schema),
     "run_ols_regression_tool": (run_ols_regression_tool, run_ols_regression_tool_Schema),
-    "run_arima_forecasting_tool": (run_arima_forecasting_tool, run_arima_forecasting_tool_Schema),
+    "run_forecasting_tool": (run_forecasting_tool, run_forecasting_tool_Schema),
     "run_random_forest_tool": (run_random_forest_tool, run_random_forest_tool_Schema),
     "run_pca_tool": (run_pca_tool, run_pca_tool_Schema),
     "run_kmeans_clustering_tool": (run_kmeans_clustering_tool, run_kmeans_clustering_tool_Schema),
