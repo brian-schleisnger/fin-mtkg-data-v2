@@ -138,5 +138,36 @@ class SemanticCache:
             # We silently log cache save errors so we never crash the user's primary UI loop
             print(f"Failed to save execution to semantic cache: {e}")
 
+    def delete_from_cache(self, user_prompt: str):
+        """
+        Permanently removes any cache entry whose prompt is a semantic match for
+        user_prompt (above SIMILARITY_THRESHOLD), ensuring the next run is always
+        a fresh execution rather than a cache hit.
+        """
+        try:
+            query_vector = self._get_embedding(user_prompt)
+        except Exception as e:
+            print(f"Cache eviction embedding failed: {e}")
+            return
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, embedding FROM semantic_cache")
+            rows = cursor.fetchall()
+
+            ids_to_delete = []
+            for row_id, emb_blob in rows:
+                cached_vector = np.frombuffer(emb_blob, dtype=np.float32)
+                sim = self._cosine_similarity(query_vector, cached_vector)
+                if sim >= SIMILARITY_THRESHOLD:
+                    ids_to_delete.append(row_id)
+
+            if ids_to_delete:
+                cursor.executemany(
+                    "DELETE FROM semantic_cache WHERE id = ?",
+                    [(row_id,) for row_id in ids_to_delete]
+                )
+                conn.commit()
+
 # Instantiate a global cache object to be imported into app.py
 agent_cache = SemanticCache()

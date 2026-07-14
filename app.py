@@ -92,6 +92,7 @@ bootstrap_environment()
 # ─── 2. AGENT & TOOLKIT IMPORTS ──────────────────────────────────────────
 # Now importing our cleanly extracted backend loop from the agent module
 from agent.loop import run_agent_loop
+from agent.cache import agent_cache
 from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
@@ -140,6 +141,10 @@ if "total_tokens" not in st.session_state:
     st.session_state.output_tokens = 0  
 if "last_step_latencies" not in st.session_state:
     st.session_state.last_step_latencies = {}
+if "rerun_prompt" not in st.session_state:
+    st.session_state.rerun_prompt = None
+if "rerun_msg_index" not in st.session_state:
+    st.session_state.rerun_msg_index = None
 
 # ─── 4.5 WELCOME SCREEN (EMPTY STATE) ────────────────────────────────────
 if not st.session_state.messages:
@@ -166,9 +171,9 @@ for i, msg in enumerate(st.session_state.messages):
                         st.plotly_chart(fig, use_container_width=True, key=f"fig_{i}_{j}")
                     
             # Historical Action Bar (Uses `msg`)
-            if msg.get("dfs") or msg.get("run_log"):
+            if msg["role"] == "assistant" and (msg.get("dfs") or msg.get("run_log")):
                 st.markdown("---")
-                act_col1, act_col2 = st.columns([1, 2])
+                act_col1, act_col2, act_col3 = st.columns([1, 2, 1])
                 
                 with act_col1:
                     if msg.get("dfs"):
@@ -186,15 +191,95 @@ for i, msg in enumerate(st.session_state.messages):
                             st.warning(f"⚠️ Excel export unavailable: {e}")
                 
                 with act_col2:
-                    if msg.get("run_log"): # (or result.get("run_log") for the current turn)
+                    if msg.get("run_log"):
                         with st.expander("🧠 View Agent Execution Trace", expanded=False):
-                            for step_num, log in enumerate(msg["run_log"], 1): # (or result["run_log"])
+                            for step_num, log in enumerate(msg["run_log"], 1):
                                 st.markdown(f"**Step {step_num}:**")
-                                # UPDATE: Use st.code instead of inline backticks for clean, readable wrapping
                                 st.code(log, language="text", wrap_lines=True)
-                                st.markdown("---") # Optional: adds a nice separator between steps
+                                st.markdown("---")
 
-# ─── 6. CHAT INPUT & EXECUTION ───────────────────────────────────────────
+                with act_col3:
+                    # The user prompt that triggered this assistant message is always at i-1
+                    if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
+                        if st.button("🔄 Re-run", key=f"rerun_{i}", use_container_width=True, help="Evict this response from the cache and re-run with the current model"):
+                            st.session_state.rerun_prompt = st.session_state.messages[i - 1]["content"]
+                            st.session_state.rerun_msg_index = i
+                            st.rerun()
+
+# ─── 6. RE-RUN HANDLER ───────────────────────────────────────────────────
+# Fires when a re-run button was clicked in the previous render cycle.
+if st.session_state.rerun_prompt is not None:
+    rerun_prompt = st.session_state.rerun_prompt
+    rerun_index = st.session_state.rerun_msg_index
+
+    # Clear the flag immediately so this block doesn't fire again on the next render
+    st.session_state.rerun_prompt = None
+    st.session_state.rerun_msg_index = None
+
+    # 1. Evict the old response from the semantic cache
+    from agent.cache import agent_cache as _cache
+    _cache.delete_from_cache(rerun_prompt)
+
+    # 2. Build history up to (but not including) the message pair being replaced
+    history_before = st.session_state.messages[: rerun_index - 1]
+
+    # 3. Re-run the agent — ModelConfig.ACTIVE_MODEL is already set by the sidebar
+    with st.chat_message("assistant", avatar="🤖"):
+        try:
+            with st.spinner(f"Re-running with `{ModelConfig.ACTIVE_MODEL}`..."):
+                result = run_agent_loop(rerun_prompt, history_before)
+
+            st.session_state.last_step_latencies = result.get("step_latencies", {})
+
+            st.markdown(result["final_text"])
+
+            if result.get("figures"):
+                for fig in result["figures"]:
+                    if isinstance(fig, go.Figure):
+                        fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
+                        st.plotly_chart(fig, use_container_width=True)
+
+            if result.get("dfs") or result.get("run_log"):
+                st.markdown("---")
+                act_col1, act_col2 = st.columns([1, 2])
+                with act_col1:
+                    if result.get("dfs"):
+                        try:
+                            excel_data = create_excel_buffer(result["dfs"])
+                            st.download_button(
+                                label="📥 Download Excel Export",
+                                data=excel_data,
+                                file_name="agent_data_export_rerun.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="download_rerun",
+                                use_container_width=True
+                            )
+                        except Exception as e:
+                            st.warning(f"⚠️ Excel export unavailable: {e}")
+                with act_col2:
+                    if result.get("run_log"):
+                        with st.expander("🧠 View Agent Execution Trace", expanded=False):
+                            for step_num, log in enumerate(result["run_log"], 1):
+                                st.markdown(f"**Step {step_num}:**")
+                                st.code(log, language="text", wrap_lines=True)
+
+            # 4. Replace the old assistant message in-place; preserve everything before and after
+            new_assistant_msg = {
+                "role": "assistant",
+                "content": result["final_text"],
+                "figures": result["figures"],
+                "dfs": result["dfs"],
+                "run_log": result["run_log"]
+            }
+            st.session_state.messages[rerun_index] = new_assistant_msg
+
+        except Exception as e:
+            import traceback
+            st.error(f"Re-run Error: {e}")
+            with st.expander("Show Traceback"):
+                st.code(traceback.format_exc(), language="python")
+
+# ─── 7. CHAT INPUT & EXECUTION ───────────────────────────────────────────
 if prompt := st.chat_input("Ask a question about the marketing data..."):
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
@@ -264,7 +349,7 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc(), language="python")
 
-# ─── 7. SIDEBAR & METRICS ────────────────────────────────────────────────
+# ─── 8. SIDEBAR & METRICS ────────────────────────────────────────────────
 with st.sidebar:
     st.title("🤖 Dataset Agent")
     
