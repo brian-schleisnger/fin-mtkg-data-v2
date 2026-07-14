@@ -55,6 +55,12 @@
       "data_type": "Numeric",
       "description": "The numerical value of the metric. Note: Disconnects are recorded as negative values. Ratios like Churn Rate may be recorded as whole numbers representing percentages (e.g., 2 = 2%).",
       "range_of_outcomes": "Positive integers, negative integers (for churn/disconnects), or small numbers (for ratios)."
+    },
+    {
+      "Column Name": "index",
+      "Column Description": "primary key index - likely will not need to be referenced",
+      "Data Type": "Numeric",
+      "Range of Outcomes": "positive integer"
     }
   ],
   "reference_mappings": {

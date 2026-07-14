@@ -21,7 +21,11 @@ def filter_schema(user_prompt: str, run_log: List[str] = None) -> dict:
     """Uses the ROUTING_MODEL to intelligently filter the schema down to only relevant tables."""
     schema_summaries = {}
     for table_name, table_data in DATA_DICTIONARY.items():
-        desc = table_data.get("description") or table_data.get("database_context", {}).get("table_metadata", {}).get("table_description", "")
+        desc = (
+            table_data.get("description")
+            or table_data.get("database_context", {}).get("table_metadata", {}).get("table_description", "")
+            or table_data.get("table_metadata", {}).get("table_description", "")
+        )
         concepts = table_data.get("related_concepts", [])
         schema_summaries[table_name] = {"description": desc, "related_concepts": concepts}
         

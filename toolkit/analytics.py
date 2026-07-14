@@ -59,7 +59,7 @@ def link_tables(
 ) -> pd.DataFrame:
     """
     Centralized data-fetching helper. Dynamically builds SQL queries and joins multiple 
-    tables based on relationships defined in TABLE_RELATIONSHIPS in base.py.
+    tables based on shared conformed dimensions defined in TABLE_DIMENSIONS in base.py.
     """
     if isinstance(tables, str):
         if "," in tables:
@@ -91,14 +91,17 @@ def link_tables(
         for next_table in table_list[1:]:
             join_condition = None
             for joined_t in joined_tables:
-                cond = get_join_clause(joined_t, next_table)
-                if cond:
-                    join_condition = cond
-                    break
+                try:
+                    cond = get_join_clause(joined_t, next_table)
+                    if cond:
+                        join_condition = cond
+                        break
+                except ValueError:
+                    continue
             
             if not join_condition:
                 raise ValueError(
-                    f"No join relationship defined in TABLE_RELATIONSHIPS between '{next_table}' "
+                    f"No shared dimensions found in TABLE_DIMENSIONS between '{next_table}' "
                     f"and currently joined tables ({joined_tables}). Please update base.py."
                 )
             

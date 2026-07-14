@@ -87,26 +87,35 @@ raw_client = DynamicOpenAIClient()
 
 mlflow.openai.autolog()
 
-# ─── Table Relationships ─────────────────────────────────────────
-TABLE_RELATIONSHIPS = {
-    (
-        '"sandbox"."dbs_marketing_spend_sync"', 
-        '"sandbox"."acquisition_data_v3"'
-    ): (
-        ' "sandbox"."dbs_marketing_spend_sync"."year" = "sandbox"."acquisition_data_v3"."Activation_Year" '
-        'AND "sandbox"."dbs_marketing_spend_sync"."month" = "sandbox"."acquisition_data_v3"."Activation_Month" '
-    )
+# ─── Conformed Dimension Mapping ─────────────────────────────────
+# Keys ('year', 'month', 'day') are standardized conceptual dimensions.
+# Values are the actual column names used inside that specific table.
+TABLE_DIMENSIONS = {
+    '"sandbox"."dbs_marketing_spend_sync"': {
+        "year": "year",
+        "month": "month",
+    },
+    '"sandbox"."acquisition_data_v3"': {
+        "year": "Activation_Year",
+        "month": "Activation_Month",
+    },
+    '"sandbox"."subcount_data_synced"': {
+        "year": "Year",
+        "month": "Month",
+    }
 }
 
 # ─── Schema Context ──────────────────────────────────────────────
 SCHEMA_CONFIG = {
     '"sandbox"."acquisition_data_v3"': "acquisition_data_dictionary.json",
-    '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json"
+    '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json",
+    '"sandbox"."subcount_data_synced"': "subscriber_count_dictionary.json"
 }
 
 ALIASES = {
     '"sandbox"."acquisition_data_v3"': ['arpu', 'cogs', 'sac', 'churn', 'mcf', 'npv', 'activations', 'retention', 'revenue', 'cost of goods sold', 'subscriber acquisition cost', 'lifetime value', 'clv', 'profitability'],
-    '"sandbox"."dbs_marketing_spend_sync"': ['marketing', 'spend', 'budget', 'cpa', 'tactic', 'digital', 'tv', 'cost per acquisition', 'ad spend', 'campaign', 'media', 'advertising']
+    '"sandbox"."dbs_marketing_spend_sync"': ['marketing', 'spend', 'budget', 'cpa', 'tactic', 'digital', 'tv', 'cost per acquisition', 'ad spend', 'campaign', 'media', 'advertising'],
+    '"sandbox"."subcount_data_synced"': ['subscribers', 'subscriber count', 'subscriber balance', 'gross adds', 'net adds', 'disconnects', 'churn rate', 'beginning subscribers', 'ending subscribers', 'local retail', 'sales partner', 'national retail', 'telco activations', 'indirect activations', 'direct activations', 'commercial activations', 'subscriber growth', 'subscriber base']
 }
 
 DATA_DICTIONARY = {}
@@ -273,5 +282,27 @@ def track_tokens(response):
             st.session_state.total_tokens += total_t
 
 def get_join_clause(table_a: str, table_b: str) -> str:
-    """Returns the correct ON clause regardless of the order the tables are passed."""
-    return TABLE_RELATIONSHIPS.get((table_a, table_b)) or TABLE_RELATIONSHIPS.get((table_b, table_a))
+    """
+    Dynamically generates a SQL ON clause by intersecting the shared 
+    conformed dimensions between two tables.
+    """
+    dims_a = TABLE_DIMENSIONS.get(table_a)
+    dims_b = TABLE_DIMENSIONS.get(table_b)
+    
+    if not dims_a or not dims_b:
+        raise ValueError(f"One or both tables not found in TABLE_DIMENSIONS: {table_a}, {table_b}")
+        
+    # Find the overlapping dimensional concepts (e.g., {'year', 'month'})
+    shared_concepts = set(dims_a.keys()) & set(dims_b.keys())
+    
+    if not shared_concepts:
+        raise ValueError(f"No shared dimensions found between {table_a} and {table_b} to join on.")
+        
+    join_conditions = []
+    for concept in shared_concepts:
+        col_a = dims_a[concept]
+        col_b = dims_b[concept]
+        # Generates: "table_a"."col_a" = "table_b"."col_b"
+        join_conditions.append(f'{table_a}."{col_a}" = {table_b}."{col_b}"')
+        
+    return " AND ".join(join_conditions)
