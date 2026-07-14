@@ -266,7 +266,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
             ML_MODELING            → run_random_forest_tool (non-linear prediction / feature importance),
                                      run_neural_network_tool (complex non-linear modeling),
                                      run_optimization_tool (budget allocation / linear programming).
-            FORECASTING            → run_arima_forecasting_tool: time-series prediction of future values.
+            FORECASTING            → run_forecasting_tool: time-series prediction of future values.
             SCENARIO_SIMULATION    → run_scenario_planning_tool: what-if analysis, simulate variable changes, confidence intervals.
             VISUALIZATION          → generate_barchart_tool (compare across categories/time),
                                      generate_linechart_tool (trends over time),

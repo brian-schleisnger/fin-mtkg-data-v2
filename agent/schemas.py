@@ -41,7 +41,7 @@ class SubQuestion(BaseModel):
             "Use when the user asks for: Random Forest, neural network / MLP, or linear programming / budget optimization.\n\n"
 
             "• FORECASTING — predicting future values from a time series. "
-            "Trigger words: 'forecast', 'predict future', 'next N months', 'ARIMA', 'trend projection'.\n\n"
+            "Trigger words: 'forecast', 'predict future', 'next N months', 'trend projection'.\n\n"
 
             "• SCENARIO_SIMULATION — hypothetical or what-if analysis. "
             "Trigger words: 'what if', 'what would happen if', 'assume X is', 'if we increase/decrease', "
