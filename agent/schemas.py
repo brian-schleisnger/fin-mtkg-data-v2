@@ -204,11 +204,13 @@ class run_ols_regression_tool(BaseModel):
 
 class run_arima_forecasting_tool(BaseModel):
     """
-    Performs ARIMA time series forecasting grouped by Activation_Year and Activation_Month. 
-    Use this when the user asks to predict future values based on historical trends.
-    NOTE: For the subscriber count table (subcount_data_synced), which uses 'Year'/'Month'/'Amount' 
-    columns instead of Activation_Year/Activation_Month, first query the data via execute_sql_query_tool 
-    with the appropriate Metric and Row_Type filters, then pass the resulting dataframe_id here.
+    Performs ARIMA time series forecasting. Automatically resolves the correct year/month 
+    column names for any table registered in TABLE_DIMENSIONS (e.g., acquisition_data_v3, 
+    dbs_marketing_spend_sync, subcount_data_synced). Use this when the user asks to predict 
+    future values based on historical trends.
+    NOTE: For subcount_data_synced, filter to a single Metric and Row_Type via a prior 
+    execute_sql_query_tool call and pass the dataframe_id, since the table has multiple 
+    metric rows per month that must be isolated before forecasting.
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 

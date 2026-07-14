@@ -25,7 +25,7 @@ from statsmodels.tsa.arima.model import ARIMA
 
 
 # Project imports
-from .base import run_sql_query, get_join_clause
+from .base import run_sql_query, get_join_clause, TABLE_DIMENSIONS
 from agent.memory import get_df_memory
 
 YEARLY_WACC = 0.1
@@ -198,67 +198,88 @@ def run_arima_forecasting_tool(
 ) -> dict:
     safe_value = '"{}"'.format(value_column.replace('"', ''))
     agg_func = aggregation.upper() if aggregation.upper() in ["SUM", "AVG", "COUNT"] else "SUM"
-    
+    val_col_clean = value_column.replace('"', '').strip()
+
     try:
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
-            
-            # Pandas fallback aggregation if it wasn't pre-aggregated
-            val_col_clean = value_column.replace('"', '').strip()
-            if 'Activation_Year' in df.columns and 'Activation_Month' in df.columns:
-                if agg_func == "SUM":
-                    df = df.groupby(['Activation_Year', 'Activation_Month'], as_index=False)[val_col_clean].sum()
-                elif agg_func == "AVG":
-                    df = df.groupby(['Activation_Year', 'Activation_Month'], as_index=False)[val_col_clean].mean()
-                elif agg_func == "COUNT":
-                    df = df.groupby(['Activation_Year', 'Activation_Month'], as_index=False)[val_col_clean].count()
-                df = df.sort_values(by=['Activation_Year', 'Activation_Month'])
-                df.rename(columns={val_col_clean: 'target_value'}, inplace=True)
+
+            # Detect whichever year/month columns are present in the dataframe.
+            # Check TABLE_DIMENSIONS values first, then fall back to common synonyms.
+            known_year_cols = {dims["year"] for dims in TABLE_DIMENSIONS.values()}
+            known_month_cols = {dims["month"] for dims in TABLE_DIMENSIONS.values()}
+
+            year_col = next((c for c in known_year_cols if c in df.columns), None)
+            month_col = next((c for c in known_month_cols if c in df.columns), None)
+
+            if year_col and month_col and val_col_clean in df.columns:
+                # Aggregate down to one row per period
+                agg_map = {"SUM": "sum", "AVG": "mean", "COUNT": "count"}
+                df = (
+                    df.groupby([year_col, month_col], as_index=False)[val_col_clean]
+                    .agg(agg_map[agg_func])
+                    .sort_values(by=[year_col, month_col])
+                    .rename(columns={val_col_clean: "target_value"})
+                )
+            elif val_col_clean in df.columns:
+                # Dataframe is already a clean time series — use it as-is
+                df = df.copy()
+                df["target_value"] = df[val_col_clean]
             else:
-                # Assume it's already a clean time series
-                df['target_value'] = df[val_col_clean]
-        
+                return {"text": f"Error: Column '{val_col_clean}' not found in the provided dataframe. Available columns: {df.columns.tolist()}", "data": None}
+
         elif TABLE_NAME:
+            # Resolve the canonical year/month column names for this table from TABLE_DIMENSIONS.
+            # Normalize TABLE_NAME to a single string key for the lookup.
+            table_key = TABLE_NAME if isinstance(TABLE_NAME, str) else TABLE_NAME[0]
+            dims = TABLE_DIMENSIONS.get(table_key)
+
+            if dims is None:
+                return {"text": f"Error: Table '{table_key}' not found in TABLE_DIMENSIONS. Please add it to base.py.", "data": None}
+
+            year_col = dims["year"]
+            month_col = dims["month"]
+
             columns_to_fetch = [
-                '"Activation_Year"', 
-                '"Activation_Month"', 
+                f'"{year_col}"',
+                f'"{month_col}"',
                 f'{agg_func}({safe_value}) AS target_value'
             ]
             df = link_tables(
                 tables=TABLE_NAME,
                 columns=columns_to_fetch,
-                where_clause='"Activation_Year" IS NOT NULL AND "Activation_Month" IS NOT NULL',
-                group_by=['Activation_Year', 'Activation_Month'],
-                order_by='"Activation_Year" ASC, "Activation_Month" ASC',
+                where_clause=f'"{year_col}" IS NOT NULL AND "{month_col}" IS NOT NULL',
+                group_by=[year_col, month_col],
+                order_by=f'"{year_col}" ASC, "{month_col}" ASC',
                 limit=None
             )
         else:
             return {"text": "Error: Must provide either TABLE_NAME or dataframe_id.", "data": None}
-            
-        df['target_value'] = pd.to_numeric(df.get('target_value', pd.Series(dtype=float)), errors='coerce')
-        df = df.dropna(subset=['target_value'])
-        
+
+        df["target_value"] = pd.to_numeric(df.get("target_value", pd.Series(dtype=float)), errors="coerce")
+        df = df.dropna(subset=["target_value"])
+
         if df.empty or len(df) < 10:
             return {"text": "Error: Not enough historical data points (minimum 10 required) to perform ARIMA.", "data": None}
-            
-        series = df['target_value'].values
-        
+
+        series = df["target_value"].values
+
         model = ARIMA(series, order=(p, d, q))
         model_fit = model.fit()
         forecast = model_fit.forecast(steps=steps)
-        
+
         result_text = f"ARIMA({p},{d},{q}) Forecasting Results for {agg_func} of {value_column}:\n"
         result_text += f"Based on {len(series)} periods of historical data, predictions for the next {steps} periods:\n"
         for i, val in enumerate(forecast, start=1):
             result_text += f"  • Period +{i}: {val:.4f}\n"
-            
+
         return {"text": result_text, "data": model_fit}
-        
+
     except Exception as e:
         return {"text": f"ARIMA Forecasting Error: {e}", "data": None}
-    
+
 
 @mlflow.trace(name="run_random_forest_tool")
 def run_random_forest_tool(
