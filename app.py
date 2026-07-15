@@ -305,35 +305,7 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                         fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
                         st.plotly_chart(fig, use_container_width=True)
                 
-            # 4. Current Turn Action Bar (Uses `result` NOT `msg`!)
-            if result.get("dfs") or result.get("run_log"):
-                st.markdown("---")
-                act_col1, act_col2 = st.columns([1, 2])
-                
-                with act_col1:
-                    if result.get("dfs"):
-                        try:
-                            excel_data = create_excel_buffer(result["dfs"])
-                            st.download_button(
-                                label="📥 Download Excel Export",
-                                data=excel_data,
-                                file_name="agent_data_export_current.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key="download_current",
-                                use_container_width=True
-                            )
-                        except Exception as e:
-                            st.warning(f"⚠️ Excel export unavailable: {e}")
-                
-                with act_col2:
-                    if result.get("run_log"):
-                        with st.expander("🧠 View Agent Execution Trace", expanded=False):
-                            for step_num, log in enumerate(result["run_log"], 1):
-                                st.markdown(f"**Step {step_num}:**")
-                                st.code(log, language="text", wrap_lines=True) # <--- Updated formatting
-
-            # 5. Update Streamlit session state cleanly in the UI layer
-            # Now that no NameError occurs above, these lines will execute properly!
+            # 4. Update Streamlit session state cleanly in the UI layer
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({
                 "role": "assistant", 
@@ -342,6 +314,9 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                 "dfs": result["dfs"],
                 "run_log": result["run_log"]
             })
+            
+            # 5. Force an immediate UI rerun so Section 5 handles the uniform 3-column action bar
+            st.rerun()
                     
         except Exception as e:
             import traceback
