@@ -45,21 +45,36 @@ PGDATABASE = "databricks_postgres"
 w = WorkspaceClient()
 databricks_host = w.config.host
 
+# Single source of truth for the AI gateway base URL.
+# Update this one line if the endpoint path ever changes.
+DATABRICKS_AI_BASE_URL = f"{databricks_host}/ai-gateway/mlflow/v1"
+
 def get_auth_token() -> str:
     """Dynamically fetches a fresh token from the Databricks SDK on every call."""
     auth_headers = w.config.authenticate()
     return auth_headers["Authorization"].split(" ")[1]
 
+def _make_fresh_openai_client() -> OpenAI:
+    """
+    Single factory for all OpenAI client construction.
+    Always fetches a fresh token so short-lived Databricks tokens never go stale.
+    Used by both DynamicOpenAIClient and llm_call so token rotation and the
+    base URL are defined in exactly one place.
+    """
+    return OpenAI(
+        api_key=get_auth_token(),
+        base_url=DATABRICKS_AI_BASE_URL
+    )
+
 class DynamicOpenAIClient:
-    """A proxy wrapper that ensures every API call uses a freshly rotated token."""
+    """
+    Proxy wrapper that ensures every API call uses a freshly rotated token.
+    Intercepts .chat.completions.create to strip 'strict: True' from tool
+    definitions, which Claude rejects.
+    """
     def __getattr__(self, name):
-        fresh_token = get_auth_token()
-        client = OpenAI(
-            api_key=fresh_token,
-            base_url=f"{databricks_host}/ai-gateway/mlflow/v1"
-        )
-        
-        # Intercept the chat module to sanitize inputs for Claude
+        client = _make_fresh_openai_client()
+
         if name == "chat":
             class ChatProxy:
                 @property
@@ -67,7 +82,7 @@ class DynamicOpenAIClient:
                     class CompletionsProxy:
                         def create(self, *args, **kwargs):
                             model = kwargs.get("model", "")
-                            
+
                             # Claude strictly rejects 'strict: True' in tool definitions
                             if "claude" in model.lower() and "tools" in kwargs:
                                 safe_tools = copy.deepcopy(kwargs["tools"])
@@ -75,14 +90,15 @@ class DynamicOpenAIClient:
                                     if "function" in tool and "strict" in tool["function"]:
                                         del tool["function"]["strict"]
                                 kwargs["tools"] = safe_tools
-                                
+
                             return client.chat.completions.create(*args, **kwargs)
                     return CompletionsProxy()
             return ChatProxy()
-            
+
         return getattr(client, name)
 
-# 1. CREATE THE RAW CLIENT PROXY (Zero changes needed in app.py!)
+# Singleton proxy — imported by loop.py and cache.py for all tool-routing,
+# synthesis, and embedding calls.
 raw_client = DynamicOpenAIClient()
 
 mlflow.openai.autolog()
@@ -198,23 +214,18 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
     Structured-output LLM call with cross-model compatibility.
 
     - GPT endpoints: uses instructor TOOLS mode (native tool-calling + JSON schema).
-    - All other endpoints (Gemini, Claude, etc.): calls the raw client directly,
-      extracts the text from Gemini's content-block list format, then parses with
-      Pydantic. This avoids both the $defs/$ref tool-schema rejection AND the
-      instructor parse failure caused by Gemini returning content as a list when
-      extended thinking is enabled.
+      Requires a real OpenAI instance, so uses _make_fresh_openai_client() directly.
+    - All other endpoints (Gemini, Claude, etc.): uses raw_client for the completion
+      call so token rotation and Claude 'strict' sanitization are handled automatically,
+      then parses the plain-text JSON response with Pydantic.
     """
     resolved_model = model_name or ModelConfig.ACTIVE_MODEL
 
-    openai_client = OpenAI(
-        api_key=get_auth_token(),
-        # UPDATE THIS LINE:
-        base_url=f"{databricks_host}/ai-gateway/mlflow/v1"
-    )
-
     if _is_gpt_model(resolved_model):
-        # GPT: let instructor handle everything via tool-calling
-        fresh_instructor_client = instructor.from_openai(openai_client)
+        # GPT: instructor needs a real OpenAI instance (not a proxy) to wrap.
+        # _make_fresh_openai_client() ensures a fresh token on every structured call.
+        fresh_client = _make_fresh_openai_client()
+        fresh_instructor_client = instructor.from_openai(fresh_client)
         model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
             model=resolved_model,
             messages=messages,
@@ -224,7 +235,8 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
         track_tokens(raw_res)
         return model_res
     else:
-        # Non-GPT (Gemini, Claude, etc.): inject a plain-text JSON instruction.
+        # Non-GPT (Gemini, Claude, etc.): inject a plain-text JSON instruction and
+        # use raw_client so Claude's 'strict' stripping and token rotation apply.
         schema_str = json.dumps(response_model.model_json_schema(), indent=2)
         json_instruction = (
             f"\n\nYou MUST respond with a single valid JSON object that strictly conforms "
@@ -232,21 +244,21 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
         )
 
         augmented_messages = list(messages)
-        
-        # Check if a system prompt already exists in the message history
-        system_prompt_index = next((i for i, msg in enumerate(augmented_messages) if msg.get("role") == "system"), -1)
 
+        # Append JSON instructions to the existing system prompt if one exists,
+        # otherwise prepend a new system message.
+        system_prompt_index = next(
+            (i for i, msg in enumerate(augmented_messages) if msg.get("role") == "system"), -1
+        )
         if system_prompt_index != -1:
-            # Safely append our JSON instructions to the EXISTING system prompt
             augmented_messages[system_prompt_index] = dict(augmented_messages[system_prompt_index])
             augmented_messages[system_prompt_index]["content"] += json_instruction
         else:
-            # Create a brand new system prompt if none exists
             augmented_messages = [{"role": "system", "content": json_instruction.strip()}] + augmented_messages
 
         last_exc = None
         for attempt in range(3):
-            raw_res = openai_client.chat.completions.create(
+            raw_res = raw_client.chat.completions.create(
                 model=resolved_model,
                 messages=augmented_messages
             )
