@@ -210,8 +210,7 @@ with st.sidebar:
         st.session_state.last_step_latencies = {}
         st.rerun()
 
-
-# ─── 8. RE-RUN HANDLER (UPDATED TO PREVENT MULTI-RERUN FAILURE) ──────────
+# ─── 7. CHAT HISTORY RENDERING ───────────────────────────────────────────
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] in ["user", "assistant"] and msg.get("content"):
         with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
@@ -255,6 +254,45 @@ for i, msg in enumerate(st.session_state.messages):
                             st.session_state.rerun_prompt = st.session_state.messages[i - 1]["content"]
                             st.session_state.rerun_msg_index = i
                             st.rerun()
+
+# ─── 8. RE-RUN HANDLER (UPDATED TO PREVENT MULTI-RERUN FAILURE) ──────────
+if st.session_state.rerun_prompt is not None:
+    rerun_prompt = st.session_state.rerun_prompt
+    rerun_index = st.session_state.rerun_msg_index
+
+    st.session_state.rerun_prompt = None
+    st.session_state.rerun_msg_index = None
+
+    from agent.cache import agent_cache as _cache
+    _cache.delete_from_cache(rerun_prompt)
+
+    history_before = st.session_state.messages[: rerun_index - 1]
+
+    with st.chat_message("assistant", avatar="🤖"):
+        try:
+            with st.spinner(f"Re-running with `{ModelConfig.ACTIVE_MODEL}`..."):
+                result = run_agent_loop(rerun_prompt, history_before)
+
+            st.session_state.last_step_latencies = result.get("step_latencies", {})
+
+            # Replace the message in-place inside session state
+            st.session_state.messages[rerun_index] = {
+                "role": "assistant",
+                "content": result["final_text"],
+                "figures": result["figures"],
+                "dfs": result["dfs"],
+                "run_log": result["run_log"]
+            }
+            
+            # CRITICAL FIX: Immediately force a rerun so session state commits cleanly 
+            # and historical layout indexes align properly before downstream execution occurs.
+            st.rerun()
+
+        except Exception as e:
+            import traceback
+            st.error(f"Re-run Error: {e}")
+            with st.expander("Show Traceback"):
+                st.code(traceback.format_exc(), language="python")
 
 # ─── 9. CHAT INPUT & EXECUTION ───────────────────────────────────────────
 if prompt := st.chat_input("Ask a question about the marketing data..."):
