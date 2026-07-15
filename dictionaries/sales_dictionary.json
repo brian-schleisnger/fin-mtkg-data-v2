@@ -8,7 +8,7 @@
     "Date" : "the exact day the resulting data is from. One row corrresponds to data from that specific day. One row per day.",
     "calls": "the numebr of calls the sales depertment received that day that got through to a sales representative.",
     "sales": "the number of sales the department completed that day. Note: not all sales become activations.",
-    "activations": "the number of activations that occurred on that day.",
+    "activations": "the number of direct activations that occurred on that day. should be comparable with direct adds in the subcount data.",
     "brm": "Buyer's remorese, defined as the number of customers who deactivated within 30 days of their activation date.",
     "year": "the year that date occurred on. Use this column for aggregation purposes, especially when comparing to other datasets.",
     "month": "the month the date occurred on. Use this column for aggregation purposes, especially when comparing to other datasets."
