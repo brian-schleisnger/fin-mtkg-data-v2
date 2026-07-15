@@ -48,6 +48,11 @@ class SemanticCache:
             conn.commit()
 
     def _get_embedding(self, text: str) -> np.ndarray:
+        """
+        Fetches a dense vector embedding for the given text from the Databricks
+        embedding endpoint. Always uses a freshly fetched auth token.
+        Input is lowercased and stripped before embedding for consistent similarity scoring.
+        """
         # Dynamically grab the token right before calling the embedding model
         client = OpenAI(
             api_key=get_auth_token(),

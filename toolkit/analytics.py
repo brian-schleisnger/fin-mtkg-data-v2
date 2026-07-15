@@ -138,6 +138,10 @@ def link_tables(
 
 @mlflow.trace(name="execute_sql_query")
 def execute_sql_query_tool(sql_query: str) -> dict:
+    """
+    Executes an arbitrary PostgreSQL query and returns up to 100 preview rows as CSV text.
+    Returns a dict with 'text' (summary + CSV preview) and 'data' (full DataFrame).
+    """
     try:
         df = run_sql_query(sql_query)
         if df.empty:
@@ -157,6 +161,12 @@ def run_ols_regression_tool(
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None
 ) -> dict:
+    """
+    Fits an OLS multiple regression model using statsmodels and returns the full
+    summary table as text plus the fitted model object.
+    Accepts data either from a live table query (TABLE_NAME) or a pre-fetched
+    DataFrame stored in memory (dataframe_id).
+    """
     columns_to_fetch = [dependent_variable] + independent_variables
     
     try:
@@ -196,6 +206,13 @@ def run_forecasting_tool(
     seasonal: str = "add",   # 'add' or 'mul'
     seasonal_periods: int = 12 # 12 for monthly seasonality
 ) -> dict:
+    """
+    Aggregates value_column to one observation per calendar month, then fits a
+    Holt-Winters Exponential Smoothing model and forecasts `steps` periods ahead.
+    Year/month column names are resolved automatically from TABLE_DIMENSIONS so
+    this function works across all registered tables without manual configuration.
+    Returns forecast values as formatted text and the fitted model object.
+    """
     safe_value = '"{}"'.format(value_column.replace('"', ''))
     agg_func = aggregation.upper() if aggregation.upper() in ["SUM", "AVG", "COUNT"] else "SUM"
     val_col_clean = value_column.replace('"', '').strip()
@@ -427,6 +444,12 @@ def run_pca_tool(
     dataframe_id: Optional[str] = None,
     n_components: int = None
 ) -> Dict[str, Any]:
+    """
+    Standardizes the requested feature columns and fits a PCA model to identify
+    the principal components that explain the most variance. Returns per-component
+    explained variance ratios and the top feature loadings (|loading| > 0.3) for
+    the first two components, plus the fitted PCA object.
+    """
     try:
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)
@@ -490,6 +513,11 @@ def run_kmeans_clustering_tool(
     dataframe_id: Optional[str] = None,
     n_clusters: int = 3
 ) -> Dict[str, Any]:
+    """
+    Standardizes features and fits a K-Means model to partition data into
+    n_clusters groups. Returns cluster population sizes, the top 5 defining
+    standardized centroid values per cluster, and the fitted KMeans object.
+    """
     try:
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)
@@ -543,6 +571,16 @@ def run_kmeans_clustering_tool(
 
 @mlflow.trace(name="calculate_unit_economics_tool")
 def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisition_where_clause: str = None) -> dict:
+    """
+    Joins monthly marketing spend against monthly activation counts to compute
+    CPA (Cost Per Acquisition), CLV (Customer Lifetime Value via NPV of MCF), and
+    the CLV:CPA ratio for each month. Returns a blended summary and the merged
+    monthly DataFrame with all computed columns.
+
+    Uses MONTHLY_WACC and avg_churn to discount future cash flows for CLV.
+    Both where_clause params are applied independently to their respective tables
+    before the inner join, allowing independent filtering (e.g. by channel or segment).
+    """
     # Kept as-is since the schema explicitly handles the two-table where clauses without a TABLE_NAME arg.
     try:
         # 1. Marketing Data
@@ -639,6 +677,18 @@ def run_scenario_planning_tool(
     marketing_where_clause: Optional[str] = None,
     acquisition_where_clause: Optional[str] = None
 ) -> Dict[str, Any]:
+    """
+    Fits an OLS regression on historical data, then predicts the target variable
+    under a hypothetical scenario where specified features are set to new values
+    and all remaining features are held at their historical means.
+
+    Returns a formatted report including: baseline stats, per-feature marginal
+    impacts (β coefficients), the scenario prediction, net change vs baseline,
+    and a prediction interval at the requested confidence level.
+
+    For multi-table scenarios involving marketing + acquisition data, pass both
+    table names and the function will merge them automatically on year/month.
+    """
     target_variable = str(target_variable).replace('"', '').replace("'", "").strip()
     feature_variables = [str(col).replace('"', '').replace("'", "").strip() for col in feature_variables]
     
@@ -789,6 +839,13 @@ def run_neural_network_tool(
     hidden_layer_sizes: List[int] = [100, 50],
     max_iter: int = 500
 ) -> Dict[str, Any]:
+    """
+    Trains a scikit-learn MLPRegressor or MLPClassifier on the provided features.
+    Features are one-hot encoded for categoricals and StandardScaler-normalized before
+    training. Uses early stopping to avoid overfitting on small datasets.
+    Returns the R² score (regression) or accuracy (classification) on the held-out
+    test set, plus the fitted model and the cleaned DataFrame.
+    """
     try:
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)
@@ -836,7 +893,13 @@ def run_optimization_tool(
     equality_constraints_bounds: Optional[List[float]] = None,
     bounds: Optional[List[List[Optional[float]]]] = None
 ) -> Dict[str, Any]:
-    
+    """
+    Solves a linear programming problem using scipy.optimize.linprog (HiGHS solver).
+    Minimizes c·x subject to A_ub·x ≤ b_ub, A_eq·x = b_eq, and per-variable bounds.
+    To maximize instead of minimize, pass negative objective coefficients.
+    Returns the optimal objective value and decision variable values on success,
+    or the solver failure message on infeasibility.
+    """
     try:
         formatted_bounds = None
         if bounds is not None:
@@ -868,7 +931,20 @@ def execute_python_tool(
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    
+    """
+    Executes LLM-generated Python code in a restricted sandbox with access to
+    pre-loaded pandas DataFrames (df), numpy (np), and pandas (pd).
+
+    Single-table: df is a plain DataFrame. Multi-table: df is a list of DataFrames
+    in the same order as TABLE_NAME, each loaded independently (no pre-join).
+
+    The code can write results back via two reserved variables:
+      - result_text (str): narrative output to surface to the LLM
+      - result_df (DataFrame): tabular output to attach to the agent turn
+
+    Blocks execution if the code references any forbidden modules or SQL mutations.
+    Stdout is captured and included in the return text.
+    """
     try:
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)

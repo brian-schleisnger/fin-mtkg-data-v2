@@ -29,6 +29,11 @@ AVAILABLE_MODELS: dict[str, str] = {
 }
 
 class ModelConfig:
+    """
+    Global configuration holder for the active LLM endpoint.
+    ACTIVE_MODEL is updated at runtime via set_active_model() when the user
+    selects a model from the sidebar, and is read by every LLM call site.
+    """
     # The single model used for all LLM calls (routing, decomposition, synthesis).
     # Updated at runtime by set_active_model() when the user picks from the sidebar.
     ACTIVE_MODEL: str = next(iter(AVAILABLE_MODELS.values()), "")
@@ -73,13 +78,21 @@ class DynamicOpenAIClient:
     definitions, which Claude rejects.
     """
     def __getattr__(self, name):
+        """
+        Intercepts all attribute access. Builds a fresh OpenAI client on every
+        call (token rotation), then returns either a ChatProxy (for .chat) or
+        the raw attribute from the underlying client for everything else.
+        """
         client = _make_fresh_openai_client()
 
         if name == "chat":
             class ChatProxy:
+                """Wraps the OpenAI chat namespace to allow pre-call sanitization."""
                 @property
                 def completions(self):
+                    """Returns a CompletionsProxy that strips model-incompatible fields."""
                     class CompletionsProxy:
+                        """Sanitizes tool definitions before forwarding to the real client."""
                         def create(self, *args, **kwargs):
                             model = kwargs.get("model", "")
 
@@ -167,6 +180,7 @@ def get_db_engine():
     ssl_context = ssl.create_default_context()
     
     def get_fresh_connection():
+        """Creates a new pg8000 connection with a freshly fetched auth token."""
         fresh_token = get_auth_token()
         current_user = w.current_user.me().user_name
         return pg8000.connect(
@@ -183,6 +197,7 @@ def get_db_engine():
 
 @mlflow.trace(name="run_sql_query")
 def run_sql_query(query: str) -> pd.DataFrame:
+    """Executes a raw SQL string against the Postgres engine and returns a DataFrame."""
     engine = get_db_engine()
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)

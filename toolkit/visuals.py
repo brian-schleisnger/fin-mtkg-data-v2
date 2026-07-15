@@ -134,6 +134,12 @@ def generate_scatterplot_tool(
     where_clause: Optional[str] = None, 
     include_trendline: bool = False
 ) -> Dict[str, Any]:
+    """
+    Generates an interactive Plotly scatterplot of y_column vs x_column.
+    Optionally color-codes points by category_column and overlays an OLS trendline.
+    Both axes are coerced to numeric and non-finite rows are dropped before plotting.
+    Returns the figure object, the plotted DataFrame, and a status text string.
+    """
     try:
         df, x_col, y_col, cat_col, _ = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, y_column, category_column, where_clause)
         
@@ -171,6 +177,13 @@ def generate_barchart_tool(
     where_clause: Optional[str] = None,
     aggregation: str = "SUM"
 ) -> Dict[str, Any]:
+    """
+    Generates an interactive Plotly bar chart aggregating y_column per x_column group.
+    Aggregation (SUM/AVG/COUNT/MAX/MIN) is pushed down to SQL or applied via pandas
+    groupby depending on the data source. When category_column is provided, bars are
+    rendered side-by-side (grouped) and color-coded by category.
+    Sorts by x_column ascending; falls back to y_column descending if x is non-sortable.
+    """
     try:
         df, x_col, y_col, cat_col, y_label = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, y_column, category_column, where_clause, aggregation)
         
@@ -203,6 +216,12 @@ def generate_histogram_tool(
     category_column: Optional[str] = None, 
     where_clause: Optional[str] = None
 ) -> Dict[str, Any]:
+    """
+    Generates a Plotly histogram with a box-plot marginal for x_column.
+    When category_column is provided, multiple overlapping distributions are rendered,
+    one per category. n_bins controls bin granularity (auto if omitted).
+    Non-numeric and null values are dropped before plotting.
+    """
     try:
         df, x_col, _, cat_col, _ = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, None, category_column, where_clause)
         
@@ -234,6 +253,13 @@ def generate_linechart_tool(
     where_clause: Optional[str] = None,
     aggregation: str = "SUM"
 ) -> Dict[str, Any]:
+    """
+    Generates a Plotly line chart showing the trend of y_column over x_column.
+    Data is sorted ascending by x_column to prevent line jumps. Aggregation is
+    applied if multiple rows share the same x value (e.g., duplicate months).
+    When category_column is provided, a separate colored line is drawn per category.
+    Uses unified hover mode so all series values are visible at each x position.
+    """
     try:
         df, x_col, y_col, cat_col, y_label = _fetch_chart_data(TABLE_NAME, dataframe_id, x_column, y_column, category_column, where_clause, aggregation)
 

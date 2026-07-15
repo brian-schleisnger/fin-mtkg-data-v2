@@ -40,6 +40,7 @@ def filter_schema(user_prompt: str, run_log: List[str] = None) -> dict:
     msgs = [{"role": "user", "content": prompt}]
     
     class SchemaSelection(BaseModel):
+        """Structured output model for the schema-filtering LLM call."""
         required_tables: List[str]
         
     try:
