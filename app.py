@@ -210,54 +210,6 @@ with st.sidebar:
         st.session_state.last_step_latencies = {}
         st.rerun()
 
-# ─── 7. CHAT HISTORY RENDERING ───────────────────────────────────────────
-for i, msg in enumerate(st.session_state.messages):
-    if msg["role"] in ["user", "assistant"] and msg.get("content"):
-        with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
-            st.markdown(msg["content"])
-
-            # Render historical figures safely using isinstance
-            if msg.get("figures"):
-                for j, fig in enumerate(msg["figures"]):
-                    if isinstance(fig, go.Figure):
-                        fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
-                        st.plotly_chart(fig, use_container_width=True, key=f"fig_{i}_{j}")
-                    
-            # Historical Action Bar (Uses `msg`)
-            if msg["role"] == "assistant" and (msg.get("dfs") or msg.get("run_log")):
-                st.markdown("---")
-                act_col1, act_col2, act_col3 = st.columns([1, 2, 1])
-                
-                with act_col1:
-                    if msg.get("dfs"):
-                        try:
-                            excel_data = create_excel_buffer(msg["dfs"])
-                            st.download_button(
-                                label="📥 Download Excel Export",
-                                data=excel_data,
-                                file_name=f"agent_data_export_{i}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key=f"download_hist_{i}",
-                                use_container_width=True
-                            )
-                        except Exception as e:
-                            st.warning(f"⚠️ Excel export unavailable: {e}")
-                
-                with act_col2:
-                    if msg.get("run_log"):
-                        with st.expander("🧠 View Agent Execution Trace", expanded=False):
-                            for step_num, log in enumerate(msg["run_log"], 1):
-                                st.markdown(f"**Step {step_num}:**")
-                                st.code(log, language="text", wrap_lines=True)
-                                st.markdown("---")
-
-                with act_col3:
-                    # The user prompt that triggered this assistant message is always at i-1
-                    if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
-                        if st.button("🔄 Re-run", key=f"rerun_{i}", use_container_width=True, help="Evict this response from the cache and re-run with the current model"):
-                            st.session_state.rerun_prompt = st.session_state.messages[i - 1]["content"]
-                            st.session_state.rerun_msg_index = i
-                            st.rerun()
 
 # ─── 8. RE-RUN HANDLER (UPDATED TO PREVENT MULTI-RERUN FAILURE) ──────────
 for i, msg in enumerate(st.session_state.messages):
