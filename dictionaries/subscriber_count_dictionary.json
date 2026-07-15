@@ -1,6 +1,6 @@
 {
   "table_metadata": {
-    "table_name": "subscriber_activity_and_balances",
+    "table_name": "subcount_data_synced",
     "table_description": "A long-form financial and operational dataset tracking subscriber additions, disconnects, and balances over time. The data includes strict metadata columns (Row_Type, Parent_Rollup, Time_Aggregation_Rule) to guide correct querying, prevent double-counting of subtotals, and dictate how metrics should be handled across time periods.",
     "special_rules": "NEVER SUM() the 'Amount' column without first filtering by 'Row_Type' or 'Parent_Rollup'. If querying across multiple months, strictly obey the 'Time_Aggregation_Rule'."
   },

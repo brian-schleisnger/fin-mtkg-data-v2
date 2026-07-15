@@ -102,6 +102,10 @@ TABLE_DIMENSIONS = {
     '"sandbox"."subcount_data_synced"': {
         "year": "Year",
         "month": "Month",
+    },
+    '"sandbox"."sales_data_sync"': {
+        "year": "year",
+        "month": "month",
     }
 }
 
@@ -109,13 +113,15 @@ TABLE_DIMENSIONS = {
 SCHEMA_CONFIG = {
     '"sandbox"."acquisition_data_v3"': "acquisition_data_dictionary.json",
     '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json",
-    '"sandbox"."subcount_data_synced"': "subscriber_count_dictionary.json"
+    '"sandbox"."subcount_data_synced"': "subscriber_count_dictionary.json",
+    '"sandbox"."sales_data_sync"': "sales_data_dictionary.json"
 }
 
 ALIASES = {
     '"sandbox"."acquisition_data_v3"': ['arpu', 'cogs', 'sac', 'churn', 'mcf', 'npv', 'activations', 'retention', 'revenue', 'cost of goods sold', 'subscriber acquisition cost', 'lifetime value', 'clv', 'profitability'],
     '"sandbox"."dbs_marketing_spend_sync"': ['marketing', 'spend', 'budget', 'cpa', 'tactic', 'digital', 'tv', 'cost per acquisition', 'ad spend', 'campaign', 'media', 'advertising'],
-    '"sandbox"."subcount_data_synced"': ['subscribers', 'subscriber count', 'subscriber balance', 'gross adds', 'net adds', 'disconnects', 'churn rate', 'beginning subscribers', 'ending subscribers', 'local retail', 'sales partner', 'national retail', 'telco activations', 'indirect activations', 'direct activations', 'commercial activations', 'subscriber growth', 'subscriber base']
+    '"sandbox"."subcount_data_synced"': ['subscribers', 'subscriber count', 'subscriber balance', 'gross adds', 'net adds', 'disconnects', 'churn rate', 'beginning subscribers', 'ending subscribers', 'local retail', 'sales partner', 'national retail', 'telco activations', 'indirect activations', 'direct activations', 'commercial activations', 'subscriber growth', 'subscriber base'],
+    '"sandbox"."sales_data_sync"': ['sales','buyers remorse','brm', 'calls','selling']
 }
 
 DATA_DICTIONARY = {}
