@@ -114,7 +114,7 @@ SCHEMA_CONFIG = {
     '"sandbox"."acquisition_data_v3"': "acquisition_data_dictionary.json",
     '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json",
     '"sandbox"."subcount_data_synced"': "subscriber_count_dictionary.json",
-    '"sandbox"."sales_data_sync"': "sales_data_dictionary.json"
+    '"sandbox"."sales_data_sync"': "sales_dictionary.json"
 }
 
 ALIASES = {
