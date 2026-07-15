@@ -146,7 +146,7 @@ if "rerun_prompt" not in st.session_state:
 if "rerun_msg_index" not in st.session_state:
     st.session_state.rerun_msg_index = None
 
-# ─── 4.5 WELCOME SCREEN (EMPTY STATE) ────────────────────────────────────
+# ─── 5. WELCOME SCREEN (EMPTY STATE) ────────────────────────────────────
 if not st.session_state.messages:
     with st.container():
         st.markdown("## 👋 Welcome to the Marketing Dataset Agent")
@@ -157,7 +157,60 @@ if not st.session_state.messages:
             "- Type a question below or select one of the suggested queries to get started:"
         ) 
 
-# ─── 5. CHAT HISTORY RENDERING ───────────────────────────────────────────
+# ─── 6. SIDEBAR & METRICS (MOVED TO TOP TO PREVENT DISAPPEARING) ─────────
+with st.sidebar:
+    st.title("🤖 Dataset Agent")
+    
+    model_options = list(AVAILABLE_MODELS.keys())
+    selected_model = st.selectbox(
+        "🧠 Active Model",
+        options=model_options if model_options else ["No models configured"],
+        help="Select the model used for all reasoning steps (routing, decomposition, and synthesis).",
+        disabled=not model_options,
+    )
+    if model_options:
+        set_active_model(selected_model)
+    
+    st.markdown("---")
+    
+    with st.container(border=True):
+        st.subheader("📊 Token Usage Tracker")
+        st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(label="Input", value=f"{st.session_state.input_tokens:,}")
+        with col2:
+            st.metric(label="Output", value=f"{st.session_state.output_tokens:,}")
+            
+    with st.container(border=True):
+        st.subheader("⏱️ Execution Latency")
+        latencies = st.session_state.get("last_step_latencies", {})
+        if latencies:
+            total_time = latencies.get("Total Execution", 0.0)
+            st.metric(label="Last Turn Total", value=f"{total_time:.2f} s")
+            st.markdown("---")
+            for step_name, duration in latencies.items():
+                if step_name != "Total Execution":
+                    st.markdown(
+                        f"<div style='color: black; font-size: 0.9em; margin-bottom: 4px;'>"
+                        f"<b>{step_name}:</b> {duration:.2f} s</div>", 
+                        unsafe_allow_html=True
+                    )
+        else:
+            st.markdown("<div style='color: black; font-size: 0.9em;'>No query executed yet.</div>", unsafe_allow_html=True)
+    
+    st.success(f"**Active Model:**\n`{ModelConfig.ACTIVE_MODEL}`", icon="🟢")
+    st.divider()
+    
+    if st.button("🗑️ Clear Chat History", use_container_width=True, type="secondary"):
+        st.session_state.messages = []
+        st.session_state.total_tokens = 0
+        st.session_state.input_tokens = 0
+        st.session_state.output_tokens = 0
+        st.session_state.last_step_latencies = {}
+        st.rerun()
+
+# ─── 7. CHAT HISTORY RENDERING ───────────────────────────────────────────
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] in ["user", "assistant"] and msg.get("content"):
         with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
@@ -206,106 +259,63 @@ for i, msg in enumerate(st.session_state.messages):
                             st.session_state.rerun_msg_index = i
                             st.rerun()
 
-# ─── 6. RE-RUN HANDLER ───────────────────────────────────────────────────
-# Fires when a re-run button was clicked in the previous render cycle.
-if st.session_state.rerun_prompt is not None:
-    rerun_prompt = st.session_state.rerun_prompt
-    rerun_index = st.session_state.rerun_msg_index
+# ─── 8. RE-RUN HANDLER (UPDATED TO PREVENT MULTI-RERUN FAILURE) ──────────
+for i, msg in enumerate(st.session_state.messages):
+    if msg["role"] in ["user", "assistant"] and msg.get("content"):
+        with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
+            st.markdown(msg["content"])
 
-    # Clear the flag immediately so this block doesn't fire again on the next render
-    st.session_state.rerun_prompt = None
-    st.session_state.rerun_msg_index = None
-
-    # 1. Evict the old response from the semantic cache
-    from agent.cache import agent_cache as _cache
-    _cache.delete_from_cache(rerun_prompt)
-
-    # 2. Build history up to (but not including) the message pair being replaced
-    history_before = st.session_state.messages[: rerun_index - 1]
-
-    # 3. Re-run the agent — ModelConfig.ACTIVE_MODEL is already set by the sidebar
-    with st.chat_message("assistant", avatar="🤖"):
-        try:
-            with st.spinner(f"Re-running with `{ModelConfig.ACTIVE_MODEL}`..."):
-                result = run_agent_loop(rerun_prompt, history_before)
-
-            st.session_state.last_step_latencies = result.get("step_latencies", {})
-
-            st.markdown(result["final_text"])
-
-            if result.get("figures"):
-                for fig in result["figures"]:
+            if msg.get("figures"):
+                for j, fig in enumerate(msg["figures"]):
                     if isinstance(fig, go.Figure):
                         fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
-                        st.plotly_chart(fig, use_container_width=True)
-
-            if result.get("dfs") or result.get("run_log"):
+                        st.plotly_chart(fig, use_container_width=True, key=f"fig_{i}_{j}")
+                    
+            if msg["role"] == "assistant" and (msg.get("dfs") or msg.get("run_log")):
                 st.markdown("---")
-                act_col1, act_col2 = st.columns([1, 2])
+                act_col1, act_col2, act_col3 = st.columns([1, 2, 1])
+                
                 with act_col1:
-                    if result.get("dfs"):
+                    if msg.get("dfs"):
                         try:
-                            excel_data = create_excel_buffer(result["dfs"])
+                            excel_data = create_excel_buffer(msg["dfs"])
                             st.download_button(
                                 label="📥 Download Excel Export",
                                 data=excel_data,
-                                file_name="agent_data_export_rerun.xlsx",
+                                file_name=f"agent_data_export_{i}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key="download_rerun",
+                                key=f"download_hist_{i}",
                                 use_container_width=True
                             )
                         except Exception as e:
                             st.warning(f"⚠️ Excel export unavailable: {e}")
+                
                 with act_col2:
-                    if result.get("run_log"):
+                    if msg.get("run_log"):
                         with st.expander("🧠 View Agent Execution Trace", expanded=False):
-                            for step_num, log in enumerate(result["run_log"], 1):
+                            for step_num, log in enumerate(msg["run_log"], 1):
                                 st.markdown(f"**Step {step_num}:**")
                                 st.code(log, language="text", wrap_lines=True)
 
-            # 4. Replace the old assistant message in-place; preserve everything before and after
-            new_assistant_msg = {
-                "role": "assistant",
-                "content": result["final_text"],
-                "figures": result["figures"],
-                "dfs": result["dfs"],
-                "run_log": result["run_log"]
-            }
-            st.session_state.messages[rerun_index] = new_assistant_msg
+                with act_col3:
+                    if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
+                        if st.button("🔄 Re-run", key=f"rerun_{i}", use_container_width=True, help="Evict this response from the cache and re-run"):
+                            st.session_state.rerun_prompt = st.session_state.messages[i - 1]["content"]
+                            st.session_state.rerun_msg_index = i
+                            st.rerun()
 
-        except Exception as e:
-            import traceback
-            st.error(f"Re-run Error: {e}")
-            with st.expander("Show Traceback"):
-                st.code(traceback.format_exc(), language="python")
-
-# ─── 7. CHAT INPUT & EXECUTION ───────────────────────────────────────────
+# ─── 9. CHAT INPUT & EXECUTION ───────────────────────────────────────────
 if prompt := st.chat_input("Ask a question about the marketing data..."):
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="🤖"):
         try:
-            # 1. Run the backend loop, passing current chat history
             with st.spinner("Analyzing..."):
                 result = run_agent_loop(prompt, st.session_state.messages)
             
-            # Save latest turn execution times for sidebar rendering
             st.session_state.last_step_latencies = result.get("step_latencies", {})
             
-            # 2. Render response text
-            if result.get("is_cached"):
-                st.toast("⚡ Served instantly from Semantic Cache!", icon="⚡")
-            st.markdown(result["final_text"])
-            
-            # 3. Render visual figures returned by the current turn
-            if result.get("figures"):
-                for fig in result["figures"]:
-                    if isinstance(fig, go.Figure):
-                        fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
-                        st.plotly_chart(fig, use_container_width=True)
-                
-            # 4. Update Streamlit session state cleanly in the UI layer
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({
                 "role": "assistant", 
@@ -315,7 +325,6 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
                 "run_log": result["run_log"]
             })
             
-            # 5. Force an immediate UI rerun so Section 5 handles the uniform 3-column action bar
             st.rerun()
                     
         except Exception as e:
@@ -324,61 +333,3 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc(), language="python")
 
-# ─── 8. SIDEBAR & METRICS ────────────────────────────────────────────────
-with st.sidebar:
-    st.title("🤖 Dataset Agent")
-    
-    model_options = list(AVAILABLE_MODELS.keys())
-    selected_model = st.selectbox(
-        "🧠 Active Model",
-        options=model_options if model_options else ["No models configured"],
-        help="Select the model used for all reasoning steps (routing, decomposition, and synthesis).",
-        disabled=not model_options,
-    )
-    if model_options:
-        set_active_model(selected_model)
-    
-    st.markdown("---")
-    
-    # 1. Token Usage Tracker Card
-    with st.container(border=True):
-        st.subheader("📊 Token Usage Tracker")
-        st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric(label="Input", value=f"{st.session_state.input_tokens:,}")
-        with col2:
-            st.metric(label="Output", value=f"{st.session_state.output_tokens:,}")
-            
-    # 2. Step Latency Card (NEW)
-    with st.container(border=True):
-        st.subheader("⏱️ Execution Latency")
-        latencies = st.session_state.get("last_step_latencies", {})
-        if latencies:
-            total_time = latencies.get("Total Execution", 0.0)
-            st.metric(label="Last Turn Total", value=f"{total_time:.2f} s")
-            
-            st.markdown("---")
-            for step_name, duration in latencies.items():
-                if step_name != "Total Execution":
-                    # UPDATE: Use unsafe_allow_html to force black text and proper sizing
-                    st.markdown(
-                        f"<div style='color: black; font-size: 0.9em; margin-bottom: 4px;'>"
-                        f"<b>{step_name}:</b> {duration:.2f} s</div>", 
-                        unsafe_allow_html=True
-                    )
-        else:
-            st.markdown("<div style='color: black; font-size: 0.9em;'>No query executed yet.</div>", unsafe_allow_html=True)
-    
-    st.success(f"**Active Model:**\n`{ModelConfig.ACTIVE_MODEL}`", icon="🟢")
-    st.divider()
-    
-    # Reset Session Button
-    if st.button("🗑️ Clear Chat History", use_container_width=True, type="secondary"):
-        st.session_state.messages = []
-        st.session_state.total_tokens = 0
-        st.session_state.input_tokens = 0
-        st.session_state.output_tokens = 0
-        st.session_state.last_step_latencies = {}
-        st.rerun()
