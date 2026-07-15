@@ -298,8 +298,9 @@ def run_random_forest_tool(
     n_estimators: int = 100
 ) -> Dict[str, Any]:
     columns_to_fetch = [target_variable] + feature_variables
-    
+
     try:
+        # ── 1. Data Loading ──────────────────────────────────────────────
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)
             if df is None:
@@ -308,52 +309,113 @@ def run_random_forest_tool(
             df = link_tables(TABLE_NAME, columns=columns_to_fetch, random_order=True, limit=100000)
         else:
             return {"text": "Error: Must provide either TABLE_NAME or dataframe_id.", "model": None}
-            
+
+        # ── 2. Column Validation ─────────────────────────────────────────
+        # Check requested columns actually exist before doing any work.
+        missing = [c for c in columns_to_fetch if c not in df.columns]
+        if missing:
+            return {
+                "text": f"Error: The following columns were not found in the data: {missing}. "
+                        f"Available columns: {df.columns.tolist()}",
+                "model": None
+            }
+
+        # Narrow the dataframe to only the columns we care about so stray
+        # underscore-named columns from the broader table can never leak in.
+        df = df[columns_to_fetch].copy()
+
         if df.empty or len(df) <= len(feature_variables):
             return {"text": "Error: Not enough data points.", "model": None}
-            
-        if task_type.lower() == "regression":
-            df[target_variable] = pd.to_numeric(df[target_variable], errors='coerce')
-            
-        df = pd.get_dummies(df, columns=[col for col in feature_variables if col in df.columns and df[col].dtype == 'object'], drop_first=True)
-        
-        current_features = [col for col in df.columns if col != target_variable and col in feature_variables or '_' in col]
+
+        # ── 3. Target Preparation ────────────────────────────────────────
+        task = task_type.lower()
+        if task == "regression":
+            df[target_variable] = pd.to_numeric(df[target_variable], errors="coerce")
+        else:
+            # For classification keep target as string so class labels are readable
+            df[target_variable] = df[target_variable].astype(str)
+
+        # Drop rows where the target is missing before encoding features
+        df = df.dropna(subset=[target_variable])
+
+        if len(df) < 10:
+            return {"text": "Error: Not enough valid target rows to train a model.", "model": None}
+
+        # ── 4. Feature Encoding ──────────────────────────────────────────
+        # Identify which of the *requested* feature columns are categorical
+        categorical_features = [
+            col for col in feature_variables
+            if col in df.columns and df[col].dtype == "object"
+        ]
+        numeric_features = [
+            col for col in feature_variables
+            if col in df.columns and col not in categorical_features
+        ]
+
+        # Convert numeric features, coercing unparseable values to NaN
+        for col in numeric_features:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # One-hot encode categoricals; drop_first avoids perfect multicollinearity
+        if categorical_features:
+            df = pd.get_dummies(df, columns=categorical_features, drop_first=True)
+
+        # Rebuild the feature list from the current df columns — this correctly
+        # picks up the new one-hot columns (e.g. 'channel_TV', 'channel_Digital')
+        # while excluding the target and any other columns that might have slipped in.
+        current_features = [col for col in df.columns if col != target_variable]
+
+        # Drop any rows with NaN in features or target
         df = df.dropna(subset=[target_variable] + current_features)
-        
+
         if len(df) < 10:
             return {"text": "Error: Data size too small after cleaning to train a valid model.", "model": None}
-            
+
+        # ── 5. Train / Test Split ────────────────────────────────────────
         X = df[current_features]
         y = df[target_variable]
-        
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        
-        if task_type.lower() == "regression":
-            model = RandomForestRegressor(n_estimators=n_estimators, max_depth=7, min_samples_leaf=3, random_state=42)
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        # ── 6. Model Fitting & Evaluation ────────────────────────────────
+        if task == "regression":
+            model = RandomForestRegressor(
+                n_estimators=n_estimators, max_depth=7,
+                min_samples_leaf=3, random_state=42, n_jobs=-1
+            )
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
-            
+
             result_text = f"Random Forest Regression Results (n_estimators={n_estimators}):\n"
-            result_text += f"Model Test R-squared: {r2_score(y_test, preds):.4f}\n"
-            result_text += f"Model Test MSE: {mean_squared_error(y_test, preds):.4f}\n\n"
+            result_text += f"  • Test R²:   {r2_score(y_test, preds):.4f}\n"
+            result_text += f"  • Test RMSE: {mean_squared_error(y_test, preds) ** 0.5:.4f}\n\n"
         else:
-            model = RandomForestClassifier(n_estimators=n_estimators, max_depth=7, min_samples_leaf=3, random_state=42)
+            model = RandomForestClassifier(
+                n_estimators=n_estimators, max_depth=7,
+                min_samples_leaf=3, random_state=42, n_jobs=-1
+            )
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
-            
+
             result_text = f"Random Forest Classification Results (n_estimators={n_estimators}):\n"
-            result_text += f"Model Test Accuracy: {accuracy_score(y_test, preds):.4f}\n"
+            result_text += f"  • Test Accuracy: {accuracy_score(y_test, preds):.4f}\n"
             result_text += f"Classification Report:\n{classification_report(y_test, preds)}\n\n"
-            
-        importances = model.feature_importances_
-        feat_imp = sorted(zip(current_features, importances), key=lambda x: x[1], reverse=True)
-        
-        result_text += "Feature Importances (higher is more impactful):\n"
+
+        # ── 7. Feature Importances ───────────────────────────────────────
+        feat_imp = sorted(
+            zip(current_features, model.feature_importances_),
+            key=lambda x: x[1],
+            reverse=True
+        )
+        result_text += f"Feature Importances — top {min(10, len(feat_imp))} of {len(feat_imp)} features "
+        result_text += f"(trained on {len(X_train):,} rows, tested on {len(X_test):,} rows):\n"
         for feat, imp in feat_imp[:10]:
             result_text += f"  • {feat}: {imp:.4f}\n"
-            
+
         return {"text": result_text, "model": model}
-        
+
     except Exception as e:
         return {"text": f"Random Forest Error: {e}", "model": None}
     

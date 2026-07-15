@@ -204,52 +204,88 @@ class run_ols_regression_tool(BaseModel):
 
 class run_forecasting_tool(BaseModel):
     """
-    Performs Holt-Winters time series forecasting. Automatically resolves the correct year/month 
-    column names for any table registered in TABLE_DIMENSIONS (e.g., acquisition_data_v3, 
-    dbs_marketing_spend_sync, subcount_data_synced). Use this when the user asks to predict 
-    future values based on historical trends.
-    NOTE: For subcount_data_synced, filter to a single Metric and Row_Type via a prior 
-    execute_sql_query_tool call and pass the dataframe_id, since the table has multiple 
+    Performs Holt-Winters Exponential Smoothing time series forecasting. Automatically resolves
+    the correct year/month column names for any table registered in TABLE_DIMENSIONS
+    (e.g., acquisition_data_v3, dbs_marketing_spend_sync, subcount_data_synced).
+    Use this when the user asks to predict or forecast future values based on historical trends.
+
+    NOTE: For subcount_data_synced, filter to a single Metric and Row_Type via a prior
+    execute_sql_query_tool call and pass the dataframe_id, since the table has multiple
     metric rows per month that must be isolated before forecasting.
+
+    MODEL PARAMETER GUIDE:
+    - trend / seasonal: use 'add' (additive) when seasonal swings are roughly constant in size
+      over time. Use 'mul' (multiplicative) when swings grow proportionally with the level
+      of the series (e.g., a metric that doubles each year and whose seasonal spikes also double).
+    - seasonal_periods: set to 12 for monthly data (default), 4 for quarterly, 52 for weekly.
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
-        ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        default=None,
+        description=(
+            "The exact SQL-safe table name(s) to query, e.g., "
+            "'\"sandbox\".\"acquisition_data_v3\"', "
+            "'\"sandbox\".\"dbs_marketing_spend_sync\"', or "
+            "'\"sandbox\".\"subcount_data_synced\"'. "
+            "Omit if passing dataframe_id instead."
+        )
     )
 
     dataframe_id: Optional[str] = Field(
         default=None,
-        description="The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). Use this INSTEAD of TABLE_NAME if the data was already queried, cleaned, or aggregated."
+        description=(
+            "The ID of a dataset saved to memory in a previous step (e.g., 'df_a1b2c3'). "
+            "Use this INSTEAD of TABLE_NAME if the data was already queried, filtered, or aggregated "
+            "(e.g., after isolating a single Metric from subcount_data_synced)."
+        )
     )
-    
+
     value_column: str = Field(
-        ..., 
-        description="The exact column name of the numerical variable to forecast (e.g., mcf, sac, temp_Id)."
+        ...,
+        description=(
+            "The exact column name of the numerical variable to forecast "
+            "(e.g., 'amount', 'mcf', 'sac', 'temp_Id')."
+        )
     )
-    
+
     aggregation: Optional[Literal["SUM", "AVG", "COUNT"]] = Field(
-        default=None,
-        description="The SQL aggregation function to apply to the value_column per month (e.g., SUM for totals, AVG for averages, COUNT for volume)."
+        default="SUM",
+        description=(
+            "The aggregation function applied to value_column per month before fitting the model. "
+            "Use SUM for totals (e.g., total spend), AVG for averages, COUNT for volume. Default is SUM."
+        )
     )
-    
+
     steps: Optional[int] = Field(
-        default=5, 
-        description="The number of future months to forecast (default is 5)."
+        default=6,
+        description="The number of future periods (months) to forecast ahead. Default is 6."
     )
-    
-    p: Optional[int] = Field(
-        default=1, 
-        description="The ARIMA model's autoregressive order (default is 1)."
+
+    trend: Optional[Literal["add", "mul"]] = Field(
+        default="add",
+        description=(
+            "The trend component type. "
+            "'add' (additive) — use when the trend grows/shrinks by a roughly constant amount each period. "
+            "'mul' (multiplicative) — use when the trend grows/shrinks proportionally (exponentially). "
+            "Default is 'add'."
+        )
     )
-    
-    d: Optional[int] = Field(
-        default=1, 
-        description="The ARIMA model's differencing order (default is 1)."
+
+    seasonal: Optional[Literal["add", "mul"]] = Field(
+        default="add",
+        description=(
+            "The seasonal component type. "
+            "'add' (additive) — use when seasonal fluctuations are roughly constant regardless of the series level. "
+            "'mul' (multiplicative) — use when seasonal swings scale with the level of the series. "
+            "Default is 'add'."
+        )
     )
-    
-    q: Optional[int] = Field(
-        default=1, 
-        description="The ARIMA model's moving average order (default is 1)."
+
+    seasonal_periods: Optional[int] = Field(
+        default=12,
+        description=(
+            "The number of periods in one full seasonal cycle. "
+            "12 for monthly data (default), 4 for quarterly, 52 for weekly."
+        )
     )
 
 class run_pca_tool(BaseModel):

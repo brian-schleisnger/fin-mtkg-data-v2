@@ -134,7 +134,7 @@ CATEGORY_TOOLS: dict[str, list[str]] = {
         "run_optimization_tool",
     ],
     "FORECASTING": [
-        "run_arima_forecasting_tool",
+        "run_forecasting_tool",
     ],
     "SCENARIO_SIMULATION": [
         "run_scenario_planning_tool",
