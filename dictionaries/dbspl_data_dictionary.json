@@ -1,0 +1,999 @@
+{
+    "table_metadata": {
+        "table_name": "dbspl_sync",
+        "table_description": "a long version of a month by month line by line internal income statement for DISH TV business unit, part of Echostar Corporation. Refernce this table for monthly totals of revenues, costs, capital expenses, and more.",
+        "special_rules": "Do not sum any derrived columns with columns it is derrived from"
+    },
+    "schema_definition": [
+        {
+            "column_name": "Metric",
+            "description": "the specific line item of the income statement",
+            "data_type": "String",
+            "range_of_outcomes": "see line item descriptions"
+        },
+        {
+            "column_name": "category",
+            "description": "the scategory the line item falls into in the income statement",
+            "data_type": "string",
+            "range_of_outcomes": "revenue, cogs, variable costs, retention, costs, SAC, CapEx, SG&A, ratio"
+        },
+        {
+            "column_name": "Is_Derrived",
+            "description": "an indicator column showing if a row is a function of other rows in the table. Never sum derrived columns with the columns they are derived from.",
+            "data_type": "boolean",
+            "range_of_outcomes": "True/False"
+        },
+        {
+            "column_name": "Year",
+            "description": "the year the data is from",
+            "data_type": "int",
+            "range_of_outcomes": "2018 though curent year"
+        },
+        {
+            "column_name": "Month",
+            "description": "the month the data is from",
+            "data_type": "int",
+            "range_of_outcomes": "1 through 12 corresponding to january-december"
+        },
+        {
+            "column_name": "Amount",
+            "description": "the total of the given line item for that month",
+            "data_type": "float",
+            "range_of_outcomes": "positive or negative number"
+        }
+    ],
+    "line_item_descriptions": [
+        {
+            "Metric": "Basic",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total basic programming revenue",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "HD",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from HD programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Locals ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from local programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Premium ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from premium programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "DISH Movie Pack",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from dish movie pack",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Pay-Per-View ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from pey-per-view programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "A La Carte ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from a la carte programming packages",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "International ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from international programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Commercial",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "Total revenue from commercial subscribers",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "DISH Protect",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from dish equipment protection plan",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Equipment ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from equipment",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Media Sales ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from media sales",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Late Fees",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from late fees",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Early Termination Fee",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from early contract termination fees",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Upgrade Fees",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revnue from customers upgrading service/packages",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Smart Home Services",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from smart home services",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Manufacturing",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from product manufactureing",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Long Form",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "total revenue from long form programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Other ARPU",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "other sources of revenue",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "New Customer Credits",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "credits given to new customers - a contra revenue account, represented as negative number",
+            "Primary Sign": "-",
+            "Sum": ""
+        },
+        {
+            "Metric": "Gift Cards",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "gift cards given to new customers - a contra revenue account, represented as a negative number",
+            "Primary Sign": "-",
+            "Sum": ""
+        },
+        {
+            "Metric": "Existing Customer Credits",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "credits given to existing customers - a conta revenue account, represented as a negative number",
+            "Primary Sign": "-",
+            "Sum": ""
+        },
+        {
+            "Metric": "ARPU Revenue",
+            "Category": "Revenue",
+            "Is_Derrived": true,
+            "Explanation": "total programming revenue",
+            "Primary Sign": "+",
+            "Sum": "sum of: basic, hd, locals arpu, premium arpu, dish movie pack, pay per view arpu, a la carte arpu, international arpu, commercial, dish protect, equipment arpu, media sales arpu, late fees, early termination fee, smart home services, manufacturing, llong form, other arpu, new customer credits, gift cards, existing customer credits"
+        },
+        {
+            "Metric": "Fixed Satelite Services",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "revenue from fixed satelite services",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Service Revenue",
+            "Category": "Revenue",
+            "Is_Derrived": true,
+            "Explanation": "total revenue from customer services",
+            "Primary Sign": "+",
+            "Sum": "sum of arpu revenue and fixed satelite services"
+        },
+        {
+            "Metric": "OnTech",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "technology equipment revenue",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Other Equipment",
+            "Category": "Revenue",
+            "Is_Derrived": false,
+            "Explanation": "all other equipment revenue",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Equipment Revenue",
+            "Category": "Revenue",
+            "Is_Derrived": true,
+            "Explanation": "total equipment revenue",
+            "Primary Sign": "+",
+            "Sum": "sum of ontech and other equipment"
+        },
+        {
+            "Metric": "Total Revenue",
+            "Category": "Revenue",
+            "Is_Derrived": true,
+            "Explanation": "total dish business unit revenue",
+            "Primary Sign": "+",
+            "Sum": "sum of equipment revenur and service revenue"
+        },
+        {
+            "Metric": "Basic/Commercial",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of basic package programming for standard and commercial customers",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Locals COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of local chanel programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "CMF",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "content maintenance fees",
+            "Primary Sign": "-",
+            "Sum": ""
+        },
+        {
+            "Metric": "Premium COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of premium package programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Dish Movie Pack",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of dish movie pack",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Pay-Per-View COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of pay per view programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "A La Carte COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of a la carte programming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "International COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of international package inogramming",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Equipment COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of equipment",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Media Sales COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "cost of media sales",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Other ARPU COGS",
+            "Category": "COGS",
+            "Is_Derrived": false,
+            "Explanation": "other costs of goods sold",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "ARPU COGS",
+            "Category": "COGS",
+            "Is_Derrived": true,
+            "Explanation": "total cost of goods sold/cost of programmings",
+            "Primary Sign": "+",
+            "Sum": "sum of all other in COGS category"
+        },
+        {
+            "Metric": "CXO",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "cost of customer experience operations",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "I.H.S Variable",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "in home services varioable costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Manufacturing",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "equipment manufacturing costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Monthly Incentives",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "total cost of monthly incentives given to customers",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Billing",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "total cost of billing",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Collections",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "total cost of collections",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Bad Debt",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "total bad debt expense",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "B&C",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "other billing & credit costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Customer Comms",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "customer communications/customer service costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "R&D Engineering",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "cost of research and design engineering",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Other Variable",
+            "Category": "Variable Costs",
+            "Is_Derrived": false,
+            "Explanation": "other variable costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Variable",
+            "Category": "Variable Costs",
+            "Is_Derrived": true,
+            "Explanation": "all variable costs",
+            "Primary Sign": "+",
+            "Sum": "sum of all other in variable costs category"
+        },
+        {
+            "Metric": "I.H.S Retention",
+            "Category": "Retention",
+            "Is_Derrived": false,
+            "Explanation": "in home services related to customer retention",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Equipment Retention",
+            "Category": "Retention",
+            "Is_Derrived": false,
+            "Explanation": "equipment costs related to customer retention",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Ret G&A",
+            "Category": "Retention",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs related to customer retention",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Loyalty",
+            "Category": "Retention",
+            "Is_Derrived": false,
+            "Explanation": "loyalty credits/discounts costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Other Retention",
+            "Category": "Retention",
+            "Is_Derrived": false,
+            "Explanation": "other customer retention costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Upgrades",
+            "Category": "Retention",
+            "Is_Derrived": false,
+            "Explanation": "programming upgrade costs related to retention",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "P&L Retention",
+            "Category": "Retention",
+            "Is_Derrived": true,
+            "Explanation": "total retention costs expensed",
+            "Primary Sign": "+",
+            "Sum": "sum of all other in retention category"
+        },
+        {
+            "Metric": "Subscriber Related Costs",
+            "Category": "Cost",
+            "Is_Derrived": true,
+            "Explanation": "all costs that can be tied to a given subscriber",
+            "Primary Sign": "+",
+            "Sum": "sum of arpu cogs, variable, and p&l retention"
+        },
+        {
+            "Metric": "Satelite & Transmission",
+            "Category": "Cost",
+            "Is_Derrived": false,
+            "Explanation": "cost of satelites and tansmitting signals",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Cost of Services",
+            "Category": "Cost",
+            "Is_Derrived": true,
+            "Explanation": "total costs related to the customer's service they are receiving",
+            "Primary Sign": "+",
+            "Sum": "sum of subscriber related costs and satelite & transmission"
+        },
+        {
+            "Metric": "Cost of Sales",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "total sales costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Marketing SAC",
+            "Category": "SAC",
+            "Is_Derrived": false,
+            "Explanation": "total marketing costs attributed to subscriber acquisition",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Activation Incentives",
+            "Category": "SAC",
+            "Is_Derrived": false,
+            "Explanation": "total activation incentives costs to get customers to subscribe",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Sales",
+            "Category": "SAC",
+            "Is_Derrived": false,
+            "Explanation": "total sales costs related to subscriber acquisition",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "I.H.S. SAC",
+            "Category": "SAC",
+            "Is_Derrived": false,
+            "Explanation": "in home service costs related to adding a subscriber (installation, etc.)",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "P&L Equip",
+            "Category": "SAC",
+            "Is_Derrived": false,
+            "Explanation": "expensed equipment related to acquiring a subscriber",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "P&L SAC",
+            "Category": "SAC",
+            "Is_Derrived": true,
+            "Explanation": "total subscriber acquisition costs expensed",
+            "Primary Sign": "+",
+            "Sum": "sum of marketing sac, activation incentives, sales, iha sac, p&l equip"
+        },
+        {
+            "Metric": "CapEx SAC",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "subscriber acquisition costs capitalized",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "CapEx Commissions",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "commissions related to subscriber acquisition",
+            "Primary Sign": "-",
+            "Sum": ""
+        },
+        {
+            "Metric": "Subscriber Acquisition Costs",
+            "Category": "CapEx",
+            "Is_Derrived": true,
+            "Explanation": "total subscriber acquisition costs, expensed or capitalized",
+            "Primary Sign": "+",
+            "Sum": "sum of p&l sac, capex sac, and capex commissions"
+        },
+        {
+            "Metric": "IHS G&A",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs related to in home services",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Bulk Distribution",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "bulk distribution costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Product",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general & administrative costs related to dish products",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Sales Ops",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "cost of sales operations",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Indirect Sales",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "costs paid to indirect sales partners (caliber, national retailers, etc.)",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "DISH Business",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "costs related to dish business unit functions",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Marketing G&A",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative marketing costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Media Sales",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs related to media sales",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Programming G&A",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs of the programming department",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "IT",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs of the it department",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "CFO",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "costs related to the chief financial office",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Legal",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs of the legal department",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "PR",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs of the public relations department",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "HR & Facilities",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative costs of the dish human resources department",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "T&OE",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "costs of technology and office equipment",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "DISH Technologies",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "cost of dish technologies team - uplink centers, satelite navigation, etc.",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Corporate - Benefits",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "cost of corporate office benefits paid",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Corporate - Stock Comp",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "cost of corporate stock compensation plans for dish employees",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Corporate - Taxes",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "cost of corporate taxes",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Executives",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "general and administrative expenses related to company executives",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Blockbuster",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "costs related to blockbuster brand",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Other G&A",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "other genreal and administrative costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "G&A Before Overhead",
+            "Category": "SG&A",
+            "Is_Derrived": true,
+            "Explanation": "total gnereal and adminsitrative costs before overhead and research & development costs",
+            "Primary Sign": "+",
+            "Sum": "sum of his g&a, bulk distribution, product, sales ops, indirect sales, dish business, marketing g&a, media sales, programming g&a, it, cfo, legal, pr, hr & facilities, t&oe, dish technologies, corporate - benefits, corporate - stock comp, corporate - taxes, executives, blockbuster, other g&a"
+        },
+        {
+            "Metric": "DISH TV Overhead",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "overhead allocatedd to dish business unit",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "G&A Before R&D",
+            "Category": "SG&A",
+            "Is_Derrived": true,
+            "Explanation": "general and administrative costs before research and development'",
+            "Primary Sign": "+",
+            "Sum": "sum of g&a before overhead and dish tv overhead"
+        },
+        {
+            "Metric": "R&D",
+            "Category": "SG&A",
+            "Is_Derrived": false,
+            "Explanation": "research and development costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "General & Administrative",
+            "Category": "SG&A",
+            "Is_Derrived": true,
+            "Explanation": "total general and administrative costs",
+            "Primary Sign": "+",
+            "Sum": "sum of g&a before r&d and r&d"
+        },
+        {
+            "Metric": "SG&A",
+            "Category": "SG&A",
+            "Is_Derrived": true,
+            "Explanation": "selling, general, and administrative costs",
+            "Primary Sign": "+",
+            "Sum": "sum of general & administrative and p&l sac"
+        },
+        {
+            "Metric": "Litigation",
+            "Category": "Costs",
+            "Is_Derrived": false,
+            "Explanation": "cost of litigation related to dish business unit",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Asset Impairment",
+            "Category": "Costs",
+            "Is_Derrived": false,
+            "Explanation": "cost of asset impairments",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Depreciation & Amortization",
+            "Category": "Costs",
+            "Is_Derrived": false,
+            "Explanation": "depreciation and amortization related to dish usiness unit",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Operating Expenses",
+            "Category": "Costs",
+            "Is_Derrived": true,
+            "Explanation": "total operating expenses of dish business unit",
+            "Primary Sign": "+",
+            "Sum": "sum of cost of service, cost of sales, p&l sac, general & administrative, depreciation & amortization"
+        },
+        {
+            "Metric": "Operating Income",
+            "Category": "Ratio",
+            "Is_Derrived": true,
+            "Explanation": "total dish business unit income or loss",
+            "Primary Sign": "+",
+            "Sum": "total revenue less operating expenses"
+        },
+        {
+            "Metric": "OIBDA",
+            "Category": "Ratio",
+            "Is_Derrived": true,
+            "Explanation": "dish operating income before depreciation and amortization",
+            "Primary Sign": "+",
+            "Sum": "sum of operating income and depreciation & amortization"
+        },
+        {
+            "Metric": "CapEx Equipment",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "equipment costs capitalized",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "CapEx Retention",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "customer retention costs capitalized",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "BB Capitalized - Conn/Disc Same Month",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "costs related to customers with buyers remorese, defined as disconnecting less than 1 month after activation - capitalized not expensed",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Lease Receivers",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "costs related to leased receivers (joey, hoppers, etc.)",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Capital Expenditures",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "other capital expenditures",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "AP Adjustments",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "costs of accounts payable",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Adjustment to Proceeds from Sales",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "cost of adjusting sales proceeds",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Satellites",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "cost of launching satelites",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Satellites (Non-Cash)",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "non cash satelite costs",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Capitalized Interest (Non-Cash)",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "total non-cash capitalized interest payments",
+            "Primary Sign": "+",
+            "Sum": ""
+        },
+        {
+            "Metric": "Total CapEx",
+            "Category": "CapEx",
+            "Is_Derrived": true,
+            "Explanation": "all capital expenditures related to dish business unit",
+            "Primary Sign": "+",
+            "Sum": "sum of lease receivers, capital expenditures, ap adjustments, adjustment to proceeds from sales, satelites, satelites (non-cash)"
+        },
+        {
+            "Metric": "CapEx Commissions",
+            "Category": "CapEx",
+            "Is_Derrived": false,
+            "Explanation": "commissions capitalized",
+            "Primary Sign": "-",
+            "Sum": ""
+        }
+    ]
+}
