@@ -14,7 +14,8 @@ def _resolve_refs(schema: dict) -> dict:
     Recursively resolves all $ref pointers in a JSON Schema dict by inlining
     the referenced $defs entries, then strips the $defs key entirely.
     Returns a deep-copied, fully-flattened schema.
-    """    schema = copy.deepcopy(schema)
+    """    
+    schema = copy.deepcopy(schema)
     defs = schema.pop("$defs", {})
 
     def _inline(node):
