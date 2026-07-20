@@ -331,7 +331,6 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
         raise last_exc
 
 def track_tokens(response):
-def track_tokens(response):
     """
     Extracts token usage from a live API response and accumulates it into session state.
     Cost is calculated immediately using the currently active model's rates, so switching
