@@ -153,9 +153,12 @@ if not st.session_state.messages:
         st.markdown("## 👋 Welcome to the Marketing Dataset Agent")
         st.markdown(
             "Current Data sources I have Access to:\n"
-            "- Marketing Spend Data (01/2021 - 05/2026)\n"
-            "- Customer Activation data (10/2018 - 03/2026)\n\n"
-            "- Type a question below or select one of the suggested queries to get started:"
+            "- Monthly Marketing Spend by tactic & sub-tactic (01/2021 - 05/2026)\n"
+            "- Monthly subscriber counts, activations by channel, deactivations, and churn rates (01/2018 - 06/2026)\n"
+            "- Monthly Dish Business Unit P&L statement data (01/2018 - 06/2026)\n"
+            "- Daily Sales Calls/sales/activations/brms (01/2019 - 06/2026)\n"
+            "- Subscriber Economic Data Files (Location, Packages, Equipment, individual total sac, estimated cash flows) (10/2018 - 03/2026)"
+            "- Type a question below to get started:"
         ) 
 
 # ─── 6. SIDEBAR & METRICS (MOVED TO TOP TO PREVENT DISAPPEARING) ─────────
