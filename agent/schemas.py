@@ -406,6 +406,44 @@ class calculate_unit_economics_tool(BaseModel):
         description="Optional. A PostgreSQL WHERE clause to filter the acquisition table (e.g., '\"Sales_Channel\" = ''Direct'''). Exclude the 'WHERE' keyword."
     )
 
+class calculate_ratio_tool(BaseModel):
+    """
+    Calculates a monthly ratio between any two numeric columns across one or two tables.
+    Returns a DataFrame with year, month, the two source values, and the computed ratio
+    (numerator / denominator) for every period where both values are present.
+    Use this whenever the user asks for a rate, ratio, efficiency, or relative comparison
+    between two metrics over time — e.g. 'spend per subscriber', 'activations per sales call',
+    'revenue per activation', 'CPA by channel'.
+    """
+    numerator_column: str = Field(
+        ...,
+        description="The exact column name to use as the numerator of the ratio (e.g., 'Total_Spend')."
+    )
+    numerator_table: str = Field(
+        ...,
+        description="The exact SQL-safe table name containing the numerator column (e.g., '\"sandbox\".\"dbs_marketing_spend_sync\"')."
+    )
+    denominator_column: str = Field(
+        ...,
+        description="The exact column name to use as the denominator of the ratio (e.g., 'Activations')."
+    )
+    denominator_table: str = Field(
+        ...,
+        description="The exact SQL-safe table name containing the denominator column. May be the same as numerator_table."
+    )
+    where_clause: Optional[str] = Field(
+        default=None,
+        description="Optional. A PostgreSQL WHERE clause applied when fetching both columns (e.g., '\"year\" = 2024'). Exclude the 'WHERE' keyword."
+    )
+    numerator_aggregation: Optional[str] = Field(
+        default="SUM",
+        description="SQL aggregation to apply to the numerator column when grouping by month. One of SUM, AVG, COUNT. Defaults to SUM."
+    )
+    denominator_aggregation: Optional[str] = Field(
+        default="SUM",
+        description="SQL aggregation to apply to the denominator column when grouping by month. One of SUM, AVG, COUNT. Defaults to SUM."
+    )
+
 class ScenarioChange(BaseModel):
     """A single hypothetical change to a feature variable."""
     column_name: str = Field(

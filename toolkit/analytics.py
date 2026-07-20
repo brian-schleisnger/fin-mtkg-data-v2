@@ -40,6 +40,7 @@ __all__ = [
     "run_pca_tool",
     "run_kmeans_clustering_tool",
     "calculate_unit_economics_tool",
+    "calculate_ratio_tool",
     "run_scenario_planning_tool",
     "execute_python_tool",
     "run_neural_network_tool",
@@ -664,7 +665,143 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
 
     except Exception as e:
         return {"text": f"Unit Economics Calculation Error: {e}", "data": None}
-    
+
+
+@mlflow.trace(name="calculate_ratio_tool")
+def calculate_ratio_tool(
+    numerator_column: str,
+    numerator_table: str,
+    denominator_column: str,
+    denominator_table: str,
+    where_clause: str = None,
+    numerator_aggregation: str = "SUM",
+    denominator_aggregation: str = "SUM",
+) -> dict:
+    """
+    Calculates a monthly ratio (numerator / denominator) between any two numeric columns,
+    which may live in the same table or in two different tables.
+
+    Both sides are independently aggregated to one value per (year, month) period using
+    their respective aggregation functions, then joined on the shared time dimensions.
+    Returns a DataFrame with columns: year, month, <numerator_column>, <denominator_column>,
+    and ratio_<numerator_column>_per_<denominator_column>.
+    """
+    VALID_AGGS = {"SUM", "AVG", "COUNT"}
+    num_agg = numerator_aggregation.upper() if numerator_aggregation.upper() in VALID_AGGS else "SUM"
+    den_agg = denominator_aggregation.upper() if denominator_aggregation.upper() in VALID_AGGS else "SUM"
+
+    try:
+        same_table = numerator_table.strip() == denominator_table.strip()
+
+        if same_table:
+            # Both columns live in the same table — fetch in a single query.
+            dims = TABLE_DIMENSIONS.get(numerator_table.strip())
+            if dims is None:
+                return {"text": f"Error: Table '{numerator_table}' not found in TABLE_DIMENSIONS.", "data": None}
+
+            year_col = dims["year"]
+            month_col = dims["month"]
+
+            df = link_tables(
+                tables=numerator_table,
+                columns=[
+                    f'"{year_col}"',
+                    f'"{month_col}"',
+                    f'{num_agg}("{numerator_column}") AS numerator_val',
+                    f'{den_agg}("{denominator_column}") AS denominator_val',
+                ],
+                where_clause=where_clause,
+                group_by=[year_col, month_col],
+                order_by=f'"{year_col}" ASC, "{month_col}" ASC',
+                limit=None,
+            )
+            df.columns = [c.replace('"', '') for c in df.columns]
+            df.rename(columns={year_col: "year", month_col: "month"}, inplace=True)
+
+        else:
+            # Two different tables — query each independently then join on year/month.
+            num_dims = TABLE_DIMENSIONS.get(numerator_table.strip())
+            den_dims = TABLE_DIMENSIONS.get(denominator_table.strip())
+
+            if num_dims is None:
+                return {"text": f"Error: Table '{numerator_table}' not found in TABLE_DIMENSIONS.", "data": None}
+            if den_dims is None:
+                return {"text": f"Error: Table '{denominator_table}' not found in TABLE_DIMENSIONS.", "data": None}
+
+            num_year, num_month = num_dims["year"], num_dims["month"]
+            den_year, den_month = den_dims["year"], den_dims["month"]
+
+            df_num = link_tables(
+                tables=numerator_table,
+                columns=[
+                    f'"{num_year}"',
+                    f'"{num_month}"',
+                    f'{num_agg}("{numerator_column}") AS numerator_val',
+                ],
+                where_clause=where_clause,
+                group_by=[num_year, num_month],
+                order_by=f'"{num_year}" ASC, "{num_month}" ASC',
+                limit=None,
+            )
+            df_num.columns = [c.replace('"', '') for c in df_num.columns]
+            df_num.rename(columns={num_year: "year", num_month: "month"}, inplace=True)
+
+            df_den = link_tables(
+                tables=denominator_table,
+                columns=[
+                    f'"{den_year}"',
+                    f'"{den_month}"',
+                    f'{den_agg}("{denominator_column}") AS denominator_val',
+                ],
+                where_clause=where_clause,
+                group_by=[den_year, den_month],
+                order_by=f'"{den_year}" ASC, "{den_month}" ASC',
+                limit=None,
+            )
+            df_den.columns = [c.replace('"', '') for c in df_den.columns]
+            df_den.rename(columns={den_year: "year", den_month: "month"}, inplace=True)
+
+            for df_tmp in [df_num, df_den]:
+                df_tmp["year"] = pd.to_numeric(df_tmp["year"], errors="coerce")
+                df_tmp["month"] = pd.to_numeric(df_tmp["month"], errors="coerce")
+
+            df = pd.merge(df_num, df_den, on=["year", "month"], how="inner")
+
+        if df.empty:
+            return {"text": "Error: No overlapping year/month periods found for the two columns.", "data": None}
+
+        df["year"] = pd.to_numeric(df["year"], errors="coerce")
+        df["month"] = pd.to_numeric(df["month"], errors="coerce")
+        df["numerator_val"] = pd.to_numeric(df["numerator_val"], errors="coerce")
+        df["denominator_val"] = pd.to_numeric(df["denominator_val"], errors="coerce")
+
+        ratio_col = f"ratio_{numerator_column}_per_{denominator_column}"
+        df[ratio_col] = df["numerator_val"] / df["denominator_val"]
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+        df.rename(columns={
+            "numerator_val": numerator_column,
+            "denominator_val": denominator_column,
+        }, inplace=True)
+
+        df = df.sort_values(by=["year", "month"]).reset_index(drop=True)
+
+        avg_ratio = df[ratio_col].mean()
+        min_ratio = df[ratio_col].min()
+        max_ratio = df[ratio_col].max()
+
+        text_output = (
+            f"Monthly Ratio — {numerator_column} / {denominator_column}:\n"
+            f"  • Periods computed: {len(df)}\n"
+            f"  • Average ratio: {avg_ratio:,.4f}\n"
+            f"  • Min: {min_ratio:,.4f}  |  Max: {max_ratio:,.4f}\n"
+        )
+
+        return {"text": text_output, "data": df}
+
+    except Exception as e:
+        return {"text": f"Ratio Calculation Error: {e}", "data": None}
+
 
 @mlflow.trace(name="run_scenario_planning_tool")
 def run_scenario_planning_tool(
