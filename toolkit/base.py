@@ -331,19 +331,31 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
         raise last_exc
 
 def track_tokens(response):
-    """Directly extracts token usage from a live OpenAI/Databricks SDK response object."""
+def track_tokens(response):
+    """
+    Extracts token usage from a live API response and accumulates it into session state.
+    Cost is calculated immediately using the currently active model's rates, so switching
+    models after a query does not retroactively change the cost for tokens already spent.
+    """
     if hasattr(response, "usage") and response.usage:
-        # Explicitly check modern input/output naming first, then fall back to prompt/completion
         input_t = getattr(response.usage, "input_tokens", 0) or getattr(response.usage, "prompt_tokens", 0)
         output_t = getattr(response.usage, "output_tokens", 0) or getattr(response.usage, "completion_tokens", 0)
         total_t = getattr(response.usage, "total_tokens", 0) or (input_t + output_t)
-        
+
         if "input_tokens" in st.session_state:
             st.session_state.input_tokens += input_t
         if "output_tokens" in st.session_state:
             st.session_state.output_tokens += output_t
         if "total_tokens" in st.session_state:
             st.session_state.total_tokens += total_t
+
+        # Accumulate cost at the rate of the model that actually processed these tokens.
+        # This must happen here, not at render time, so model selection changes later
+        # do not retroactively reprice tokens that were already spent.
+        if "estimated_cost" in st.session_state:
+            st.session_state.estimated_cost += calculate_cost(
+                ModelConfig.ACTIVE_MODEL, input_t, output_t
+            )
 
 def get_join_clause(table_a: str, table_b: str) -> str:
     """

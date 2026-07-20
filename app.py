@@ -94,7 +94,7 @@ bootstrap_environment()
 # Now importing our cleanly extracted backend loop from the agent module
 from agent.loop import run_agent_loop
 from agent.cache import agent_cache
-from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model, calculate_cost
+from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
@@ -182,13 +182,10 @@ with st.sidebar:
     st.divider()
 
     # ── Estimated Cost ──
-    current_cost = calculate_cost(
-        ModelConfig.ACTIVE_MODEL,
-        st.session_state.input_tokens,
-        st.session_state.output_tokens,
-    )
-    st.session_state.estimated_cost = current_cost
-    st.metric(label="💰 Est. Session Cost", value=f"${current_cost:.4f}")
+    # Displayed directly from session state — cost is accumulated in track_tokens()
+    # at the moment each API call completes, so it reflects the actual model rates
+    # used, not the currently selected model.
+    st.metric(label="💰 Est. Session Cost", value=f"${st.session_state.estimated_cost:.4f}")
 
     st.divider()
 
