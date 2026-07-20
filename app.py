@@ -99,6 +99,16 @@ from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model, calcul
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
 mlflow.set_experiment("/Workspace/Users/brian.schlesinger@dish.com")
 
+def load_css():
+    """Reads custom CSS from style.css in the same directory and injects it."""
+    try:
+        with open("style.css", "r") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("⚠️ style.css not found in the current directory. Proceeding with default styling.")
+
+# Apply CSS
+load_css()
 
 def create_excel_buffer(data_list: list) -> bytes:
     """Extracts DataFrames from the agent's output, strips timezones, and writes them to an Excel buffer."""
@@ -137,7 +147,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
-    st.session_state.input_tokens = 0   
+    st.session_state.input_tokens = 0
     st.session_state.output_tokens = 0
     st.session_state.estimated_cost = 0.0
 if "last_step_latencies" not in st.session_state:
@@ -147,73 +157,72 @@ if "rerun_prompt" not in st.session_state:
 if "rerun_msg_index" not in st.session_state:
     st.session_state.rerun_msg_index = None
 
-# ─── 5. WELCOME SCREEN (EMPTY STATE) ────────────────────────────────────
-if not st.session_state.messages:
-    with st.container():
-        st.markdown("## 👋 Welcome to the Marketing Dataset Agent")
-        st.markdown(
-            "Current Data sources I have Access to:\n"
-            "- Monthly Marketing Spend by tactic & sub-tactic (01/2021 - 05/2026)\n"
-            "- Monthly subscriber counts, activations by channel, deactivations, and churn rates (01/2018 - 06/2026)\n"
-            "- Monthly Dish Business Unit P&L statement data (01/2018 - 06/2026)\n"
-            "- Daily Sales Calls/sales/activations/brms (01/2019 - 06/2026)\n"
-            "- Subscriber Economic Data Files (Location, Packages, Equipment, individual total sac, estimated cash flows) (10/2018 - 03/2026)"
-            "- Type a question below to get started:"
-        ) 
 
-# ─── 6. SIDEBAR & METRICS (MOVED TO TOP TO PREVENT DISAPPEARING) ─────────
+# ─── 5. SIDEBAR & METRICS (REDESIGNED) ───────────────────────────────────
 with st.sidebar:
-    st.title("🤖 Dataset Agent")
+    st.markdown("## 🧠 Dataset Agent")
+    
+    st.markdown("#### Application Navigation")
+    st.markdown("🎛️ **[Dashboard]**")
+    st.markdown("🔗 [Connectors]")
+    st.markdown("📈 [Monitoring]")
+    st.markdown("👤 [Account]")
+    
+    st.divider()
     
     model_options = list(AVAILABLE_MODELS.keys())
     selected_model = st.selectbox(
-        "🧠 Active Model",
+        "Active Model",
         options=model_options if model_options else ["No models configured"],
-        help="Select the model used for all reasoning steps (routing, decomposition, and synthesis).",
+        help="Select the model used for all reasoning steps.",
         disabled=not model_options,
     )
     if model_options:
         set_active_model(selected_model)
     
-    st.markdown("---")
-    
-    with st.container(border=True):
-        st.subheader("💰 Estimated Cost")
-        # Recalculate cost from current session tokens and active model
-        current_cost = calculate_cost(
-            ModelConfig.ACTIVE_MODEL,
-            st.session_state.input_tokens,
-            st.session_state.output_tokens
-        )
-        st.session_state.estimated_cost = current_cost
-        st.metric(label="Session Cost (est.)", value=f"${current_cost:.4f}")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric(label="Input Tokens", value=f"{st.session_state.input_tokens:,}")
-        with col2:
-            st.metric(label="Output Tokens", value=f"{st.session_state.output_tokens:,}")
-            
-    with st.container(border=True):
-        st.subheader("⏱️ Execution Latency")
-        latencies = st.session_state.get("last_step_latencies", {})
-        if latencies:
-            total_time = latencies.get("Total Execution", 0.0)
-            st.metric(label="Last Turn Total", value=f"{total_time:.2f} s")
-            st.markdown("---")
-            for step_name, duration in latencies.items():
-                if step_name != "Total Execution":
-                    st.markdown(
-                        f"<div style='color: black; font-size: 0.9em; margin-bottom: 4px;'>"
-                        f"<b>{step_name}:</b> {duration:.2f} s</div>", 
-                        unsafe_allow_html=True
-                    )
-        else:
-            st.markdown("<div style='color: black; font-size: 0.9em;'>No query executed yet.</div>", unsafe_allow_html=True)
-    
-    st.success(f"**Active Model:**\n`{ModelConfig.ACTIVE_MODEL}`", icon="🟢")
     st.divider()
     
-    if st.button("🗑️ Clear Chat History", use_container_width=True, type="secondary"):
+    st.markdown("#### Session Performance")
+    
+    # Recalculate cost from current session tokens and active model
+    current_cost = calculate_cost(
+        ModelConfig.ACTIVE_MODEL,
+        st.session_state.input_tokens,
+        st.session_state.output_tokens
+    )
+    st.session_state.estimated_cost = current_cost
+    
+    # Plotly Gauge for Session Cost
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = current_cost,
+        number = {'prefix': "$", 'valueformat': ".4f", 'font': {'color': "white"}},
+        title = {'text': "Session Cost (est.)", 'font': {'color': "white", 'size': 14}},
+        gauge = {
+            'axis': {'range': [0, max(0.1, current_cost * 2)], 'tickcolor': "white"},
+            'bar': {'color': "#2ecc71"},
+            'bgcolor': "#1a2a33",
+            'borderwidth': 0,
+        }
+    ))
+    fig.update_layout(height=180, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="#1a2a33", font={'color': "white"})
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+    # Token and Latency Metrics
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.markdown(f"<div style='text-align: center;'><b>{st.session_state.input_tokens:,}</b><br><small>Input</small></div>", unsafe_allow_html=True)
+    with m2:
+        st.markdown(f"<div style='text-align: center;'><b>{st.session_state.output_tokens:,}</b><br><small>Output</small></div>", unsafe_allow_html=True)
+    with m3:
+        latencies = st.session_state.get("last_step_latencies", {})
+        total_time = latencies.get("Total Execution", 0.0) if latencies else 0.0
+        latency_display = f"{total_time:.1f}s" if total_time > 0 else "N/A"
+        st.markdown(f"<div style='text-align: center;'><b>{latency_display}</b><br><small>Latency</small></div>", unsafe_allow_html=True)
+            
+    st.divider()
+    
+    if st.button("🗑️ Clear Chat History", use_container_width=True):
         st.session_state.messages = []
         st.session_state.total_tokens = 0
         st.session_state.input_tokens = 0
@@ -222,16 +231,55 @@ with st.sidebar:
         st.session_state.last_step_latencies = {}
         st.rerun()
 
+
+# ─── 6. MAIN AREA: WELCOME SCREEN (EMPTY STATE) ─────────────────────────
+if not st.session_state.messages:
+    st.markdown("## Marketing Intelligence Agent")
+    st.markdown("Marketing Intelligence Agent and connected data sources overview.")
+    
+    # Create the card grid
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        with st.container(border=True):
+            st.markdown("#### 🚀 Marketing <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+            st.markdown("**Monthly Marketing Spend**")
+            st.caption("Monthly Marketing Spend by tactic & sub-tactic (01/2021 - 05/2026)")
+            
+        with st.container(border=True):
+            st.markdown("#### 💲 Sales <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+            st.markdown("**Daily Sales Data**")
+            st.caption("Daily Sales Calls/sales/activations/brms (01/2019 - 06/2026)")
+
+    with col2:
+        with st.container(border=True):
+            st.markdown("#### 👥 Subscriber <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+            st.markdown("**Monthly Subscriber Counts**")
+            st.caption("Monthly subscriber counts, activations by channel, deactivations, and churn rates (01/2018 - 06/2026)")
+            
+        with st.container(border=True):
+            st.markdown("#### 📊 Financials <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+            st.markdown("**Dish P&L**")
+            st.caption("Monthly Dish Business Unit P&L statement data (01/2018 - 06/2026)")
+
+    st.markdown("<br><center><i>Ask a question below to begin analysis.</i></center>", unsafe_allow_html=True)
+
+
 # ─── 7. CHAT HISTORY RENDERING ───────────────────────────────────────────
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] in ["user", "assistant"] and msg.get("content"):
-        with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
+        with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🌐"):
             st.markdown(msg["content"])
 
             if msg.get("figures"):
                 for j, fig in enumerate(msg["figures"]):
                     if isinstance(fig, go.Figure):
-                        fig.update_layout(height=500, colorway=["#C4262E", "#A2A4A3", "#000000"])
+                        fig.update_layout(
+                            height=400, 
+                            colorway=["#105e62", "#b2d8d8", "#000000"], 
+                            paper_bgcolor='rgba(0,0,0,0)', 
+                            plot_bgcolor='rgba(0,0,0,0)'
+                        )
                         st.plotly_chart(fig, use_container_width=True, key=f"fig_{i}_{j}")
                     
             if msg["role"] == "assistant" and (msg.get("dfs") or msg.get("run_log")):
@@ -243,7 +291,7 @@ for i, msg in enumerate(st.session_state.messages):
                         try:
                             excel_data = create_excel_buffer(msg["dfs"])
                             st.download_button(
-                                label="📥 Download Excel Export",
+                                label="📥 Export Data",
                                 data=excel_data,
                                 file_name=f"agent_data_export_{i}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -262,12 +310,12 @@ for i, msg in enumerate(st.session_state.messages):
 
                 with act_col3:
                     if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
-                        if st.button("🔄 Re-run", key=f"rerun_{i}", use_container_width=True, help="Evict this response from the cache and re-run"):
+                        if st.button("🔄 Re-run", key=f"rerun_{i}", use_container_width=True):
                             st.session_state.rerun_prompt = st.session_state.messages[i - 1]["content"]
                             st.session_state.rerun_msg_index = i
                             st.rerun()
 
-# ─── 8. RE-RUN HANDLER (UPDATED TO PREVENT MULTI-RERUN FAILURE) ──────────
+# ─── 8. RE-RUN HANDLER ───────────────────────────────────────────────────
 if st.session_state.rerun_prompt is not None:
     rerun_prompt = st.session_state.rerun_prompt
     rerun_index = st.session_state.rerun_msg_index
@@ -280,14 +328,13 @@ if st.session_state.rerun_prompt is not None:
 
     history_before = st.session_state.messages[: rerun_index - 1]
 
-    with st.chat_message("assistant", avatar="🤖"):
+    with st.chat_message("assistant", avatar="🌐"):
         try:
             with st.spinner(f"Re-running with `{ModelConfig.ACTIVE_MODEL}`..."):
                 result = run_agent_loop(rerun_prompt, history_before)
 
             st.session_state.last_step_latencies = result.get("step_latencies", {})
 
-            # Replace the message in-place inside session state
             st.session_state.messages[rerun_index] = {
                 "role": "assistant",
                 "content": result["final_text"],
@@ -295,9 +342,6 @@ if st.session_state.rerun_prompt is not None:
                 "dfs": result["dfs"],
                 "run_log": result["run_log"]
             }
-            
-            # CRITICAL FIX: Immediately force a rerun so session state commits cleanly 
-            # and historical layout indexes align properly before downstream execution occurs.
             st.rerun()
 
         except Exception as e:
@@ -311,7 +355,7 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="🤖"):
+    with st.chat_message("assistant", avatar="🌐"):
         try:
             with st.spinner("Analyzing..."):
                 result = run_agent_loop(prompt, st.session_state.messages)
@@ -334,4 +378,3 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             st.error(f"Agent Orchestration Error: {e}")
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc(), language="python")
-

@@ -1,0 +1,47 @@
+/* Sidebar Styling */
+[data-testid="stSidebar"] {
+    background-color: #1a2a33;
+    color: white;
+}
+
+[data-testid="stSidebar"] h1, 
+[data-testid="stSidebar"] h2, 
+[data-testid="stSidebar"] h3, 
+[data-testid="stSidebar"] div {
+    color: white !important;
+}
+
+/* Card Styling for Data Sources */
+div[data-testid="stVerticalBlock"] div[data-testid="stContainer"] {
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: #ffffff;
+}
+
+/* Improving Chat Message Density */
+[data-testid="stChatMessageContent"] {
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* Customizing the "Connected" Badge appearance */
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    background-color: #e6f4ea;
+    color: #1e8e3e;
+    font-weight: bold;
+}
+
+/* Adjusting Global Font */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Hide Streamlit Branding */
+#MainMenu, footer {
+    visibility: hidden;
+}
