@@ -274,15 +274,21 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
 
             Use this exact schema for all column names: {json.dumps(relevant_schema)}"""
             
-            msgs = [{"role": "system", "content": prompt}]
+            # Build the system prompt, merging intra-turn context in so there is
+            # never more than one system message (Gemini rejects multiple system prompts).
+            system_content = prompt
+            if raw_outputs:
+                system_content += f"\n\nContext from previous sub-questions analyzed just now: {raw_outputs}"
+
+            msgs = [{"role": "system", "content": system_content}]
             
             if chat_history:
-                clean_history = [{"role": m["role"], "content": m.get("content", "")} for m in chat_history[-4:]]
+                clean_history = [
+                    {"role": m["role"], "content": m.get("content", "")}
+                    for m in chat_history[-4:]
+                    if m["role"] != "system"
+                ]
                 msgs.extend(clean_history)
-                
-            if raw_outputs:
-                intra_turn_context = f"Context from previous sub-questions analyzed just now: {raw_outputs}"
-                msgs.append({"role": "system", "content": intra_turn_context})
                 
             msgs.append({"role": "user", "content": sq_text})
 
