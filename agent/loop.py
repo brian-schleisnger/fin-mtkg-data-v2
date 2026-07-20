@@ -76,19 +76,12 @@ def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_
     User Request: {user_prompt}
 
     RULES:
-    1. ONLY generate data queries if the user is explicitly asking for data analysis, metrics, or insights.
-    2. Generate at most five sub-questions.
+    1. Only generate data queries if the user is explicitly asking for data analysis, metrics, or insights.
+    2. Generate at most ten sub-questions.
     3. If the user is asking a general question, greeting you, or asking about your capabilities, return the user's exact prompt as a single item with category SQL_RETRIEVAL and do NOT generate data queries.
     4. Use the 'Recent Conversation History' to resolve pronouns and missing context. Every sub-question must be fully self-contained.
     5. Do NOT break a single statistical model (Regression, Random Forest, ARIMA, etc.) into separate sub-questions for each metric. Group all requirements for one model into ONE sub-question.
-    6. VISUALIZATION: if the user asks for a chart, graph, plot, bar chart, histogram, scatterplot, or line chart, that sub-question MUST be categorised as VISUALIZATION and must name the exact chart type. If the user wants both analysis AND a chart, create two sub-questions — one for the analysis category and one for VISUALIZATION.
-    7. SCENARIO_SIMULATION: if the user asks a what-if, hypothetical, or simulation question ("what if", "assume X is", "increase by X%", "hold Y constant"), categorise it as SCENARIO_SIMULATION.
-    8. UNIT_ECONOMICS: if the user asks about CPA, CLV, cost per acquisition, lifetime value, or marketing efficiency, categorise it as UNIT_ECONOMICS.
-    9. FORECASTING: if the user asks to predict or forecast future values, categorise it as FORECASTING.
-    10. STATISTICAL_MODELING: regression, correlation, PCA, clustering → STATISTICAL_MODELING.
-    11. ML_MODELING: Random Forest, neural network, or optimization/budget allocation → ML_MODELING.
-    12. SQL_RETRIEVAL: simple lookups, filters, counts, sums, averages with no modeling or charting → SQL_RETRIEVAL.
-    13. CUSTOM_PYTHON: complex multi-step analysis combining multiple tables that no single dedicated tool can handle → CUSTOM_PYTHON."""
+    6. Make important note of the data structures, and plan your questiona accordingly. example: if user asks how two metrics compare, have the first subquestion pull those metrics, then have the next subquestion analyze that pulled data."""
     
     msgs = [{"role": "user", "content": prompt}]
     
