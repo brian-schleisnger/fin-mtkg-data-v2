@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import traceback
 
 from databricks.sdk import WorkspaceClient
 import mlflow
@@ -100,15 +101,13 @@ from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model, calcul
 mlflow.set_experiment("/Workspace/Users/brian.schlesinger@dish.com")
 
 def load_css():
-    """Reads custom CSS from style.css in the same directory and injects it."""
+    """Reads custom CSS from style.css co-located with app.py and injects it."""
+    css_path = Path(__file__).parent / "style.css"
     try:
-        with open("style.css", "r") as f:
+        with open(css_path, "r") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
-        st.warning("⚠️ style.css not found in the current directory. Proceeding with default styling.")
-
-# Apply CSS
-load_css()
+        st.warning("⚠️ style.css not found. Proceeding with default styling.")
 
 def create_excel_buffer(data_list: list) -> bytes:
     """Extracts DataFrames from the agent's output, strips timezones, and writes them to an Excel buffer."""
@@ -147,8 +146,11 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
+if "input_tokens" not in st.session_state:
     st.session_state.input_tokens = 0
+if "output_tokens" not in st.session_state:
     st.session_state.output_tokens = 0
+if "estimated_cost" not in st.session_state:
     st.session_state.estimated_cost = 0.0
 if "last_step_latencies" not in st.session_state:
     st.session_state.last_step_latencies = {}
@@ -156,6 +158,9 @@ if "rerun_prompt" not in st.session_state:
     st.session_state.rerun_prompt = None
 if "rerun_msg_index" not in st.session_state:
     st.session_state.rerun_msg_index = None
+
+# Apply CSS after session state so any st.warning() from load_css renders correctly
+load_css()
 
 
 # ─── 5. SIDEBAR & METRICS (REDESIGNED) ───────────────────────────────────
@@ -237,7 +242,8 @@ if not st.session_state.messages:
     st.markdown("## Marketing Intelligence Agent")
     st.markdown("Marketing Intelligence Agent and connected data sources overview.")
     
-    # Create the card grid
+    # Wrapper div so card CSS only applies here, not to every stContainer in the app
+    st.markdown('<div class="welcome-cards">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     
     with col1:
@@ -262,6 +268,7 @@ if not st.session_state.messages:
             st.markdown("**Dish P&L**")
             st.caption("Monthly Dish Business Unit P&L statement data (01/2018 - 06/2026)")
 
+    st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<br><center><i>Ask a question below to begin analysis.</i></center>", unsafe_allow_html=True)
 
 
@@ -345,7 +352,6 @@ if st.session_state.rerun_prompt is not None:
             st.rerun()
 
         except Exception as e:
-            import traceback
             st.error(f"Re-run Error: {e}")
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc(), language="python")
@@ -374,7 +380,6 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             st.rerun()
                     
         except Exception as e:
-            import traceback
             st.error(f"Agent Orchestration Error: {e}")
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc(), language="python")
