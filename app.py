@@ -163,18 +163,12 @@ if "rerun_msg_index" not in st.session_state:
 load_css()
 
 
-# ─── 5. SIDEBAR & METRICS (REDESIGNED) ───────────────────────────────────
+# ─── 5. SIDEBAR ──────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🧠 Dataset Agent")
-    
-    st.markdown("#### Application Navigation")
-    st.markdown("🎛️ **[Dashboard]**")
-    st.markdown("🔗 [Connectors]")
-    st.markdown("📈 [Monitoring]")
-    st.markdown("👤 [Account]")
-    
     st.divider()
-    
+
+    # ── Model Selection ──
     model_options = list(AVAILABLE_MODELS.keys())
     selected_model = st.selectbox(
         "Active Model",
@@ -184,49 +178,39 @@ with st.sidebar:
     )
     if model_options:
         set_active_model(selected_model)
-    
+
     st.divider()
-    
-    st.markdown("#### Session Performance")
-    
-    # Recalculate cost from current session tokens and active model
+
+    # ── Estimated Cost ──
     current_cost = calculate_cost(
         ModelConfig.ACTIVE_MODEL,
         st.session_state.input_tokens,
-        st.session_state.output_tokens
+        st.session_state.output_tokens,
     )
     st.session_state.estimated_cost = current_cost
-    
-    # Plotly Gauge for Session Cost
-    fig = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = current_cost,
-        number = {'prefix': "$", 'valueformat': ".4f", 'font': {'color': "white"}},
-        title = {'text': "Session Cost (est.)", 'font': {'color': "white", 'size': 14}},
-        gauge = {
-            'axis': {'range': [0, max(0.1, current_cost * 2)], 'tickcolor': "white"},
-            'bar': {'color': "#2ecc71"},
-            'bgcolor': "#1a2a33",
-            'borderwidth': 0,
-        }
-    ))
-    fig.update_layout(height=180, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="#1a2a33", font={'color': "white"})
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    st.metric(label="💰 Est. Session Cost", value=f"${current_cost:.4f}")
 
-    # Token and Latency Metrics
-    m1, m2, m3 = st.columns(3)
-    with m1:
-        st.markdown(f"<div style='text-align: center;'><b>{st.session_state.input_tokens:,}</b><br><small>Input</small></div>", unsafe_allow_html=True)
-    with m2:
-        st.markdown(f"<div style='text-align: center;'><b>{st.session_state.output_tokens:,}</b><br><small>Output</small></div>", unsafe_allow_html=True)
-    with m3:
-        latencies = st.session_state.get("last_step_latencies", {})
-        total_time = latencies.get("Total Execution", 0.0) if latencies else 0.0
-        latency_display = f"{total_time:.1f}s" if total_time > 0 else "N/A"
-        st.markdown(f"<div style='text-align: center;'><b>{latency_display}</b><br><small>Latency</small></div>", unsafe_allow_html=True)
-            
     st.divider()
-    
+
+    # ── Step Latencies ──
+    st.markdown("#### ⏱️ Last Turn Latency")
+    latencies = st.session_state.get("last_step_latencies", {})
+    if latencies:
+        total_time = latencies.get("Total Execution", 0.0)
+        st.metric(label="Total", value=f"{total_time:.2f}s")
+        for step_name, duration in latencies.items():
+            if step_name != "Total Execution":
+                st.markdown(
+                    f"<div style='font-size:0.85em; margin-bottom:2px;'>"
+                    f"<b>{step_name}</b>: {duration:.2f}s</div>",
+                    unsafe_allow_html=True,
+                )
+    else:
+        st.caption("No query executed yet.")
+
+    st.divider()
+
+    # ── Clear Chat ──
     if st.button("🗑️ Clear Chat History", use_container_width=True):
         st.session_state.messages = []
         st.session_state.total_tokens = 0
