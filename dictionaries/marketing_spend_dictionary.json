@@ -3,7 +3,7 @@
         "table_metadata": {
             "table_name": "dbs_marketing_spend_synced",
             "table_description": "this is a table going back to 2021 containing all accounts and activities each month and the spend tied to them.",
-            "special_rules": "if there is an account number that is not defined, it is likely 0. do not use it in calculations"
+            "special_rules": "IMPORTANT: There is no 'total_monthly_spend' column. To find total monthly marketing spend, you MUST aggregate and calculate the SUM of the 'amount' column, grouped by 'year' and 'month'."
         },
         "schema_definition": [
             {
@@ -50,7 +50,7 @@
             },
             {
                 "Column Name": "amount",
-                "Column Description": "the amount that was spent. Positive indicates we spent money, negative indicates we received money back",
+                "Column Description": "The transactional amount spent. To calculate total spend, total monthly spend, or total marketing spend, you must use SUM(amount). Positive indicates we spent money, negative indicates we received money back.",
                 "Data Type": "Numeric",
                 "Range of Outcomes": "number"
             },
