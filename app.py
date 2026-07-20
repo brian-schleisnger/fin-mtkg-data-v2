@@ -221,39 +221,43 @@ with st.sidebar:
         st.rerun()
 
 
-# ─── 6. MAIN AREA: WELCOME SCREEN (EMPTY STATE) ─────────────────────────
-if not st.session_state.messages:
-    st.markdown("## Marketing Intelligence Agent")
-    st.markdown("Marketing Intelligence Agent and connected data sources overview.")
-    
-    # Wrapper div so card CSS only applies here, not to every stContainer in the app
-    st.markdown('<div class="welcome-cards">', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        with st.container(border=True):
-            st.markdown("#### 🚀 Marketing <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
-            st.markdown("**Monthly Marketing Spend**")
-            st.caption("Monthly Marketing Spend by tactic & sub-tactic (01/2021 - 05/2026)")
-            
-        with st.container(border=True):
-            st.markdown("#### 💲 Sales <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
-            st.markdown("**Daily Sales Data**")
-            st.caption("Daily Sales Calls/sales/activations/brms (01/2019 - 06/2026)")
+# ─── 6. MAIN AREA: WELCOME SCREEN (ALWAYS VISIBLE) ──────────────────────
+st.markdown("## Marketing Intelligence Agent")
+st.markdown("Connected data sources:")
 
-    with col2:
-        with st.container(border=True):
-            st.markdown("#### 👥 Subscriber <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
-            st.markdown("**Monthly Subscriber Counts**")
-            st.caption("Monthly subscriber counts, activations by channel, deactivations, and churn rates (01/2018 - 06/2026)")
-            
-        with st.container(border=True):
-            st.markdown("#### 📊 Financials <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
-            st.markdown("**Dish P&L**")
-            st.caption("Monthly Dish Business Unit P&L statement data (01/2018 - 06/2026)")
+# Wrapper div so card CSS only applies here, not to every stContainer in the app
+st.markdown('<div class="welcome-cards">', unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("<br><center><i>Ask a question below to begin analysis.</i></center>", unsafe_allow_html=True)
+with col1:
+    with st.container(border=True):
+        st.markdown("#### 🚀 Marketing <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+        st.markdown("**Monthly Marketing Spend**")
+        st.caption("Spend by tactic & sub-tactic (01/2021 - 05/2026)")
+
+    with st.container(border=True):
+        st.markdown("#### 💲 Sales <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+        st.markdown("**Daily Sales Data**")
+        st.caption("Calls / sales / activations / BRMs (01/2019 - 06/2026)")
+
+with col2:
+    with st.container(border=True):
+        st.markdown("#### 👥 Subscriber <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+        st.markdown("**Monthly Subscriber Counts**")
+        st.caption("Activations by channel, deactivations, churn (01/2018 - 06/2026)")
+
+    with st.container(border=True):
+        st.markdown("#### 📊 Financials <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+        st.markdown("**Dish P&L**")
+        st.caption("Monthly BU P&L statement data (01/2018 - 06/2026)")
+
+with col3:
+    with st.container(border=True):
+        st.markdown("#### 🔑 Acquisition <span class='status-badge'>● Connected</span>", unsafe_allow_html=True)
+        st.markdown("**Customer Activation Data**")
+        st.caption("ARPU, COGS, SAC, churn, NPV, MCF (10/2018 - 03/2026)")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ─── 7. CHAT HISTORY RENDERING ───────────────────────────────────────────
