@@ -16,7 +16,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(page_title="Dataset Agent", page_icon="🤖", layout="wide")
+st.set_page_config(
+    page_title="Dataset Agent",
+    page_icon=str(Path(__file__).parent / "logo1.png"),
+    layout="wide",
+)
 
 # ─── 1. ENVIRONMENT BOOTSTRAPPING (CACHED) ───────────────────────────────
 @st.cache_resource
