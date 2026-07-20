@@ -28,6 +28,31 @@ AVAILABLE_MODELS: dict[str, str] = {
     "Claude Opus (High)": "system.ai.claude-opus-4-8"
 }
 
+#the cost in dbus per 1 million tokens. ex: gpt5.4 nano costs 2.857 dbus per 1 million input tokens, and 17.857 dbus per 1 million output tokens
+MODEL_DBUS = pd.DataFrame({"Model": ["system.ai.gpt-5-4-nano","system.ai.gemini-3-1-flash-lite","system.ai.gemini-3-5-flash","system.ai.claude-sonnet-5","system.ai.claude-opus-4-8"],
+                           "inputs": [2.857,6.428,21.2485,28.5714,71.429],
+                           "Outputs": [17.857,38.572,128.571,142.857,357.143]})
+
+#databricks AI's are estimated to cost about 7 cents per dbu
+DBU_COST = .07
+
+def calculate_cost(model_endpoint: str, input_tokens: int, output_tokens: int) -> float:
+    """
+    Estimates the dollar cost of a query given token counts and the active model endpoint.
+
+    Looks up the model's DBU rates per million tokens from MODEL_DBUS, multiplies by
+    DBU_COST ($/DBU), and returns the total estimated cost in dollars.
+    Returns 0.0 if the model is not found in MODEL_DBUS.
+    """
+    row = MODEL_DBUS[MODEL_DBUS["Model"] == model_endpoint]
+    if row.empty:
+        return 0.0
+    input_dbus_per_m = row["inputs"].iloc[0]
+    output_dbus_per_m = row["Outputs"].iloc[0]
+    input_cost = (input_tokens / 1_000_000) * input_dbus_per_m * DBU_COST
+    output_cost = (output_tokens / 1_000_000) * output_dbus_per_m * DBU_COST
+    return input_cost + output_cost
+
 class ModelConfig:
     """
     Global configuration holder for the active LLM endpoint.

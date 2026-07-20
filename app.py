@@ -93,7 +93,7 @@ bootstrap_environment()
 # Now importing our cleanly extracted backend loop from the agent module
 from agent.loop import run_agent_loop
 from agent.cache import agent_cache
-from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model
+from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model, calculate_cost
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
@@ -138,7 +138,8 @@ if "messages" not in st.session_state:
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
     st.session_state.input_tokens = 0   
-    st.session_state.output_tokens = 0  
+    st.session_state.output_tokens = 0
+    st.session_state.estimated_cost = 0.0
 if "last_step_latencies" not in st.session_state:
     st.session_state.last_step_latencies = {}
 if "rerun_prompt" not in st.session_state:
@@ -174,13 +175,20 @@ with st.sidebar:
     st.markdown("---")
     
     with st.container(border=True):
-        st.subheader("📊 Token Usage Tracker")
-        st.metric(label="Total Tokens", value=f"{st.session_state.total_tokens:,}")
+        st.subheader("💰 Estimated Cost")
+        # Recalculate cost from current session tokens and active model
+        current_cost = calculate_cost(
+            ModelConfig.ACTIVE_MODEL,
+            st.session_state.input_tokens,
+            st.session_state.output_tokens
+        )
+        st.session_state.estimated_cost = current_cost
+        st.metric(label="Session Cost (est.)", value=f"${current_cost:.4f}")
         col1, col2 = st.columns(2)
         with col1:
-            st.metric(label="Input", value=f"{st.session_state.input_tokens:,}")
+            st.metric(label="Input Tokens", value=f"{st.session_state.input_tokens:,}")
         with col2:
-            st.metric(label="Output", value=f"{st.session_state.output_tokens:,}")
+            st.metric(label="Output Tokens", value=f"{st.session_state.output_tokens:,}")
             
     with st.container(border=True):
         st.subheader("⏱️ Execution Latency")
@@ -207,6 +215,7 @@ with st.sidebar:
         st.session_state.total_tokens = 0
         st.session_state.input_tokens = 0
         st.session_state.output_tokens = 0
+        st.session_state.estimated_cost = 0.0
         st.session_state.last_step_latencies = {}
         st.rerun()
 
