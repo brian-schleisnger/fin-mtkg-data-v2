@@ -177,7 +177,7 @@ SCHEMA_CONFIG = {
 }
 
 ALIASES = {
-    '"sandbox"."acquisition_data_v3"': ['arpu', 'cogs', 'sac', 'churn', 'mcf', 'npv', 'activations', 'retention', 'revenue', 'cost of goods sold', 'subscriber acquisition cost', 'lifetime value', 'clv', 'profitability'],
+    '"sandbox"."acquisition_data_v3"': ['MOonthly cash flow', 'sac', 'subscribers', 'per-customer', 'economic', 'mcf', 'npv', 'subscriber acquisition cost', 'lifetime value', 'clv'],
     '"sandbox"."dbs_marketing_spend_sync"': ['marketing', 'spend', 'budget', 'cpa', 'tactic', 'digital', 'tv', 'cost per acquisition', 'ad spend', 'campaign', 'media', 'advertising'],
     '"sandbox"."subcount_data_synced"': ['subscribers', 'subscriber count', 'subscriber balance', 'gross adds', 'net adds', 'disconnects', 'churn rate', 'beginning subscribers', 'ending subscribers', 'local retail', 'sales partner', 'national retail', 'telco activations', 'indirect activations', 'direct activations', 'commercial activations', 'subscriber growth', 'subscriber base'],
     '"sandbox"."sales_data_sync"': ['sales','buyers remorse','brm', 'calls','selling'],
