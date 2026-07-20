@@ -29,9 +29,15 @@
     color: rgba(255, 255, 255, 0.65) !important;
 }
 
-/* Selectbox input text (the selected value shown in the box) */
-[data-testid="stSidebar"] [data-baseweb="select"] {
-    color: white;
+/* Selectbox input text — black because the input box has a white background */
+[data-testid="stSidebar"] [data-baseweb="select"] span,
+[data-testid="stSidebar"] [data-baseweb="select"] div {
+    color: #000000 !important;
+}
+
+/* Selectbox label above the box stays white */
+[data-testid="stSidebar"] [data-testid="stSelectbox"] > label {
+    color: white !important;
 }
 
 /* Sidebar divider */
