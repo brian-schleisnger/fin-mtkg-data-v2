@@ -98,22 +98,33 @@ Return ONLY a JSON object in this exact format — no markdown, no explanation:
             
         filtered_dict = {}
         for t in parsed_result.required_tables:
-            # Clean the LLM output for safer matching
-            t_clean = t.strip().lower()
+            # 1. Clean the LLM output: remove any quotes, strip spaces, and make lowercase
+            t_clean = t.replace('"', '').replace("'", "").strip().lower()
             
+            # 2. Strip the schema prefix if the LLM hallucinated one (e.g., 'sandbox.table_name' -> 'table_name')
+            if "." in t_clean:
+                t_clean = t_clean.split(".")[-1]
+                
             matched = False
-            # 2. Try matching the dictionary key (case-insensitive)
+            
+            # 3. Try matching the dictionary key (case-insensitive)
             for key, data in DATA_DICTIONARY.items():
                 if key.strip().lower() == t_clean:
                     filtered_dict[key] = data
                     matched = True
                     break
             
-            # 3. Fallback: match the 'table_name' inside the metadata (case-insensitive)
+            # 4. Fallback: match the 'table_name' inside the metadata
             if not matched:
                 for key, data in DATA_DICTIONARY.items():
                     meta_name = data.get("table_metadata", {}).get("table_name", "")
-                    if meta_name.strip().lower() == t_clean:
+                    
+                    # Clean the metadata name just in case it has weird formatting in the JSON
+                    meta_clean = meta_name.replace('"', '').replace("'", "").strip().lower()
+                    if "." in meta_clean:
+                        meta_clean = meta_clean.split(".")[-1]
+                        
+                    if meta_clean == t_clean:
                         filtered_dict[key] = data
                         break
 
