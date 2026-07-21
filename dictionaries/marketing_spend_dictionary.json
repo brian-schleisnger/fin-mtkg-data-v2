@@ -3,62 +3,86 @@
         "table_metadata": {
             "table_name": "dbs_marketing_spend_synced",
             "table_description": "this is a table going back to 2021 containing all accounts and activities each month and the spend tied to them.",
-            "special_rules": "IMPORTANT: There is no 'total_monthly_spend' column. To find total monthly marketing spend, you MUST aggregate and calculate the SUM of the 'amount' column, grouped by 'year' and 'month'."
+            "special_rules": "IMPORTANT: There is no 'total_monthly_spend' column. To find total monthly marketing spend, you MUST aggregate and calculate the SUM of the 'Amount' column, grouped by 'Year' and 'Month'."
         },
         "schema_definition": [
             {
-                "Column Name": "index",
+                "Column Name": "_c0",
                 "Column Description": "primary key index - likely will not need to be referenced",
-                "Data Type": "Numeric",
+                "Data Type": "int",
                 "Range of Outcomes": "positive integer"
             },
             {
-                "Column Name": "string code",
+                "Column Name": "String_Code",
                 "Column Description": "a combined string containing the company, department, account, and activity codes together. Could be useful for referencing",
                 "Data Type": "String",
                 "Range of Outcomes": "xxx-xxxxxxxxxxxxxxx"
             },
             {
-                "Column Name": "company",
-                "Column Description": "the company unit the spend was directed to. Most of the time, this will be 111",
-                "Data Type": "Numeric",
-                "Range of Outcomes": "3 digit number"
+                "Column Name": "Company",
+                "Column Description": "the company unit the spend was directed to",
+                "Data Type": "int",
+                "Range of Outcomes": "3 digit number, either 11 or 213"
             },
             {
-                "Column Name": "department",
-                "Column Description": "the department of the company the spend was dircted to. Most of the time, this will be a number in the 170s",
-                "Data Type": "Numeric",
-                "Range of Outcomes": "3 digit number"
+                "Column Name": "Department",
+                "Column Description": "the department of the company the spend was dircted to",
+                "Data Type": "int",
+                "Range of Outcomes": "3 digit number, either 170, 171, or 172"
             },
             {
-                "Column Name": "account",
+                "Column Name": "Account",
                 "Column Description": "the account of the company the spend is attributed to.",
                 "Data Type": "String",
-                "Range of Outcomes": "6 digit number or SACADV or SACADD"
+                "Range of Outcomes": "xxxxxx"
             },
             {
-                "Column Name": "activity",
+                "Column Name": "Activity",
                 "Column Description": "the specific activity of the account the spend was for.",
-                "Data Type": "Numeric",
+                "Data Type": "Int",
                 "Range of Outcomes": "6 digit number"
             },
             {
-                "Column Name": "month",
+                "Column Name": "Working/NW",
+                "Column Description": "An indicator to determine if the spend was 'working dollars' or 'non-working dollars'.",
+                "Data Type": "String",
+                "Range of Outcomes": "Working or Nopn-Working"
+            },
+            {
+                "Column Name": "Tactic",
+                "Column Description": "The name of the marketing tactic tied to that specific account/activity code combo",
+                "Data Type": "String",
+                "Range of Outcomes": "A specifc Tactic name, like Broadcast or Online. see below in the dictionary for all the tactics"
+            },
+            {
+                "Column Name": "Subtactic",
+                "Column Description": "The name of the marketing subtactic tied to this specific account/activity code combo",
+                "Data Type": "String",
+                "Range of Outcomes": "A specifc Subtactic, for Online it might be Search. see below in the doctionary for all the subtactics."
+            },
+            {
+                "Column Name": "Atribution",
+                "Column Description": "An indicator of what purpose the spend is torwards.",
+                "Data Type": "String",
+                "Range of Outcomes": "Direct Response (Trying to get the customer to Subscriber), Brand (raising general brand awareness, not tied to closing), Display (similar to brand spend, displaying brand images), Social (Specific to social media spend), Production (related to producing commercials, etc.), Sales Support, Other, Contractual "
+            },
+            {
+                "Column Name": "Month",
                 "Column Description": "the month the spend took place in",
                 "Data Type": "Numeric",
                 "Range of Outcomes": "Jan through Dec"
             },
             {
-                "Column Name": "amount",
-                "Column Description": "The transactional amount spent. To calculate total spend, total monthly spend, or total marketing spend, you must use SUM(amount). Positive indicates we spent money, negative indicates we received money back.",
-                "Data Type": "Numeric",
-                "Range of Outcomes": "number"
-            },
-            {
-                "Column Name": "year",
+                "Column Name": "Year",
                 "Column Description": "year the spend took place in.",
                 "Data Type": "Numeric",
                 "Range of Outcomes": "2021 through present year"
+            },
+            {
+                "Column Name": "Amount",
+                "Column Description": "The transactional amount spent. To calculate total spend, total monthly spend, or total marketing spend, you must use SUM(amount). Positive indicates we spent money, negative indicates we received money back.",
+                "Data Type": "Numeric",
+                "Range of Outcomes": "number"
             }
         ],
         "reference_mappings": {

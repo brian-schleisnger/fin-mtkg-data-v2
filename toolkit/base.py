@@ -145,9 +145,9 @@ mlflow.openai.autolog()
 # Keys ('year', 'month', 'day') are standardized conceptual dimensions.
 # Values are the actual column names used inside that specific table.
 TABLE_DIMENSIONS = {
-    '"sandbox"."dbs_marketing_spend_sync"': {
-        "year": "year",
-        "month": "month",
+    '"sandbox"."dbs_marketing_sync"': {
+        "year": "Year",
+        "month": "Month",
     },
     '"sandbox"."acquisition_data_v3"': {
         "year": "Activation_Year",
@@ -170,7 +170,7 @@ TABLE_DIMENSIONS = {
 # ─── Schema Context ──────────────────────────────────────────────
 SCHEMA_CONFIG = {
     '"sandbox"."acquisition_data_v3"': "acquisition_data_dictionary.json",
-    '"sandbox"."dbs_marketing_spend_sync"': "marketing_spend_dictionary.json",
+    '"sandbox"."dbs_marketing_sync"': "marketing_spend_dictionary.json",
     '"sandbox"."subcount_data_synced"': "subscriber_count_dictionary.json",
     '"sandbox"."sales_data_sync"': "sales_dictionary.json",
     '"sandbox"."dbspl_sync"': "dish_pl_dictionary.json"
@@ -178,7 +178,7 @@ SCHEMA_CONFIG = {
 
 ALIASES = {
     '"sandbox"."acquisition_data_v3"': ['MOonthly cash flow', 'sac', 'subscribers', 'per-customer', 'economic', 'mcf', 'npv', 'subscriber acquisition cost', 'lifetime value', 'clv'],
-    '"sandbox"."dbs_marketing_spend_sync"': ['marketing', 'spend', 'budget', 'cpa', 'tactic', 'digital', 'tv', 'cost per acquisition', 'ad spend', 'campaign', 'media', 'advertising'],
+    '"sandbox"."dbs_marketing_sync"': ['marketing', 'spend', 'budget', 'cpa', 'tactic', 'digital', 'tv', 'cost per acquisition', 'ad spend', 'campaign', 'media', 'advertising'],
     '"sandbox"."subcount_data_synced"': ['subscribers', 'subscriber count', 'subscriber balance', 'gross adds', 'net adds', 'disconnects', 'churn rate', 'beginning subscribers', 'ending subscribers', 'local retail', 'sales partner', 'national retail', 'telco activations', 'indirect activations', 'direct activations', 'commercial activations', 'subscriber growth', 'subscriber base'],
     '"sandbox"."sales_data_sync"': ['sales','buyers remorse','brm', 'calls','selling'],
     '"sandbox"."dbspl_sync"': ['p&l','p/l','income statement','i/s','profit and loss','arpu','cogs','totals','revenue','cogs','operating income','oibda']
