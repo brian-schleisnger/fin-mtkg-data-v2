@@ -92,15 +92,28 @@ Return ONLY a JSON object in this exact format — no markdown, no explanation:
     try:
         parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ACTIVE_MODEL)
         
+        # 1. DEBUG LOG: See exactly what the LLM generated
+        if run_log is not None:
+            run_log.append(f"DEBUG - LLM Raw Output: {parsed_result.required_tables}")
+            
         filtered_dict = {}
         for t in parsed_result.required_tables:
-            # 1. Try matching the dictionary key
-            if t in DATA_DICTIONARY:
-                filtered_dict[t] = DATA_DICTIONARY[t]
-            else:
-                # 2. Fallback: match the 'table_name' inside the metadata
+            # Clean the LLM output for safer matching
+            t_clean = t.strip().lower()
+            
+            matched = False
+            # 2. Try matching the dictionary key (case-insensitive)
+            for key, data in DATA_DICTIONARY.items():
+                if key.strip().lower() == t_clean:
+                    filtered_dict[key] = data
+                    matched = True
+                    break
+            
+            # 3. Fallback: match the 'table_name' inside the metadata (case-insensitive)
+            if not matched:
                 for key, data in DATA_DICTIONARY.items():
-                    if data.get("table_metadata", {}).get("table_name") == t:
+                    meta_name = data.get("table_metadata", {}).get("table_name", "")
+                    if meta_name.strip().lower() == t_clean:
                         filtered_dict[key] = data
                         break
 
