@@ -1,92 +1,106 @@
 {
-    "database_context": {
-        "table_metadata": {
-            "table_name": "dbs_marketing_sync",
-            "table_description": "this is a table going back to 2021 containing all accounts and activities each month and the spend tied to them.",
-            "special_rules": "IMPORTANT: There is no 'total_monthly_spend' column. To find total monthly marketing spend, you MUST aggregate and calculate the SUM of the 'Amount' column, grouped by 'Year' and 'Month'."
+    "table_metadata": {
+        "table_name": "dbs_marketing_sync",
+        "table_description": "this is a table going back to 2021 containing all accounts and activities each month and the spend tied to them.",
+        "special_rules": "IMPORTANT: There is no 'total_monthly_spend' column. To find total monthly marketing spend, you MUST aggregate and calculate the SUM of the 'Amount' column, grouped by 'Year' and 'Month'."
+    },
+    "columns": [
+        {
+            "name": "_c0",
+            "description": "primary key index - likely will not need to be referenced",
+            "data_type": "int",
+            "range_of_outcomes": "positive integer",
+            "formula": null
         },
-        "schema_definition": [
-            {
-                "Column Name": "_c0",
-                "Column Description": "primary key index - likely will not need to be referenced",
-                "Data Type": "int",
-                "Range of Outcomes": "positive integer"
-            },
-            {
-                "Column Name": "String_Code",
-                "Column Description": "a combined string containing the company, department, account, and activity codes together. Could be useful for referencing",
-                "Data Type": "String",
-                "Range of Outcomes": "xxx-xxxxxxxxxxxxxxx"
-            },
-            {
-                "Column Name": "Company",
-                "Column Description": "the company unit the spend was directed to",
-                "Data Type": "int",
-                "Range of Outcomes": "3 digit number, either 11 or 213"
-            },
-            {
-                "Column Name": "Department",
-                "Column Description": "the department of the company the spend was dircted to",
-                "Data Type": "int",
-                "Range of Outcomes": "3 digit number, either 170, 171, or 172"
-            },
-            {
-                "Column Name": "Account",
-                "Column Description": "the account of the company the spend is attributed to.",
-                "Data Type": "String",
-                "Range of Outcomes": "xxxxxx"
-            },
-            {
-                "Column Name": "Activity",
-                "Column Description": "the specific activity of the account the spend was for.",
-                "Data Type": "Int",
-                "Range of Outcomes": "6 digit number"
-            },
-            {
-                "Column Name": "Working/NW",
-                "Column Description": "An indicator to determine if the spend was 'working dollars' or 'non-working dollars'.",
-                "Data Type": "String",
-                "Range of Outcomes": "Working or Nopn-Working"
-            },
-            {
-                "Column Name": "Tactic",
-                "Column Description": "The name of the marketing tactic tied to that specific account/activity code combo",
-                "Data Type": "String",
-                "Range of Outcomes": "A specifc Tactic name, like Broadcast or Online. see below in the dictionary for all the tactics"
-            },
-            {
-                "Column Name": "Subtactic",
-                "Column Description": "The name of the marketing subtactic tied to this specific account/activity code combo",
-                "Data Type": "String",
-                "Range of Outcomes": "A specifc Subtactic, for Online it might be Search. see below in the doctionary for all the subtactics."
-            },
-            {
-                "Column Name": "Atribution",
-                "Column Description": "An indicator of what purpose the spend is torwards.",
-                "Data Type": "String",
-                "Range of Outcomes": "Direct Response (Trying to get the customer to Subscriber), Brand (raising general brand awareness, not tied to closing), Display (similar to brand spend, displaying brand images), Social (Specific to social media spend), Production (related to producing commercials, etc.), Sales Support, Other, Contractual "
-            },
-            {
-                "Column Name": "Month",
-                "Column Description": "the month the spend took place in",
-                "Data Type": "Numeric",
-                "Range of Outcomes": "Jan through Dec"
-            },
-            {
-                "Column Name": "Year",
-                "Column Description": "year the spend took place in.",
-                "Data Type": "Numeric",
-                "Range of Outcomes": "2021 through present year"
-            },
-            {
-                "Column Name": "Amount",
-                "Column Description": "The transactional amount spent. To calculate total spend, total monthly spend, or total marketing spend, you must use SUM(amount). Positive indicates we spent money, negative indicates we received money back.",
-                "Data Type": "Numeric",
-                "Range of Outcomes": "number"
-            }
-        ],
-        "reference_mappings": {
-            "company_and_department_codes": [
+        {
+            "name": "String_Code",
+            "description": "a combined string containing the company, department, account, and activity codes together. Could be useful for referencing",
+            "data_type": "String",
+            "range_of_outcomes": "xxx-xxxxxxxxxxxxxxx",
+            "formula": null
+        },
+        {
+            "name": "Company",
+            "description": "the company unit the spend was directed to",
+            "data_type": "int",
+            "range_of_outcomes": "3 digit number, either 11 or 213",
+            "formula": null
+        },
+        {
+            "name": "Department",
+            "description": "the department of the company the spend was dircted to",
+            "data_type": "int",
+            "range_of_outcomes": "3 digit number, either 170, 171, or 172",
+            "formula": null
+        },
+        {
+            "name": "Account",
+            "description": "the account of the company the spend is attributed to.",
+            "data_type": "String",
+            "range_of_outcomes": "xxxxxx",
+            "formula": null
+        },
+        {
+            "name": "Activity",
+            "description": "the specific activity of the account the spend was for.",
+            "data_type": "Int",
+            "range_of_outcomes": "6 digit number",
+            "formula": null
+        },
+        {
+            "name": "Working/NW",
+            "description": "An indicator to determine if the spend was 'working dollars' or 'non-working dollars'.",
+            "data_type": "String",
+            "range_of_outcomes": "Working or Nopn-Working",
+            "formula": null
+        },
+        {
+            "name": "Tactic",
+            "description": "The name of the marketing tactic tied to that specific account/activity code combo",
+            "data_type": "String",
+            "range_of_outcomes": "A specifc Tactic name, like Broadcast or Online. see below in the dictionary for all the tactics",
+            "formula": null
+        },
+        {
+            "name": "Subtactic",
+            "description": "The name of the marketing subtactic tied to this specific account/activity code combo",
+            "data_type": "String",
+            "range_of_outcomes": "A specifc Subtactic, for Online it might be Search. see below in the doctionary for all the subtactics.",
+            "formula": null
+        },
+        {
+            "name": "Atribution",
+            "description": "An indicator of what purpose the spend is torwards.",
+            "data_type": "String",
+            "range_of_outcomes": "Direct Response (Trying to get the customer to Subscriber), Brand (raising general brand awareness, not tied to closing), Display (similar to brand spend, displaying brand images), Social (Specific to social media spend), Production (related to producing commercials, etc.), Sales Support, Other, Contractual ",
+            "formula": null
+        },
+        {
+            "name": "Month",
+            "description": "the month the spend took place in",
+            "data_type": "Numeric",
+            "range_of_outcomes": "Jan through Dec",
+            "formula": null
+        },
+        {
+            "name": "Year",
+            "description": "year the spend took place in.",
+            "data_type": "Numeric",
+            "range_of_outcomes": "2021 through present year",
+            "formula": null
+        },
+        {
+            "name": "Amount",
+            "description": "The transactional amount spent. To calculate total spend, total monthly spend, or total marketing spend, you must use SUM(amount). Positive indicates we spent money, negative indicates we received money back.",
+            "data_type": "Numeric",
+            "range_of_outcomes": "positive or negative number",
+            "formula": null
+        }
+    ],
+    "reference_data": [
+        {
+            "description": "the meaning of the company codes and the department codes. for example, any line item with 111 in company column and 170 in department column corresponds to the DishTV General Market.",
+            "mappings": [
                 {
                     "Company": 111,
                     "Company Description": "DishTV",
@@ -141,8 +155,11 @@
                     "Department": 176,
                     "Department Description": "Freestream"
                 }
-            ],
-            "account_and_activity_codes": [
+            ]
+        },
+        {
+            "description": "the associated names and descriptions of the account and activity codes, as well as where it qualifies on the income statement/sac.",
+            "mappings": [
                 {
                     "Part of Marketing SAC?": true,
                     "P&L Section": "External Marketing",
@@ -895,5 +912,5 @@
                 }
             ]
         }
-    }
+    ]
 }

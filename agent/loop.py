@@ -18,42 +18,102 @@ from toolkit.base import DATA_DICTIONARY, _extract_text_content, llm_call, Model
 # ─── 1. Context & Schema Helpers ─────────────────────────────────────────
 
 def filter_schema(user_prompt: str, run_log: List[str] = None) -> dict:
-    """Uses the ROUTING_MODEL to intelligently filter the schema down to only relevant tables."""
-    schema_summaries = {}
-    for table_name, table_data in DATA_DICTIONARY.items():
-        desc = (
-            table_data.get("description")
-            or table_data.get("database_context", {}).get("table_metadata", {}).get("table_description", "")
-            or table_data.get("table_metadata", {}).get("table_description", "")
-        )
-        concepts = table_data.get("related_concepts", [])
-        schema_summaries[table_name] = {"description": desc, "related_concepts": concepts}
-        
-    prompt = f"""You are a data architect. The user asked: '{user_prompt}'
-                Here are the available tables and their related concepts:
-                {json.dumps(schema_summaries, indent=2)}
+    """
+    Uses an LLM call to select which tables from DATA_DICTIONARY are needed to
+    answer the user's prompt.
 
-                Return a strict JSON list of table names that are required to answer the user's question. 
-                If the question is completely irrelevant, return an empty list.
-                Example: {{"required_tables": ["\\"sandbox\\".\\"acquisition_data_v3\\""]}}"""
+    Sends each table's full metadata and column-level schema (omitting verbose
+    reference_data arrays) so the model has enough signal to make accurate routing 
+    decisions without an unnecessarily large prompt.
+    """
+
+    def _build_table_summary(table_name: str, table_data: dict) -> dict:
+        """
+        Extracts the routing-relevant fields from a dictionary entry adhering to 
+        the new standardized format. Omits the heavy 'reference_data' arrays.
+        """
+        meta = table_data.get("table_metadata", {})
+        
+        # Use table_name from metadata if available, otherwise default to the dict key
+        actual_table_name = meta.get("table_name", table_name)
+        description = meta.get("description", "")
+        special_rules = meta.get("special_rules", [])
+
+        # Extract column names and descriptions, ignoring formulas and outcomes for routing
+        raw_columns = table_data.get("columns", [])
+        columns = []
+        for col in raw_columns:
+            columns.append({
+                "column": col.get("name", ""),
+                "description": col.get("description", "")
+            })
+
+        return {
+            "table_name": actual_table_name,
+            "description": description,
+            "special_rules": special_rules,
+            "columns": columns
+        }
+
+    full_schema_payload = {
+        table_name: _build_table_summary(table_name, table_data)
+        for table_name, table_data in DATA_DICTIONARY.items()
+    }
+
+    prompt = f"""You are a data architect helping route a user's question to the correct database tables.
+
+User question: "{user_prompt}"
+
+Below is the complete schema for every available table, including each table's description,
+column names, descriptions, and special rules:
+
+{json.dumps(full_schema_payload, indent=2)}
+
+Your task:
+- Read the user's question carefully.
+- Select ONLY the tables whose data is actually needed to answer it.
+- If a question touches revenue, costs, ARPU, OIBDA, or P&L line items → include 'dbspl_sync'.
+- If a question touches subscriber counts, gross/net adds, or churn → include 'subcount_data_synced'.
+- If a question touches marketing spend, tactics, or budgets → include 'dbs_marketing_sync'.
+- If a question touches per-subscriber economics, SAC, CLV, NPV, or activation data → include 'acquistion_data_v3'.
+- If a question touches sales, calls, or buyers remorse → include 'sales_data_sync'.
+- When in doubt about whether a table is needed, include it rather than exclude it.
+- Return an empty list only if the question is completely unrelated to any data (e.g. a greeting).
+
+Return ONLY a JSON object in this exact format — no markdown, no explanation:
+{{"required_tables": ["<exact table name>", ...]}}"""
 
     msgs = [{"role": "user", "content": prompt}]
-    
+
     class SchemaSelection(BaseModel):
         """Structured output model for the schema-filtering LLM call."""
         required_tables: List[str]
-        
+
     try:
         parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ACTIVE_MODEL)
-        filtered_dict = {t: DATA_DICTIONARY[t] for t in parsed_result.required_tables if t in DATA_DICTIONARY}
         
+        filtered_dict = {}
+        for t in parsed_result.required_tables:
+            # 1. Try matching the dictionary key
+            if t in DATA_DICTIONARY:
+                filtered_dict[t] = DATA_DICTIONARY[t]
+            else:
+                # 2. Fallback: match the 'table_name' inside the metadata
+                for key, data in DATA_DICTIONARY.items():
+                    if data.get("table_metadata", {}).get("table_name") == t:
+                        filtered_dict[key] = data
+                        break
+
         if not filtered_dict:
+            if run_log is not None:
+                run_log.append("Schema filtering returned no tables — defaulting to full schema.")
             return DATA_DICTIONARY
-            
+
         if run_log is not None:
             run_log.append(f"Schema filtering selected: {list(filtered_dict.keys())}")
-            
+
         return filtered_dict
+
     except Exception as e:
         if run_log is not None:
             run_log.append(f"Schema filtering failed ({type(e).__name__}: {str(e)}). Defaulting to full schema.")

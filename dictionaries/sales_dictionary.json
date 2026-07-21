@@ -1,16 +1,66 @@
 {
   "table_metadata": {
     "table_name": "sales_data_sync",
-    "table_description": "A day by day record of sales department activity. dates back to the beginnning of 2019."
+    "table_description": "A day by day record of sales department activity. dates back to the beginnning of 2019.",
+    "special_rules": null
   },
-  "columns": {
-    "Index": "dummy primary key. likely will not be referenced in querries.",
-    "Date" : "the exact day the resulting data is from. One row corrresponds to data from that specific day. One row per day.",
-    "calls": "the numebr of calls the sales depertment received that day that got through to a sales representative.",
-    "sales": "the number of sales the department completed that day. Note: not all sales become activations.",
-    "activations": "the number of direct activations that occurred on that day. should be comparable with direct adds in the subcount data.",
-    "brm": "Buyer's remorese, defined as the number of customers who deactivated within 30 days of their activation date.",
-    "year": "the year that date occurred on. Use this column for aggregation purposes, especially when comparing to other datasets.",
-    "month": "the month the date occurred on. Use this column for aggregation purposes, especially when comparing to other datasets."
-  }
+  "columns": [
+    {
+      "name": "index",
+      "description": "dummy primary key. likely will not be referenced in querries.",
+      "data_type": "int",
+      "range_of_outcomes": "positive number",
+      "formula": null
+    },
+    {
+      "name": "date",
+      "description": "the exact day the resulting data is from. One row corrresponds to data from that specific day. One row per day.",
+      "data_type": "timestamp",
+      "range_of_outcomes": "date between January 1 2019 and June 30 2026",
+      "formula": null
+    },
+    {
+      "name": "calls",
+      "description": "the numebr of calls the sales depertment received that day that got through to a sales representative.",
+      "data_type": "int",
+      "range_of_outcomes": "positive number",
+      "formula": null
+    },
+    {
+      "name": "sales",
+      "description": "the number of sales the department completed that day. Note: not all sales become activations.",
+      "data_type": "int",
+      "range_of_outcomes": "positive number",
+      "formula": null
+    },
+    {
+      "name": "acvtivations",
+      "description": "the number of direct activations that occurred on that day. should be comparable with direct adds in the subcount data.",
+      "data_type": "int",
+      "range_of_outcomes": "positive number",
+      "formula": null
+    },
+    {
+      "name": "brm",
+      "description": "Buyer's remorese, defined as the number of customers who deactivated within 30 days of their activation date.",
+      "data_type": "int",
+      "range_of_outcomes": "positive number",
+      "formula": null
+    },
+    {
+      "name": "year",
+      "description": "the year that date occurred on. Use this column for aggregation purposes, especially when comparing to other datasets.",
+      "data_type": "int",
+      "range_of_outcomes": "positive number",
+      "formula": null
+    },
+    {
+      "name": "month",
+      "description": "the month the date occurred on. Use this column for aggregation purposes, especially when comparing to other datasets.",
+      "data_type": "int",
+      "range_of_outcomes": "positive number",
+      "formula": null
+    }
+  ],
+  "reference_data": null
 }

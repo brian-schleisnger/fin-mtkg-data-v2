@@ -1,55 +1,63 @@
 {
     "table_metadata": {
         "table_name": "dbspl_sync",
-        "table_description": "a long version of a month by month line by line internal income statement for DISH TV business unit, part of Echostar Corporation. Refernce this table for monthly totals of revenues, costs, capital expenses, and more.",
+        "description": "a long version of a month by month line by line internal income statement for DISH TV business unit, part of Echostar Corporation. Refernce this table for monthly totals of revenues, costs, capital expenses, and more.",
         "special_rules": "Do not sum any derrived columns with columns it is derrived from"
     },
-    "schema_definition": [
+    "columns": [
         {
-            "column_name": "Metric",
-            "description": "the specific line item of the income statement",
+            "name": "Metric",
+            "description": "the specific line item of the income statement. refer to reference data if you're looking for specific line item names and what they correspond to.",
             "data_type": "String",
-            "range_of_outcomes": "see line item descriptions"
+            "range_of_outcomes": "see line item descriptions",
+            "formula": null
         },
         {
-            "column_name": "category",
+            "name": "Category",
             "description": "the scategory the line item falls into in the income statement",
             "data_type": "string",
-            "range_of_outcomes": "revenue, cogs, variable costs, retention, costs, SAC, CapEx, SG&A, ratio"
+            "range_of_outcomes": "revenue, cogs, variable costs, retention, costs, SAC, CapEx, SG&A, ratio",
+            "formula": null
         },
         {
-            "column_name": "Is_Derrived",
+            "name": "Is_Derrived",
             "description": "an indicator column showing if a row is a function of other rows in the table. Never sum derrived columns with the columns they are derived from.",
             "data_type": "boolean",
-            "range_of_outcomes": "True/False"
+            "range_of_outcomes": "True/False",
+            "formula": null
         },
         {
-            "column_name": "Year",
+            "name": "Year",
             "description": "the year the data is from",
             "data_type": "int",
-            "range_of_outcomes": "2018 though curent year"
+            "range_of_outcomes": "2018 though curent year",
+            "formula": null
         },
         {
-            "column_name": "Month",
+            "name": "Month",
             "description": "the month the data is from",
             "data_type": "int",
-            "range_of_outcomes": "1 through 12 corresponding to january-december"
+            "range_of_outcomes": "1 through 12 corresponding to january-december",
+            "formula": null
         },
         {
-            "column_name": "Amount",
+            "name": "Amount",
             "description": "the total of the given line item for that month",
             "data_type": "float",
-            "range_of_outcomes": "positive or negative number"
+            "range_of_outcomes": "positive or negative number",
+            "formula": null
         }
     ],
-    "line_item_descriptions": [
+    "reference_data": {
+        "description": "Descriptions, categories, and calculation rules for each specific line item on the income statement",
+        "mappings": [
         {
             "Metric": "Basic",
             "Category": "Revenue",
             "Is_Derrived": false,
             "Explanation": "total basic programming revenue",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "HD",
@@ -57,7 +65,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from HD programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Locals ARPU",
@@ -65,7 +73,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from local programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Premium ARPU",
@@ -73,7 +81,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from premium programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "DISH Movie Pack",
@@ -81,7 +89,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from dish movie pack",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Pay-Per-View ARPU",
@@ -89,7 +97,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from pey-per-view programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "A La Carte ARPU",
@@ -97,7 +105,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from a la carte programming packages",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "International ARPU",
@@ -105,7 +113,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from international programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Commercial",
@@ -113,7 +121,7 @@
             "Is_Derrived": false,
             "Explanation": "Total revenue from commercial subscribers",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "DISH Protect",
@@ -121,7 +129,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from dish equipment protection plan",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Equipment ARPU",
@@ -129,7 +137,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from equipment",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Media Sales ARPU",
@@ -137,7 +145,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from media sales",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Late Fees",
@@ -145,7 +153,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from late fees",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Early Termination Fee",
@@ -153,7 +161,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from early contract termination fees",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Upgrade Fees",
@@ -161,7 +169,7 @@
             "Is_Derrived": false,
             "Explanation": "total revnue from customers upgrading service/packages",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Smart Home Services",
@@ -169,7 +177,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from smart home services",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Manufacturing",
@@ -177,7 +185,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from product manufactureing",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Long Form",
@@ -185,7 +193,7 @@
             "Is_Derrived": false,
             "Explanation": "total revenue from long form programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Other ARPU",
@@ -193,7 +201,7 @@
             "Is_Derrived": false,
             "Explanation": "other sources of revenue",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "New Customer Credits",
@@ -201,7 +209,7 @@
             "Is_Derrived": false,
             "Explanation": "credits given to new customers - a contra revenue account, represented as negative number",
             "Primary Sign": "-",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Gift Cards",
@@ -209,7 +217,7 @@
             "Is_Derrived": false,
             "Explanation": "gift cards given to new customers - a contra revenue account, represented as a negative number",
             "Primary Sign": "-",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Existing Customer Credits",
@@ -217,7 +225,7 @@
             "Is_Derrived": false,
             "Explanation": "credits given to existing customers - a conta revenue account, represented as a negative number",
             "Primary Sign": "-",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "ARPU Revenue",
@@ -233,7 +241,7 @@
             "Is_Derrived": false,
             "Explanation": "revenue from fixed satelite services",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Service Revenue",
@@ -249,7 +257,7 @@
             "Is_Derrived": false,
             "Explanation": "technology equipment revenue",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Other Equipment",
@@ -257,7 +265,7 @@
             "Is_Derrived": false,
             "Explanation": "all other equipment revenue",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Equipment Revenue",
@@ -281,7 +289,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of basic package programming for standard and commercial customers",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Locals COGS",
@@ -289,7 +297,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of local chanel programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "CMF",
@@ -297,7 +305,7 @@
             "Is_Derrived": false,
             "Explanation": "content maintenance fees",
             "Primary Sign": "-",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Premium COGS",
@@ -305,7 +313,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of premium package programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Dish Movie Pack",
@@ -313,7 +321,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of dish movie pack",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Pay-Per-View COGS",
@@ -321,7 +329,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of pay per view programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "A La Carte COGS",
@@ -329,7 +337,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of a la carte programming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "International COGS",
@@ -337,7 +345,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of international package inogramming",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Equipment COGS",
@@ -345,7 +353,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of equipment",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Media Sales COGS",
@@ -353,7 +361,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of media sales",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Other ARPU COGS",
@@ -361,7 +369,7 @@
             "Is_Derrived": false,
             "Explanation": "other costs of goods sold",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "ARPU COGS",
@@ -377,7 +385,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of customer experience operations",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "I.H.S Variable",
@@ -385,7 +393,7 @@
             "Is_Derrived": false,
             "Explanation": "in home services varioable costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Manufacturing",
@@ -393,7 +401,7 @@
             "Is_Derrived": false,
             "Explanation": "equipment manufacturing costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Monthly Incentives",
@@ -401,7 +409,7 @@
             "Is_Derrived": false,
             "Explanation": "total cost of monthly incentives given to customers",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Billing",
@@ -409,7 +417,7 @@
             "Is_Derrived": false,
             "Explanation": "total cost of billing",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Collections",
@@ -417,7 +425,7 @@
             "Is_Derrived": false,
             "Explanation": "total cost of collections",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Bad Debt",
@@ -425,7 +433,7 @@
             "Is_Derrived": false,
             "Explanation": "total bad debt expense",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "B&C",
@@ -433,7 +441,7 @@
             "Is_Derrived": false,
             "Explanation": "other billing & credit costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Customer Comms",
@@ -441,7 +449,7 @@
             "Is_Derrived": false,
             "Explanation": "customer communications/customer service costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "R&D Engineering",
@@ -449,7 +457,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of research and design engineering",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Other Variable",
@@ -457,7 +465,7 @@
             "Is_Derrived": false,
             "Explanation": "other variable costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Variable",
@@ -473,7 +481,7 @@
             "Is_Derrived": false,
             "Explanation": "in home services related to customer retention",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Equipment Retention",
@@ -481,7 +489,7 @@
             "Is_Derrived": false,
             "Explanation": "equipment costs related to customer retention",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Ret G&A",
@@ -489,7 +497,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs related to customer retention",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Loyalty",
@@ -497,7 +505,7 @@
             "Is_Derrived": false,
             "Explanation": "loyalty credits/discounts costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Other Retention",
@@ -505,7 +513,7 @@
             "Is_Derrived": false,
             "Explanation": "other customer retention costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Upgrades",
@@ -513,7 +521,7 @@
             "Is_Derrived": false,
             "Explanation": "programming upgrade costs related to retention",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "P&L Retention",
@@ -537,7 +545,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of satelites and tansmitting signals",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Cost of Services",
@@ -553,7 +561,7 @@
             "Is_Derrived": false,
             "Explanation": "total sales costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Marketing SAC",
@@ -561,7 +569,7 @@
             "Is_Derrived": false,
             "Explanation": "total marketing costs attributed to subscriber acquisition",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Activation Incentives",
@@ -569,7 +577,7 @@
             "Is_Derrived": false,
             "Explanation": "total activation incentives costs to get customers to subscribe",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Sales",
@@ -577,7 +585,7 @@
             "Is_Derrived": false,
             "Explanation": "total sales costs related to subscriber acquisition",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "I.H.S. SAC",
@@ -585,7 +593,7 @@
             "Is_Derrived": false,
             "Explanation": "in home service costs related to adding a subscriber (installation, etc.)",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "P&L Equip",
@@ -593,7 +601,7 @@
             "Is_Derrived": false,
             "Explanation": "expensed equipment related to acquiring a subscriber",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "P&L SAC",
@@ -609,7 +617,7 @@
             "Is_Derrived": false,
             "Explanation": "subscriber acquisition costs capitalized",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "CapEx Commissions",
@@ -617,7 +625,7 @@
             "Is_Derrived": false,
             "Explanation": "commissions related to subscriber acquisition",
             "Primary Sign": "-",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Subscriber Acquisition Costs",
@@ -633,7 +641,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs related to in home services",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Bulk Distribution",
@@ -641,7 +649,7 @@
             "Is_Derrived": false,
             "Explanation": "bulk distribution costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Product",
@@ -649,7 +657,7 @@
             "Is_Derrived": false,
             "Explanation": "general & administrative costs related to dish products",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Sales Ops",
@@ -657,7 +665,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of sales operations",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Indirect Sales",
@@ -665,7 +673,7 @@
             "Is_Derrived": false,
             "Explanation": "costs paid to indirect sales partners (caliber, national retailers, etc.)",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "DISH Business",
@@ -673,7 +681,7 @@
             "Is_Derrived": false,
             "Explanation": "costs related to dish business unit functions",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Marketing G&A",
@@ -681,7 +689,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative marketing costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Media Sales",
@@ -689,7 +697,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs related to media sales",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Programming G&A",
@@ -697,7 +705,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs of the programming department",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "IT",
@@ -705,7 +713,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs of the it department",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "CFO",
@@ -713,7 +721,7 @@
             "Is_Derrived": false,
             "Explanation": "costs related to the chief financial office",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Legal",
@@ -721,7 +729,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs of the legal department",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "PR",
@@ -729,7 +737,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs of the public relations department",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "HR & Facilities",
@@ -737,7 +745,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative costs of the dish human resources department",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "T&OE",
@@ -745,7 +753,7 @@
             "Is_Derrived": false,
             "Explanation": "costs of technology and office equipment",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "DISH Technologies",
@@ -753,7 +761,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of dish technologies team - uplink centers, satelite navigation, etc.",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Corporate - Benefits",
@@ -761,7 +769,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of corporate office benefits paid",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Corporate - Stock Comp",
@@ -769,7 +777,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of corporate stock compensation plans for dish employees",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Corporate - Taxes",
@@ -777,7 +785,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of corporate taxes",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Executives",
@@ -785,7 +793,7 @@
             "Is_Derrived": false,
             "Explanation": "general and administrative expenses related to company executives",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Blockbuster",
@@ -793,7 +801,7 @@
             "Is_Derrived": false,
             "Explanation": "costs related to blockbuster brand",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Other G&A",
@@ -801,7 +809,7 @@
             "Is_Derrived": false,
             "Explanation": "other genreal and administrative costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "G&A Before Overhead",
@@ -817,7 +825,7 @@
             "Is_Derrived": false,
             "Explanation": "overhead allocatedd to dish business unit",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "G&A Before R&D",
@@ -833,7 +841,7 @@
             "Is_Derrived": false,
             "Explanation": "research and development costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "General & Administrative",
@@ -857,7 +865,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of litigation related to dish business unit",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Asset Impairment",
@@ -865,7 +873,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of asset impairments",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Depreciation & Amortization",
@@ -873,7 +881,7 @@
             "Is_Derrived": false,
             "Explanation": "depreciation and amortization related to dish usiness unit",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Operating Expenses",
@@ -905,7 +913,7 @@
             "Is_Derrived": false,
             "Explanation": "equipment costs capitalized",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "CapEx Retention",
@@ -913,7 +921,7 @@
             "Is_Derrived": false,
             "Explanation": "customer retention costs capitalized",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "BB Capitalized - Conn/Disc Same Month",
@@ -921,7 +929,7 @@
             "Is_Derrived": false,
             "Explanation": "costs related to customers with buyers remorese, defined as disconnecting less than 1 month after activation - capitalized not expensed",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Lease Receivers",
@@ -929,7 +937,7 @@
             "Is_Derrived": false,
             "Explanation": "costs related to leased receivers (joey, hoppers, etc.)",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Capital Expenditures",
@@ -937,7 +945,7 @@
             "Is_Derrived": false,
             "Explanation": "other capital expenditures",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "AP Adjustments",
@@ -945,7 +953,7 @@
             "Is_Derrived": false,
             "Explanation": "costs of accounts payable",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Adjustment to Proceeds from Sales",
@@ -953,7 +961,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of adjusting sales proceeds",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Satellites",
@@ -961,7 +969,7 @@
             "Is_Derrived": false,
             "Explanation": "cost of launching satelites",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Satellites (Non-Cash)",
@@ -969,7 +977,7 @@
             "Is_Derrived": false,
             "Explanation": "non cash satelite costs",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Capitalized Interest (Non-Cash)",
@@ -977,7 +985,7 @@
             "Is_Derrived": false,
             "Explanation": "total non-cash capitalized interest payments",
             "Primary Sign": "+",
-            "Sum": ""
+            "Sum": null
         },
         {
             "Metric": "Total CapEx",
@@ -993,7 +1001,8 @@
             "Is_Derrived": false,
             "Explanation": "commissions capitalized",
             "Primary Sign": "-",
-            "Sum": ""
+            "Sum": null
         }
-    ]
+        ]
+    }
 }
