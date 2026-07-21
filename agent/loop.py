@@ -91,10 +91,6 @@ Return ONLY a JSON object in this exact format — no markdown, no explanation:
 
     try:
         parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ACTIVE_MODEL)
-        
-        # 1. DEBUG LOG: See exactly what the LLM generated
-        if run_log is not None:
-            run_log.append(f"DEBUG - LLM Raw Output: {parsed_result.required_tables}")
             
         filtered_dict = {}
         for t in parsed_result.required_tables:
