@@ -1,7 +1,7 @@
 {
     "database_context": {
         "table_metadata": {
-            "table_name": "dbs_marketing_spend_synced",
+            "table_name": "dbs_marketing_sync",
             "table_description": "this is a table going back to 2021 containing all accounts and activities each month and the spend tied to them.",
             "special_rules": "IMPORTANT: There is no 'total_monthly_spend' column. To find total monthly marketing spend, you MUST aggregate and calculate the SUM of the 'Amount' column, grouped by 'Year' and 'Month'."
         },
