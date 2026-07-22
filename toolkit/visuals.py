@@ -14,8 +14,7 @@ __all__ = [
     "generate_scatterplot_tool",
     "generate_barchart_tool",
     "generate_histogram_tool",
-    "generate_linechart_tool",
-    "compare_monthly_metrics_tool"
+    "generate_linechart_tool"
 ]
 
 
@@ -280,49 +279,3 @@ def generate_linechart_tool(
         return {"text": f"Successfully generated line chart.", "data": df, "figure": fig}
     except Exception as e:
         return {"text": f"Line Chart Error: {str(e)}", "data": None, "figure": None}
-
-
-@mlflow.trace(name="compare_monthly_metrics_tool")
-def compare_monthly_metrics_tool(
-    marketing_metric: str = "amount", 
-    acquisition_metric_func: str = "COUNT", 
-    acquisition_column: str = "*"
-) -> Dict[str, Any]:
-    """Kept as SQL-only because it relies on a very specific cross-table join macro."""
-    marketing_clean = marketing_metric.replace('"', '').split('.')[-1]
-    acq_clean = acquisition_column.replace('"', '').split('.')[-1] if acquisition_column != "*" else "*"
-    func_clean = acquisition_metric_func.upper() if acquisition_metric_func.upper() in ["COUNT", "SUM", "AVG"] else "COUNT"
-
-    sql_query = f"""
-        SELECT 
-            m."year" AS year,
-            m."month" AS month,
-            SUM(m."{marketing_clean}") AS marketing_total,
-            {func_clean}(a."{acq_clean}") AS acquisition_total
-        FROM "sandbox"."dbs_marketing_spend_sync" m
-        LEFT JOIN "sandbox"."acquisition_data_v3" a 
-            ON m."year" = a."Activation_Year" AND m."month" = a."Activation_Month"
-        GROUP BY m."year", m."month"
-        ORDER BY m."year" ASC, m."month" ASC
-    """
-
-    try:
-        df = run_sql_query(sql_query)
-        if df.empty:
-            return {"text": "Error: No data returned.", "data": None, "figure": None}
-
-        df['Date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str) + '-01', errors='coerce')
-        df = df.dropna(subset=['Date', 'marketing_total', 'acquisition_total']).sort_values(by='Date')
-
-        df_melted = df.melt(id_vars=['Date'], value_vars=['marketing_total', 'acquisition_total'], var_name='Metric', value_name='Value')
-        df_melted['Metric'] = df_melted['Metric'].replace({
-            'marketing_total': f'Marketing Spend ({marketing_clean})',
-            'acquisition_total': f'Acquisitions ({func_clean} of {acq_clean})'
-        })
-
-        fig = px.line(df_melted, x='Date', y='Value', color='Metric', markers=True, title="Monthly Trend Comparison", template="plotly_white")
-        fig.update_layout(hovermode="x unified", margin=dict(l=40, r=40, t=60, b=40))
-
-        return {"text": f"Successfully generated monthly comparison chart.", "data": df, "figure": fig}
-    except Exception as e:
-        return {"text": f"Monthly Comparison Error: {str(e)}", "data": None, "figure": None}

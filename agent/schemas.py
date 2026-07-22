@@ -184,7 +184,7 @@ class run_ols_regression_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -206,7 +206,7 @@ class run_forecasting_tool(BaseModel):
     """
     Performs Holt-Winters Exponential Smoothing time series forecasting. Automatically resolves
     the correct year/month column names for any table registered in TABLE_DIMENSIONS
-    (e.g., acquisition_data_v3, dbs_marketing_spend_sync, subcount_data_synced).
+    (e.g., acquisition_data_v3, dbs_marketing_sync, subcount_data_synced).
     Use this when the user asks to predict or forecast future values based on historical trends.
 
     NOTE: For subcount_data_synced, filter to a single Metric and Row_Type via a prior
@@ -224,7 +224,7 @@ class run_forecasting_tool(BaseModel):
         description=(
             "The exact SQL-safe table name(s) to query, e.g., "
             "'\"sandbox\".\"acquisition_data_v3\"', "
-            "'\"sandbox\".\"dbs_marketing_spend_sync\"', or "
+            "'\"sandbox\".\"dbs_marketing_sync\"', or "
             "'\"sandbox\".\"subcount_data_synced\"'. "
             "Omit if passing dataframe_id instead."
         )
@@ -295,7 +295,7 @@ class run_pca_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -320,7 +320,7 @@ class run_kmeans_clustering_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -345,7 +345,7 @@ class run_random_forest_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -373,37 +373,18 @@ class run_random_forest_tool(BaseModel):
         description="The number of trees in the forest (default is 100)."
     )
 
-class compare_monthly_metrics_tool(BaseModel):
-    """
-    Compares monthly marketing spend metrics against rolled-up acquisition metrics over time.
-    """
-    marketing_metric: str = Field(
-        ..., 
-        description="The specific column from the marketing table to sum (e.g., 'Total_Spend')."
-    )
-    
-    acquisition_metric_func: str = Field(
-        ..., 
-        description="The SQL aggregation function to apply to the acquisition table (e.g., 'COUNT', 'SUM', 'AVG')."
-    )
-    
-    acquisition_column: str = Field(
-        ..., 
-        description="The specific column from the acquisition table to aggregate. Use '*' if counting total customers."
-    )
-
 class calculate_unit_economics_tool(BaseModel):
     """
-    marketing cost per acquistion (CPA), Lifetime Value (CLV), and CLV:CPA ratios by safely merging marketing spend and acquisition volumes. Use this whenever the user asks about unit economics, cost per acquisition, or marketing efficiency.
+    marketing cost per acquistion (CPA) ratios by safely merging marketing spend and subcount tables. Use this whenever the user asks about unit economics, cost per acquisition, or marketing efficiency.
     """
     marketing_where_clause: Optional[str] = Field(
         default=None, 
         description="Optional. A PostgreSQL WHERE clause to filter the marketing spend table (e.g., '\"account\" = ''611010'''). Exclude the 'WHERE' keyword."
     )
     
-    acquisition_where_clause: Optional[str] = Field(
+    subscriber_where_clause: Optional[str] = Field(
         default=None, 
-        description="Optional. A PostgreSQL WHERE clause to filter the acquisition table (e.g., '\"Sales_Channel\" = ''Direct'''). Exclude the 'WHERE' keyword."
+        description="A PostgreSQL WHERE clause to filter the subscriber table ('\"Metric\" = 'Gross Adds'). Exclude the 'WHERE' keyword."
     )
 
 class calculate_ratio_tool(BaseModel):
@@ -421,7 +402,7 @@ class calculate_ratio_tool(BaseModel):
     )
     numerator_table: str = Field(
         ...,
-        description="The exact SQL-safe table name containing the numerator column (e.g., '\"sandbox\".\"dbs_marketing_spend_sync\"')."
+        description="The exact SQL-safe table name containing the numerator column (e.g., '\"sandbox\".\"dbs_marketing_sync\"')."
     )
     denominator_column: str = Field(
         ...,
@@ -465,7 +446,7 @@ class run_scenario_planning_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -505,7 +486,7 @@ class generate_scatterplot_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -540,7 +521,7 @@ class generate_barchart_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -574,7 +555,7 @@ class generate_histogram_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(
@@ -605,7 +586,7 @@ class generate_linechart_tool(BaseModel):
     """
     TABLE_NAME: Optional[Union[str, List[str]]] = Field(
         ..., 
-        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_spend_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
+        description="The exact SQL-safe table name(s) to query, e.g., '\"sandbox\".\"acquisition_data_v3\"', '\"sandbox\".\"dbs_marketing_sync\"', or '\"sandbox\".\"subcount_data_synced\"'."
     )
 
     dataframe_id: Optional[str] = Field(

@@ -35,7 +35,7 @@ __all__ = [
     "link_tables",
     "execute_sql_query_tool",
     "run_ols_regression_tool",
-    "run_arima_forecasting_tool",
+    "run_forecasting_tool",
     "run_random_forest_tool",
     "run_pca_tool",
     "run_kmeans_clustering_tool",
@@ -571,7 +571,7 @@ def run_kmeans_clustering_tool(
     
 
 @mlflow.trace(name="calculate_unit_economics_tool")
-def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisition_where_clause: str = None) -> dict:
+def calculate_unit_economics_tool(marketing_where_clause: str = None, subscriber_where_clause: str = None) -> dict:
     """
     Joins monthly marketing spend against monthly activation counts to compute
     CPA (Cost Per Acquisition), CLV (Customer Lifetime Value via NPV of MCF), and
@@ -586,7 +586,7 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
     try:
         # 1. Marketing Data
         df_mkt = link_tables(
-            tables='"sandbox"."dbs_marketing_spend_sync"',
+            tables='"sandbox"."dbs_marketing_sync"',
             # Keep the quotes for Postgres, but drop the 'AS' alias
             columns=['"year"', '"month"', 'SUM("amount") AS total_spend'], 
             where_clause=marketing_where_clause,
@@ -600,17 +600,15 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
 
         # 2. Acquisition Data
         df_acq = link_tables(
-            tables='"sandbox"."acquisition_data_v3"',
+            tables='"sandbox"."subcount_data_synced"',
             # Keep the quotes to protect the capital letters for Postgres
             columns=[
-                '"Activation_Year"', 
-                '"Activation_Month"', 
-                'COUNT(*) AS total_activations', 
-                'AVG("mcf") AS avg_mcf', 
-                'AVG("Ve_Churn") AS avg_churn'
+                '"Year"', 
+                '"Month"', 
+                'SUM(Amount) AS total_activations'
             ],
             where_clause=acquisition_where_clause,
-            group_by=['"Activation_Year"', '"Activation_Month"'],
+            group_by=['"Year"', '"Month"'],
             limit=None
         )
 
@@ -620,8 +618,8 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
             df_acq.columns = [col.replace('"', '') for col in df_acq.columns]
             # Then rename to match df_mkt
             df_acq.rename(columns={
-                'Activation_Year': 'year', 
-                'Activation_Month': 'month'
+                'Year': 'year', 
+                'Month': 'month'
             }, inplace=True)
 
         for df_tmp in [df_mkt, df_acq]:
@@ -631,11 +629,9 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
         df_merged = pd.merge(df_mkt, df_acq, on=['year', 'month'], how='inner')
 
         if df_merged.empty:
-            return {"text": "Error: Could not calculate CAC. No overlapping months found.", "data": None}
+            return {"text": "Error: Could not calculate UNit Economics. No overlapping months found.", "data": None}
 
         df_merged['cpa'] = df_merged['total_spend'] / df_merged['total_activations']
-        df_merged['clv'] = df_merged['avg_mcf'] / (MONTHLY_WACC + (df_merged['avg_churn'] / 100))
-        df_merged['clv_cpa_ratio'] = df_merged['clv'] / df_merged['cpa']
 
         df_merged.replace([np.inf, -np.inf], np.nan, inplace=True)
         df_merged = df_merged.sort_values(by=['year', 'month'])
@@ -649,16 +645,12 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, acquisitio
         overall_spend = df_merged['total_spend'].sum()
         overall_acq = df_merged['total_activations'].sum()
         blended_cpa = overall_spend / overall_acq if overall_acq > 0 else 0
-        avg_clv = df_merged['clv'].mean()
-        clv_cpa = avg_clv / blended_cpa if blended_cpa > 0 else 0
         
         text_output = (
             f"Unit Economics Summary:\n"
             f"  • Total Marketing Spend Analyzed: ${overall_spend:,.2f}\n"
             f"  • Total Activations: {overall_acq:,.0f}\n"
             f"  • Blended CPA: ${blended_cpa:,.2f}\n"
-            f"  • Average CLV (NPV): ${avg_clv:,.2f}\n"
-            f"  • Blended CLV:CPA Ratio: {clv_cpa:.2f}x\n\n"
         )
 
         return {"text": text_output, "data": df_merged}
