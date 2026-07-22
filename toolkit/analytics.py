@@ -26,7 +26,7 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 # Project imports
 from .base import run_sql_query, get_join_clause, TABLE_DIMENSIONS
-from agent.memory import get_df_memory
+from agent.memory import DataFrameMemory
 
 YEARLY_WACC = 0.1
 MONTHLY_WACC = (1 + YEARLY_WACC) ** (1 / 12) - 1
@@ -160,7 +160,8 @@ def run_ols_regression_tool(
     dependent_variable: str, 
     independent_variables: list,
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
-    dataframe_id: Optional[str] = None
+    dataframe_id: Optional[str] = None,
+    df_memory: DataFrameMemory = None
 ) -> dict:
     """
     Fits an OLS multiple regression model using statsmodels and returns the full
@@ -172,7 +173,7 @@ def run_ols_regression_tool(
     
     try:
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
         elif TABLE_NAME:
@@ -205,7 +206,8 @@ def run_forecasting_tool(
     steps: int = 6,
     trend: str = "add",      # 'add' or 'mul'
     seasonal: str = "add",   # 'add' or 'mul'
-    seasonal_periods: int = 12 # 12 for monthly seasonality
+    seasonal_periods: int = 12,
+    df_memory: DataFrameMemory = None
 ) -> dict:
     """
     Aggregates value_column to one observation per calendar month, then fits a
@@ -220,7 +222,7 @@ def run_forecasting_tool(
 
     try:
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
 
@@ -313,14 +315,15 @@ def run_random_forest_tool(
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None,
     task_type: str = "regression", 
-    n_estimators: int = 100
+    n_estimators: int = 100,
+    df_memory: DataFrameMemory = None
 ) -> Dict[str, Any]:
     columns_to_fetch = [target_variable] + feature_variables
 
     try:
         # ── 1. Data Loading ──────────────────────────────────────────────
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "model": None}
         elif TABLE_NAME:
@@ -443,7 +446,8 @@ def run_pca_tool(
     feature_variables: list, 
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None,
-    n_components: int = None
+    n_components: int = None,
+    df_memory: DataFrameMemory = None
 ) -> Dict[str, Any]:
     """
     Standardizes the requested feature columns and fits a PCA model to identify
@@ -453,7 +457,7 @@ def run_pca_tool(
     """
     try:
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "model": None}
         elif TABLE_NAME:
@@ -512,7 +516,8 @@ def run_kmeans_clustering_tool(
     feature_variables: list, 
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None,
-    n_clusters: int = 3
+    n_clusters: int = 3,
+    df_memory: DataFrameMemory = None
 ) -> Dict[str, Any]:
     """
     Standardizes features and fits a K-Means model to partition data into
@@ -521,7 +526,7 @@ def run_kmeans_clustering_tool(
     """
     try:
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "model": None}
         elif TABLE_NAME:
@@ -803,7 +808,8 @@ def run_scenario_planning_tool(
     TABLE_NAME: Optional[Union[str, List[str]]] = None, 
     dataframe_id: Optional[str] = None,
     where_clause: Optional[str] = None,
-    confidence_level: float = 0.95
+    confidence_level: float = 0.95,
+    df_memory: DataFrameMemory = None
 ) -> Dict[str, Any]:
     """
     Table-agnostic scenario planning tool. Fits an OLS regression on historical data, 
@@ -831,7 +837,7 @@ def run_scenario_planning_tool(
     try:
         # 1. Fetch Data
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None, "model": None}
         elif TABLE_NAME:
@@ -933,7 +939,8 @@ def run_neural_network_tool(
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
     dataframe_id: Optional[str] = None,
     hidden_layer_sizes: List[int] = [100, 50],
-    max_iter: int = 500
+    max_iter: int = 500,
+    df_memory: DataFrameMemory = None
 ) -> Dict[str, Any]:
     """
     Trains a scikit-learn MLPRegressor or MLPClassifier on the provided features.
@@ -944,7 +951,7 @@ def run_neural_network_tool(
     """
     try:
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None, "model": None}
         elif TABLE_NAME:
@@ -1025,7 +1032,8 @@ def run_optimization_tool(
 def execute_python_tool(
     code: str, 
     TABLE_NAME: Optional[Union[str, List[str]]] = None,
-    dataframe_id: Optional[str] = None
+    dataframe_id: Optional[str] = None,
+    df_memory: DataFrameMemory = None
 ) -> Dict[str, Any]:
     """
     Executes LLM-generated Python code in a restricted sandbox with access to
@@ -1043,7 +1051,7 @@ def execute_python_tool(
     """
     try:
         if dataframe_id:
-            df = get_df_memory().get_df(dataframe_id)
+            df = df_memory.get_df(dataframe_id) if df_memory else None
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None}
         elif TABLE_NAME:

@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 
 from .analytics import link_tables
 from .base import run_sql_query
-from agent.memory import get_df_memory
+from agent.memory import DataFrameMemory
 
 __all__ = [
     "generate_scatterplot_tool",
@@ -43,7 +43,8 @@ def _fetch_chart_data(
     category_column: Optional[str] = None,
     where_clause: Optional[str] = None,
     aggregation: Optional[str] = None,
-    limit: int = 50000
+    limit: int = 50000,
+    df_memory: DataFrameMemory = None
 ) -> tuple:
     """
     SHARED LOGIC HELPER: Handles routing between SQL and Python Memory.
@@ -61,7 +62,7 @@ def _fetch_chart_data(
 
     # --- BRANCH 1: PYTHON MEMORY ---
     if dataframe_id:
-        df = get_df_memory().get_df(dataframe_id)
+        df = df_memory.get_df(dataframe_id) if df_memory else None
         if df is None:
             raise ValueError(f"No DataFrame found for ID '{dataframe_id}'.")
             
