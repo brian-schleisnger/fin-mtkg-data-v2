@@ -1,3 +1,4 @@
+import inspect
 import json
 import traceback
 from typing import Any, Dict, List, Tuple
@@ -217,9 +218,10 @@ def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str], df_memo
 
     func, _ = TOOL_DISPATCHER[tool_name]
     try:
-        # ---> ADD THIS LINE to inject the memory object into the tool arguments
-        clean_args["df_memory"] = df_memory
-        
+        # Dynamically inject df_memory ONLY if the tool accepts it in its signature
+        if "df_memory" in inspect.signature(func).parameters:
+            clean_args["df_memory"] = df_memory
+
         result = func(**clean_args)
         
         if isinstance(result, dict):
