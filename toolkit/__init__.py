@@ -61,7 +61,6 @@ from agent.schemas import (
     generate_linechart_tool as generate_linechart_tool_Schema,
     calculate_unit_economics_tool as calculate_unit_economics_tool_Schema,
     calculate_ratio_tool as calculate_ratio_tool_Schema,
-    compare_monthly_metrics_tool as compare_monthly_metrics_tool_Schema,
     run_scenario_planning_tool as run_scenario_planning_tool_Schema,
     execute_python_tool as execute_python_tool_Schema,
     run_neural_network_tool as run_neural_network_tool_Schema,
@@ -87,8 +86,7 @@ from .visuals import (
     generate_scatterplot_tool,
     generate_barchart_tool,
     generate_histogram_tool,
-    generate_linechart_tool,
-    compare_monthly_metrics_tool,
+    generate_linechart_tool
 )
 
 # 3. Auto-generate OpenAI tool definitions directly from Pydantic schemas
@@ -105,7 +103,6 @@ TOOL_SCHEMAS = [
     generate_linechart_tool_Schema,
     calculate_unit_economics_tool_Schema,
     calculate_ratio_tool_Schema,
-    compare_monthly_metrics_tool_Schema,
     run_scenario_planning_tool_Schema,
     execute_python_tool_Schema,
     run_neural_network_tool_Schema,
@@ -147,8 +144,7 @@ CATEGORY_TOOLS: dict[str, list[str]] = {
         "generate_barchart_tool",
         "generate_linechart_tool",
         "generate_scatterplot_tool",
-        "generate_histogram_tool",
-        "compare_monthly_metrics_tool",
+        "generate_histogram_tool"
     ],
     "CUSTOM_PYTHON": [
         "execute_python_tool",
@@ -169,7 +165,6 @@ TOOL_DISPATCHER = {
     "generate_linechart_tool": (generate_linechart_tool, generate_linechart_tool_Schema),
     "calculate_unit_economics_tool": (calculate_unit_economics_tool, calculate_unit_economics_tool_Schema),
     "calculate_ratio_tool": (calculate_ratio_tool, calculate_ratio_tool_Schema),
-    "compare_monthly_metrics_tool": (compare_monthly_metrics_tool, compare_monthly_metrics_tool_Schema),
     "run_scenario_planning_tool": (run_scenario_planning_tool, run_scenario_planning_tool_Schema),
     "execute_python_tool": (execute_python_tool, execute_python_tool_Schema),
     "run_neural_network_tool": (run_neural_network_tool, run_neural_network_tool_Schema),
