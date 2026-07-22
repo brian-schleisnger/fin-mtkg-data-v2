@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import List, Dict, Any, Optional
 import uuid
+from functools import lru_cache
+from typing import List, Dict, Any, Optional
 
 from llmlingua import PromptCompressor
 import pandas as pd
-import streamlit as st
 import tiktoken
 
 # Set up logging for graceful fallbacks
@@ -17,19 +17,18 @@ LLMLINGUA_MODEL_NAME = "microsoft/llmlingua-2-xlm-roberta-large-meetingbank"
 DEFAULT_HISTORY_TOKEN_BUDGET = 300000
 DEFAULT_SCHEMA_COMPRESSION_RATE = 0.6  # Compress by 40%, retain 60% of most critical tokens
 
-@st.cache_resource(show_spinner="Loading semantic compression model...")
+@lru_cache(maxsize=1)
 def get_prompt_compressor():
     """
-    Initializes and caches the LLMLingua-2 PromptCompressor as a Streamlit singleton.
-    Uses @st.cache_resource so the model is only loaded into Databricks cluster memory once.
+    Initializes and caches the LLMLingua-2 PromptCompressor as a singleton.
+    Uses @lru_cache so the model is only loaded into memory once per process lifecycle.
     """
     try:
-        
         # We explicitly enable llmlingua2 for faster, structured-data-friendly compression
         return PromptCompressor(
             model_name=LLMLINGUA_MODEL_NAME,
             use_llmlingua2=True,
-            device_map="auto"  # Automatically uses Databricks GPU if available, else CPU
+            device_map="auto"  # Automatically uses GPU if available, else CPU
         )
     except ImportError:
         logger.warning("`llmlingua` library not installed. Falling back to uncompressed text.")
@@ -179,30 +178,3 @@ class DataFrameMemory:
     def clear(self):
         """Clears the registry to free up memory between isolated runs."""
         self.registry.clear()
-
-# ─── Session-Scoped Getters ──────────────────────────────────────────────
-# These replace the old module-level globals.  Each Streamlit browser session
-# gets its own isolated DataFrameMemory and ContextOptimizer instance stored
-# in st.session_state, so two users never share the same registry or tokenizer.
-
-def get_df_memory() -> DataFrameMemory:
-    """
-    Returns the DataFrameMemory instance for the current Streamlit session.
-    Creates a new one on first call within a session.
-    """
-    if "df_memory" not in st.session_state:
-        st.session_state["df_memory"] = DataFrameMemory()
-    return st.session_state["df_memory"]
-
-
-def get_context_optimizer() -> ContextOptimizer:
-    """
-    Returns the ContextOptimizer instance for the current Streamlit session.
-    Creates a new one on first call within a session.  ContextOptimizer holds
-    only a tiktoken encoding (stateless beyond that), so sharing it is safe,
-    but keeping it in session_state is consistent and avoids cross-session
-    confusion if the tokenizer model ever becomes configurable per user.
-    """
-    if "context_optimizer" not in st.session_state:
-        st.session_state["context_optimizer"] = ContextOptimizer()
-    return st.session_state["context_optimizer"]

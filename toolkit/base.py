@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 import ssl
+import logging
+from functools import lru_cache
 
 from databricks.sdk import WorkspaceClient
 import instructor
@@ -12,7 +14,10 @@ import pandas as pd
 import pg8000
 from pydantic import BaseModel
 import sqlalchemy as sa
-import streamlit as st
+
+from agent.context import SessionContext
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Configuration ───────────────────────────────────────────────
@@ -197,12 +202,14 @@ for table_name, file_name in SCHEMA_CONFIG.items():
             schema_data["table_name"] = table_name
             schema_data["related_concepts"] = ALIASES.get(table_name, [])
             DATA_DICTIONARY[table_name] = schema_data
+    # Replace the old try/except block with this:
     except Exception as e:
-        st.error(f"Error loading schema {file_name}: {e}")
+        logger.error(f"Error loading schema {file_name}: {e}")
 
 
 # ─── Helper Functions ────────────────────────────────────────────
-@st.cache_resource
+# Replace @st.cache_resource with:
+@lru_cache(maxsize=1)
 def get_db_engine():
     """
     Caches the SQLAlchemy engine pool, but delegates physical connection 
@@ -255,7 +262,7 @@ def _extract_text_content(message) -> str:
     return str(content)
 
 
-def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
+def llm_call(messages: list, response_model: BaseModel, model_name: str = None, context: SessionContext = None):
     """
     Structured-output LLM call with cross-model compatibility.
 
@@ -268,8 +275,6 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
     resolved_model = model_name or ModelConfig.ACTIVE_MODEL
 
     if _is_gpt_model(resolved_model):
-        # GPT: instructor needs a real OpenAI instance (not a proxy) to wrap.
-        # _make_fresh_openai_client() ensures a fresh token on every structured call.
         fresh_client = _make_fresh_openai_client()
         fresh_instructor_client = instructor.from_openai(fresh_client)
         model_res, raw_res = fresh_instructor_client.chat.completions.create_with_completion(
@@ -278,7 +283,8 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
             response_model=response_model,
             max_retries=3
         )
-        track_tokens(raw_res)
+        # Pass context here
+        track_tokens(raw_res, context) 
         return model_res
     else:
         # Non-GPT (Gemini, Claude, etc.): inject a plain-text JSON instruction and
@@ -308,7 +314,8 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
                 model=resolved_model,
                 messages=augmented_messages
             )
-            track_tokens(raw_res)
+            # Pass context here
+            track_tokens(raw_res, context) 
             text = _extract_text_content(raw_res.choices[0].message).strip()
 
             # Strip markdown fences if the model wrapped the JSON anyway
@@ -330,31 +337,28 @@ def llm_call(messages: list, response_model: BaseModel, model_name: str = None):
 
         raise last_exc
 
-def track_tokens(response):
+def track_tokens(response, context: SessionContext):
     """
-    Extracts token usage from a live API response and accumulates it into session state.
-    Cost is calculated immediately using the currently active model's rates, so switching
-    models after a query does not retroactively change the cost for tokens already spent.
+    Extracts token usage from a live API response and accumulates it into the session context.
+    Cost is calculated immediately using the currently active model's rates.
     """
+    # Guard clause in case context isn't passed from an isolated test script
+    if not context:
+        return
+
     if hasattr(response, "usage") and response.usage:
         input_t = getattr(response.usage, "input_tokens", 0) or getattr(response.usage, "prompt_tokens", 0)
         output_t = getattr(response.usage, "output_tokens", 0) or getattr(response.usage, "completion_tokens", 0)
         total_t = getattr(response.usage, "total_tokens", 0) or (input_t + output_t)
 
-        if "input_tokens" in st.session_state:
-            st.session_state.input_tokens += input_t
-        if "output_tokens" in st.session_state:
-            st.session_state.output_tokens += output_t
-        if "total_tokens" in st.session_state:
-            st.session_state.total_tokens += total_t
+        context.input_tokens += input_t
+        context.output_tokens += output_t
+        context.total_tokens += total_t
 
-        # Accumulate cost at the rate of the model that actually processed these tokens.
-        # This must happen here, not at render time, so model selection changes later
-        # do not retroactively reprice tokens that were already spent.
-        if "estimated_cost" in st.session_state:
-            st.session_state.estimated_cost += calculate_cost(
-                ModelConfig.ACTIVE_MODEL, input_t, output_t
-            )
+        # Accumulate cost into the context object
+        context.estimated_cost += calculate_cost(
+            ModelConfig.ACTIVE_MODEL, input_t, output_t
+        )
 
 def get_join_clause(table_a: str, table_b: str) -> str:
     """

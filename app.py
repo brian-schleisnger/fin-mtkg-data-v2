@@ -95,9 +95,9 @@ bootstrap_environment()
 
 
 # ─── 2. AGENT & TOOLKIT IMPORTS ──────────────────────────────────────────
-# Now importing our cleanly extracted backend loop from the agent module
 from agent.loop import run_agent_loop
 from agent.cache import agent_cache
+from agent.context import SessionContext
 from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
@@ -148,14 +148,8 @@ def create_excel_buffer(data_list: list) -> bytes:
 # ─── 4. SESSION STATE INITIALIZATION ─────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "total_tokens" not in st.session_state:
-    st.session_state.total_tokens = 0
-if "input_tokens" not in st.session_state:
-    st.session_state.input_tokens = 0
-if "output_tokens" not in st.session_state:
-    st.session_state.output_tokens = 0
-if "estimated_cost" not in st.session_state:
-    st.session_state.estimated_cost = 0.0
+if "context" not in st.session_state:
+    st.session_state.context = SessionContext()
 if "last_step_latencies" not in st.session_state:
     st.session_state.last_step_latencies = {}
 if "rerun_prompt" not in st.session_state:
@@ -186,10 +180,8 @@ with st.sidebar:
     st.divider()
 
     # ── Estimated Cost ──
-    # Displayed directly from session state — cost is accumulated in track_tokens()
-    # at the moment each API call completes, so it reflects the actual model rates
-    # used, not the currently selected model.
-    st.metric(label="💰 Est. Session Cost", value=f"${st.session_state.estimated_cost:.4f}")
+    # Displayed directly from session state context
+    st.metric(label="💰 Est. Session Cost", value=f"${st.session_state.context.estimated_cost:.4f}")
 
     st.divider()
 
@@ -214,10 +206,7 @@ with st.sidebar:
     # ── Clear Chat ──
     if st.button("🗑️ Clear Chat History", use_container_width=True):
         st.session_state.messages = []
-        st.session_state.total_tokens = 0
-        st.session_state.input_tokens = 0
-        st.session_state.output_tokens = 0
-        st.session_state.estimated_cost = 0.0
+        st.session_state.context = SessionContext()  # Reset the entire context
         st.session_state.last_step_latencies = {}
         st.rerun()
 
@@ -327,7 +316,8 @@ if st.session_state.rerun_prompt is not None:
     with st.chat_message("assistant", avatar="🌐"):
         try:
             with st.spinner(f"Re-running with `{ModelConfig.ACTIVE_MODEL}`..."):
-                result = run_agent_loop(rerun_prompt, history_before)
+                # Pass the context object here
+                result = run_agent_loop(rerun_prompt, history_before, st.session_state.context)
 
             st.session_state.last_step_latencies = result.get("step_latencies", {})
 
@@ -353,7 +343,8 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
     with st.chat_message("assistant", avatar="🌐"):
         try:
             with st.spinner("Analyzing..."):
-                result = run_agent_loop(prompt, st.session_state.messages)
+                # Pass the context object here
+                result = run_agent_loop(prompt, st.session_state.messages, st.session_state.context)
             
             st.session_state.last_step_latencies = result.get("step_latencies", {})
             

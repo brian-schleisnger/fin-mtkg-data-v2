@@ -7,17 +7,16 @@ from pydantic import BaseModel
 import mlflow
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
 
 from agent.cache import agent_cache
-from agent.memory import get_df_memory, get_context_optimizer
+from agent.context import SessionContext
 from agent.schemas import DecomposedQuestions
 from toolkit import TOOLS, TOOL_DISPATCHER, CATEGORY_TOOLS
 from toolkit.base import DATA_DICTIONARY, _extract_text_content, llm_call, ModelConfig, raw_client, track_tokens
 
 # ─── 1. Context & Schema Helpers ─────────────────────────────────────────
 
-def filter_schema(user_prompt: str, run_log: List[str] = None) -> dict:
+def filter_schema(user_prompt: str, run_log: List[str] = None, context: SessionContext = None) -> dict:
     """
     Uses an LLM call to select which tables from DATA_DICTIONARY are needed to
     answer the user's prompt.
@@ -90,7 +89,8 @@ Return ONLY a JSON object in this exact format — no markdown, no explanation:
         required_tables: List[str]
 
     try:
-        parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ACTIVE_MODEL)
+        # Pass the context into llm_call so token tracking works
+        parsed_result = llm_call(msgs, response_model=SchemaSelection, model_name=ModelConfig.ACTIVE_MODEL, context=context)
             
         filtered_dict = {}
         for t in parsed_result.required_tables:
@@ -140,7 +140,13 @@ Return ONLY a JSON object in this exact format — no markdown, no explanation:
         return DATA_DICTIONARY
 
 
-def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_log: List[str], context_optimizer) -> List[str]:
+def decompose_question(user_prompt: str, 
+                       schema: dict, 
+                       history: List[dict], 
+                       run_log: List[str], 
+                       context_optimizer, 
+                       context: SessionContext = None
+                       ) -> List[str]:
     """Step 1: Breaks the user's prompt into specific data questions using chat history."""
     
     # Prune by exact token budget and compress dense historical context
@@ -166,7 +172,8 @@ def decompose_question(user_prompt: str, schema: dict, history: List[dict], run_
     msgs = [{"role": "user", "content": prompt}]
     
     try:
-        parsed_result = llm_call(msgs, response_model=DecomposedQuestions)
+        # Pass the context into llm_call
+        parsed_result = llm_call(msgs, response_model=DecomposedQuestions, context=context)
         return parsed_result.questions
     except Exception as e:
         # Improved error logging instead of silently swallowing the failure
@@ -251,30 +258,26 @@ def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str], df_memo
 import time
 
 @mlflow.trace(name="run_agent_loop")
-def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]:
+def run_agent_loop(user_prompt: str, chat_history: List[dict], context: SessionContext) -> Dict[str, Any]:
     """
     The main orchestrator chaining the workflow together across multiple tools.
-    Decoupled from UI: Takes history in, returns structured dictionary out.
+    Decoupled from UI: Takes history and context in, returns structured dictionary out.
     """
     run_log: List[str] = []
     current_turn_dfs: List[Any] = []
     step_latencies: Dict[str, float] = {}
 
-    # ─── Resolve session-scoped singletons ───────────────────────────────
-    # Both objects are stored in st.session_state so every browser session
-    # (i.e. every user) gets its own isolated instance.
-    df_memory = get_df_memory()
-    context_optimizer = get_context_optimizer()
-    # Clear the DataFrame registry at the start of each new turn so IDs from
-    # a previous conversation turn don't leak into this one.
+    # ─── Resolve session-scoped objects from context ────────────────────
+    df_memory = context.df_memory
+    context_optimizer = context.context_optimizer
     df_memory.clear()
     
     t_start_total = time.perf_counter()
 
-    # Capture token counts at the start of the turn to compute per-turn MLflow metrics
-    start_input_tokens = st.session_state.get("input_tokens", 0)
-    start_output_tokens = st.session_state.get("output_tokens", 0)
-    start_total_tokens = st.session_state.get("total_tokens", 0)
+    # Capture token counts at the start of the turn from context
+    start_input_tokens = context.input_tokens
+    start_output_tokens = context.output_tokens
+    start_total_tokens = context.total_tokens
 
     with mlflow.start_run(run_name="Agent_Interaction"):
         mlflow.log_param("user_prompt", user_prompt)
@@ -307,8 +310,9 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         mlflow.log_metric("cache_hit", 0)
 
         t0 = time.perf_counter()
-        relevant_schema = filter_schema(user_prompt, run_log=run_log)
-        sub_questions = decompose_question(user_prompt, relevant_schema, chat_history, run_log, context_optimizer)
+        # Pass context into the helper functions
+        relevant_schema = filter_schema(user_prompt, run_log=run_log, context=context)
+        sub_questions = decompose_question(user_prompt, relevant_schema, chat_history, run_log, context_optimizer, context=context)
         step_latencies["1. Decomposition"] = round(time.perf_counter() - t0, 2)
         run_log.append(f"Sub-questions identified: {sub_questions}")
         
@@ -388,7 +392,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                     messages=msgs,
                     tools=active_tools
                 )
-                track_tokens(response)
+                track_tokens(response, context)
                 assistant_msg = response.choices[0].message.model_dump(exclude_none=True)
                 
                 if not assistant_msg.get("tool_calls"):
@@ -458,7 +462,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
                 model=ModelConfig.ACTIVE_MODEL,
                 messages=final_msgs
             )
-            track_tokens(response)
+            track_tokens(response, context)
             final_text = _extract_text_content(response.choices[0].message)
         except Exception as e:
             import traceback
@@ -473,9 +477,9 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         turn_dfs = [item for item in current_turn_dfs if isinstance(item, pd.DataFrame)]
 
         # ─── 4. MLFLOW TELEMETRY LOGGING ───
-        turn_input_tokens = st.session_state.get("input_tokens", 0) - start_input_tokens
-        turn_output_tokens = st.session_state.get("output_tokens", 0) - start_output_tokens
-        turn_total_tokens = st.session_state.get("total_tokens", 0) - start_total_tokens
+        turn_input_tokens = context.input_tokens - start_input_tokens
+        turn_output_tokens = context.output_tokens - start_output_tokens
+        turn_total_tokens = context.total_tokens - start_total_tokens
 
         mlflow.log_metrics({
             "turn_input_tokens": turn_input_tokens,
