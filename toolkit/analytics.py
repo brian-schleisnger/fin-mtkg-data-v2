@@ -798,29 +798,26 @@ def calculate_ratio_tool(
 @mlflow.trace(name="run_scenario_planning_tool")
 def run_scenario_planning_tool(
     target_variable: str, 
-    feature_variables: list, 
     scenario_changes: list,
+    hold_constant_variables: list,
     TABLE_NAME: Optional[Union[str, List[str]]] = None, 
     dataframe_id: Optional[str] = None,
-    confidence_level: float = 0.95,
-    marketing_where_clause: Optional[str] = None,
-    acquisition_where_clause: Optional[str] = None
+    where_clause: Optional[str] = None,
+    confidence_level: float = 0.95
 ) -> Dict[str, Any]:
     """
-    Fits an OLS regression on historical data, then predicts the target variable
-    under a hypothetical scenario where specified features are set to new values
-    and all remaining features are held at their historical means.
-
-    Returns a formatted report including: baseline stats, per-feature marginal
-    impacts (β coefficients), the scenario prediction, net change vs baseline,
-    and a prediction interval at the requested confidence level.
-
-    For multi-table scenarios involving marketing + acquisition data, pass both
-    table names and the function will merge them automatically on year/month.
-    """
-    target_variable = str(target_variable).replace('"', '').replace("'", "").strip()
-    feature_variables = [str(col).replace('"', '').replace("'", "").strip() for col in feature_variables]
+    Table-agnostic scenario planning tool. Fits an OLS regression on historical data, 
+    then predicts the target variable under a hypothetical scenario where specified 
+    features are set to new values and specified control features are held constant at 
+    their historical means.
     
+    Dynamically joins any combination of tables using link_tables and TABLE_DIMENSIONS.
+    """
+    # Clean input strings
+    target_variable = str(target_variable).replace('"', '').replace("'", "").strip()
+    hold_constant_variables = [str(col).replace('"', '').replace("'", "").strip() for col in hold_constant_variables]
+    
+    # Map out the changes
     changes_map = {}
     for item in scenario_changes:
         col_name = item.get("column_name", "") if isinstance(item, dict) else getattr(item, "column_name", "")
@@ -828,55 +825,29 @@ def run_scenario_planning_tool(
         clean_col = str(col_name).replace('"', '').replace("'", "").strip()
         changes_map[clean_col] = float(val)
         
-    all_features = list(set(feature_variables + list(changes_map.keys())))
+    all_features = list(set(hold_constant_variables + list(changes_map.keys())))
+    all_columns = [target_variable] + all_features
     
     try:
+        # 1. Fetch Data
         if dataframe_id:
             df = get_df_memory().get_df(dataframe_id)
             if df is None:
                 return {"text": f"Error: No DataFrame found for ID '{dataframe_id}'.", "data": None, "model": None}
         elif TABLE_NAME:
-            is_multi_table = isinstance(TABLE_NAME, list) or (isinstance(TABLE_NAME, str) and "," in TABLE_NAME)
-            
-            if is_multi_table and any(t in str(TABLE_NAME).lower() for t in ["marketing", "acquisition"]):
-                df_mkt = link_tables(
-                    tables='"sandbox"."dbs_marketing_spend_sync"',
-                    columns=['"year" AS year', '"month" AS month', 'SUM("amount") AS total_marketing_spend', 'AVG("amount") AS avg_transaction_spend', 'COUNT(*) AS marketing_transactions'],
-                    where_clause=marketing_where_clause,
-                    group_by=['year', 'month'],
-                    limit=None
-                )
-                df_acq = link_tables(
-                    tables='"sandbox"."acquisition_data_v3"',
-                    columns=['"Activation_Year" AS year', '"Activation_Month" AS month', 'COUNT(*) AS total_activations', 'AVG("mcf") AS avg_mcf', 'AVG("Ve_Churn") AS avg_churn', 'SUM("mcf") AS total_mcf'],
-                    where_clause=acquisition_where_clause,
-                    group_by=['Activation_Year', 'Activation_Month'],
-                    limit=None
-                )
-                
-                if df_mkt.empty or df_acq.empty:
-                    return {"text": "Error: One or both tables returned no data.", "data": None, "model": None}
-                
-                for df_tmp in [df_mkt, df_acq]:
-                    df_tmp['year'] = pd.to_numeric(df_tmp['year'], errors='coerce')
-                    df_tmp['month'] = pd.to_numeric(df_tmp['month'], errors='coerce')
-                    
-                df = pd.merge(df_mkt, df_acq, on=['year', 'month'], how='inner')
-                df = df.sort_values(by=['year', 'month']).reset_index(drop=True)
-                
-            else:
-                combined_where = " AND ".join(filter(None, [marketing_where_clause, acquisition_where_clause]))
-                df = link_tables(
-                    tables=TABLE_NAME, 
-                    columns=[target_variable] + all_features, 
-                    where_clause=combined_where if combined_where else None,
-                    random_order=True, 
-                    limit=100000
-                )
+            # Delegate all complex cross-table joining to the centralized helper
+            df = link_tables(
+                tables=TABLE_NAME, 
+                columns=all_columns, 
+                where_clause=where_clause,
+                random_order=True, 
+                limit=100000
+            )
         else:
             return {"text": "Error: Must provide either TABLE_NAME or dataframe_id.", "data": None, "model": None}
             
-        missing_cols = [col for col in [target_variable] + all_features if col not in df.columns]
+        # 2. Validate and Clean Data
+        missing_cols = [col for col in all_columns if col not in df.columns]
         if missing_cols:
             return {
                 "text": f"Error: Missing required columns: {missing_cols}. Available: {df.columns.tolist()}", 
@@ -884,13 +855,14 @@ def run_scenario_planning_tool(
                 "model": None
             }
 
-        for col in [target_variable] + all_features:
+        for col in all_columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-        df = df.dropna(subset=[target_variable] + all_features)
+        df = df.dropna(subset=all_columns)
         
         if df.empty or len(df) <= len(all_features) + 3:
             return {"text": "Error: Not enough data points to build a reliable scenario model.", "data": None, "model": None}
             
+        # 3. Fit OLS Model
         historical_target_mean = df[target_variable].mean()
         
         Y = df[target_variable]
@@ -899,25 +871,22 @@ def run_scenario_planning_tool(
         
         model = sm.OLS(Y, X_with_const).fit()
         
+        # 4. Construct Scenario Point
         scenario_point = pd.Series(index=X_with_const.columns, dtype=float)
         scenario_point['const'] = 1.0
         
         held_constant_log = []
-        elasticity_log = []
         
         for col in all_features:
             col_mean = X[col].mean()
-            coef = model.params.get(col, 0.0)
             
             if col in changes_map:
                 scenario_point[col] = float(changes_map[col])
-                if col_mean != 0 and historical_target_mean != 0:
-                    elasticity = (coef * col_mean) / historical_target_mean
-                    elasticity_log.append((col, coef, elasticity))
             else:
                 scenario_point[col] = col_mean
                 held_constant_log.append(f"{col} (held at avg: {col_mean:,.2f})")
                 
+        # 5. Predict and Evaluate
         prediction_results = model.get_prediction(scenario_point)
         pred_df = prediction_results.summary_frame(alpha=1.0 - confidence_level)
         
@@ -926,32 +895,30 @@ def run_scenario_planning_tool(
         ci_upper = pred_df['obs_ci_upper'].values[0]
         diff_from_baseline = predicted_val - historical_target_mean
         
+        # 6. Format Output
         result_text = f"--- Scenario Analysis for Target: '{target_variable}' ---\n\n"
             
         result_text += f"1. Baseline Context ({len(df)} observations analyzed):\n"
-        result_text += f"  • Historical Average of {target_variable}: {historical_target_mean:,.2f}\n"
-        result_text += f"  • Model R-Squared: {model.rsquared:.4f}\n\n"
+        result_text += f"  * Historical Average of {target_variable}: {historical_target_mean:,.2f}\n"
+        result_text += f"  * Model R-Squared: {model.rsquared:.4f}\n\n"
         
         result_text += f"2. Scenario Conditions & Sensitivity:\n"
         for col, new_val in changes_map.items():
             hist_mean = X[col].mean()
             pct_change = ((new_val - hist_mean) / hist_mean) * 100 if hist_mean != 0 else 0
-            corr = df[col].corr(df[target_variable])
-            
             coef_val = model.params.get(col, 0.0)
-            elast_val = next((e[2] for e in elasticity_log if e[0] == col), 0.0)
             
-            result_text += f"  • CHANGED: '{col}' set to {new_val:,.2f}\n"
+            result_text += f"  * CHANGED: '{col}' set to {new_val:,.2f}\n"
             result_text += f"    - Historical Avg: {hist_mean:,.2f} ({pct_change:+.1f}% change)\n"
             result_text += f"    - Marginal Impact (β): {coef_val:+.4f} {target_variable} per +1.0 unit of {col}\n"
             
         if held_constant_log:
-            result_text += "\n  • HELD CONSTANT:\n    - " + "\n    - ".join(held_constant_log) + "\n\n"
+            result_text += "\n  * HELD CONSTANT:\n    - " + "\n    - ".join(held_constant_log) + "\n\n"
             
         result_text += f"3. Scenario Prediction ({int(confidence_level*100)}% Confidence):\n"
-        result_text += f"  • Expected {target_variable}: {predicted_val:,.2f}\n"
-        result_text += f"  • Net Impact vs Baseline: {diff_from_baseline:+,.2f}\n"
-        result_text += f"  • Interval: [{ci_lower:,.2f} to {ci_upper:,.2f}]\n"
+        result_text += f"  * Expected {target_variable}: {predicted_val:,.2f}\n"
+        result_text += f"  * Net Impact vs Baseline: {diff_from_baseline:+,.2f}\n"
+        result_text += f"  * Interval: [{ci_lower:,.2f} to {ci_upper:,.2f}]\n"
         
         return {"text": result_text, "data": df, "model": model}
         

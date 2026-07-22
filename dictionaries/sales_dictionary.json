@@ -1,7 +1,7 @@
 {
   "table_metadata": {
     "table_name": "sales_data_sync",
-    "table_description": "A day by day record of sales department activity. dates back to the beginnning of 2019.",
+    "description": "A day by day record of sales department activity. dates back to the beginnning of 2019.",
     "special_rules": null
   },
   "columns": [

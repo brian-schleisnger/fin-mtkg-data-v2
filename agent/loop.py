@@ -75,7 +75,7 @@ Your task:
 - If a question touches revenue, costs, ARPU, OIBDA, or P&L line items → include 'dbspl_sync'.
 - If a question touches subscriber counts, gross/net adds, or churn → include 'subcount_data_synced'.
 - If a question touches marketing spend, tactics, or budgets → include 'dbs_marketing_sync'.
-- If a question touches per-subscriber economics, SAC, CLV, NPV, or activation data → include 'acquistion_data_v3'.
+- If a question touches per-subscriber economics, SAC, CLV, NPV, or activation data → include 'acquisition_data_v3'.
 - If a question touches sales, calls, or buyers remorse → include 'sales_data_sync'.
 - When in doubt about whether a table is needed, include it rather than exclude it.
 - Return an empty list only if the question is completely unrelated to any data (e.g. a greeting).
@@ -445,6 +445,7 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict]) -> Dict[str, Any]
         
         Synthesize the raw data into a clear, business-friendly summary answering the original prompt.
         If any tools failed or returned errors in the raw data, briefly mention what analysis could not be completed and why, alongside the successful insights.
+        Do not try and do math. If the user asked for a yearly total and you received monthly totals for the year, provide the monthyl totals without attempting to sum them yourself.
         
         CRITICAL FORMATTING RULE: 
         Do not use LaTeX formatting for regular text. When mentioning currency, you MUST escape the dollar sign (e.g., \\$10M) so it does not accidentally trigger markdown math blocks."""

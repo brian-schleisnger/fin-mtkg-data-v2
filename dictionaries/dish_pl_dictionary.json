@@ -2,7 +2,7 @@
     "table_metadata": {
         "table_name": "dbspl_sync",
         "description": "a long version of a month by month line by line internal income statement for DISH TV business unit, part of Echostar Corporation. Refernce this table for monthly totals of revenues, costs, capital expenses, and more.",
-        "special_rules": "Do not sum any derrived columns with columns it is derrived from"
+        "special_rules": ["Do not sum any derrived columns with columns it is derrived from"]
     },
     "columns": [
         {
