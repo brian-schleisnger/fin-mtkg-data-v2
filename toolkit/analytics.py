@@ -610,7 +610,7 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, subscriber
             columns=[
                 '"Year"', 
                 '"Month"', 
-                'SUM(Amount) AS total_activations'
+                'SUM("Amount") AS total_activations'
             ],
             where_clause=subscriber_where_clause,
             group_by=['"Year"', '"Month"'],
