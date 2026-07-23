@@ -595,7 +595,7 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, subscriber
             # Keep the quotes for Postgres, but drop the 'AS' alias
             columns=['"Year"', '"Month"', 'SUM("Amount") AS total_spend'], 
             where_clause=marketing_where_clause,
-            group_by=['"year"', '"month"'],
+            group_by=['"Year"', '"Month"'],
             limit=None
         )
         
@@ -617,21 +617,11 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, subscriber
             limit=None
         )
 
-        # Standardize the column names for the merge
-        if not df_acq.empty:
-            # First, clean any lingering double quotes from the column names
-            df_acq.columns = [col.replace('"', '') for col in df_acq.columns]
-            # Then rename to match df_mkt
-            df_acq.rename(columns={
-                'Year': 'year', 
-                'Month': 'month'
-            }, inplace=True)
-
         for df_tmp in [df_mkt, df_acq]:
-            df_tmp['year'] = pd.to_numeric(df_tmp['year'], errors='coerce')
-            df_tmp['month'] = pd.to_numeric(df_tmp['month'], errors='coerce')
+            df_tmp['Year'] = pd.to_numeric(df_tmp['Year'], errors='coerce')
+            df_tmp['Month'] = pd.to_numeric(df_tmp['Month'], errors='coerce')
 
-        df_merged = pd.merge(df_mkt, df_acq, on=['year', 'month'], how='inner')
+        df_merged = pd.merge(df_mkt, df_acq, on=['Year', 'Month'], how='inner')
 
         if df_merged.empty:
             return {"text": "Error: Could not calculate UNit Economics. No overlapping months found.", "data": None}
@@ -639,11 +629,11 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, subscriber
         df_merged['cpa'] = df_merged['total_spend'] / df_merged['total_activations']
 
         df_merged.replace([np.inf, -np.inf], np.nan, inplace=True)
-        df_merged = df_merged.sort_values(by=['year', 'month'])
+        df_merged = df_merged.sort_values(by=['Year', 'Month'])
 
         df_merged['Date'] = pd.to_datetime(
-            df_merged['year'].astype(int).astype(str) + '-' + 
-            df_merged['month'].astype(int).astype(str) + '-01', 
+            df_merged['Year'].astype(int).astype(str) + '-' + 
+            df_merged['Month'].astype(int).astype(str) + '-01', 
             errors='coerce'
         )
 

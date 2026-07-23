@@ -16,7 +16,7 @@ from toolkit.base import get_auth_token, databricks_host
 
 # ─── Configuration ───────────────────────────────────────────────
 # Standard Databricks hosted embedding model
-EMBEDDING_MODEL = "system.ai.gemini-3-5-flash" 
+EMBEDDING_MODEL = "system.ai.gte-large-en"
 # Cosine similarity threshold (0.90 to 0.95 is ideal for semantic matching)
 SIMILARITY_THRESHOLD = 0.92 
 CACHE_DB_PATH = "semantic_cache.db"
