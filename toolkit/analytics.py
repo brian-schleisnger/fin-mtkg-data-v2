@@ -593,7 +593,7 @@ def calculate_unit_economics_tool(marketing_where_clause: str = None, subscriber
         df_mkt = link_tables(
             tables='"sandbox"."dbs_marketing_sync"',
             # Keep the quotes for Postgres, but drop the 'AS' alias
-            columns=['"year"', '"month"', 'SUM("amount") AS total_spend'], 
+            columns=['"Year"', '"Month"', 'SUM("amount") AS total_spend'], 
             where_clause=marketing_where_clause,
             group_by=['"year"', '"month"'],
             limit=None
