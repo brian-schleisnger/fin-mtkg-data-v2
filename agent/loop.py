@@ -245,7 +245,10 @@ def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str], df_memo
         else:
             output_text = str(result)
             
-        has_error = "Error" in output_text or "Exception" in output_text
+        # Check for actual failure signatures rather than the generic word "Error"
+        error_signatures = ["Error:", "Error executing", "Exception:", "Failed:"]
+        has_error = any(sig in output_text for sig in error_signatures)
+        
         if has_error:
             run_log.append(f"Tool '{tool_name}' execution flagged issue: {output_text}")
             
