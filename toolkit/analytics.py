@@ -191,7 +191,17 @@ def run_ols_regression_tool(
         X = sm.add_constant(X)
         
         model = sm.OLS(Y, X).fit()
-        return {"text": model.summary().as_text(), "data": model}
+        
+        # Convert regression summary stats into a pandas DataFrame for Excel export
+        results_df = pd.DataFrame({
+            "Coefficient": model.params,
+            "Std Error": model.bse,
+            "t-statistic": model.tvalues,
+            "p-value": model.pvalues
+        }).reset_index().rename(columns={"index": "Variable"})
+        
+        # Return text for the LLM, the DataFrame for Excel, and the raw model for memory
+        return {"text": model.summary().as_text(), "data": results_df, "model": model}
         
     except Exception as e:
         return {"text": f"Regression Error: {e}", "data": None}
