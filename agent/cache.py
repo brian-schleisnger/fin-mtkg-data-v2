@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 import pickle
 import sqlite3
 import time
 from typing import Optional, Dict, Any, List
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 from openai import OpenAI
@@ -16,10 +19,10 @@ from toolkit.base import get_auth_token, databricks_host
 
 # ─── Configuration ───────────────────────────────────────────────
 # Standard Databricks hosted embedding model
-EMBEDDING_MODEL = "system.ai.gte-large-en"
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "system.ai.gte-large-en")
 # Cosine similarity threshold (0.90 to 0.95 is ideal for semantic matching)
-SIMILARITY_THRESHOLD = 0.92 
-CACHE_DB_PATH = "semantic_cache.db"
+SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.92"))
+CACHE_DB_PATH = os.environ.get("CACHE_DB_PATH", "semantic_cache.db")
 
 class SemanticCache:
     """
@@ -141,8 +144,8 @@ class SemanticCache:
                 """, (user_prompt.strip().lower(), emb_blob, final_text, dfs_blob, figs_blob, time.time()))
                 conn.commit()
         except Exception as e:
-            # We silently log cache save errors so we never crash the user's primary UI loop
-            print(f"Failed to save execution to semantic cache: {e}")
+            # We log cache save errors so we never crash the user's primary UI loop
+            logger.warning(f"Failed to save execution to semantic cache ({type(e).__name__}): {e}")
 
     def delete_from_cache(self, user_prompt: str):
         """
@@ -153,7 +156,7 @@ class SemanticCache:
         try:
             query_vector = self._get_embedding(user_prompt)
         except Exception as e:
-            print(f"Cache eviction embedding failed: {e}")
+            logger.warning(f"Cache eviction embedding failed ({type(e).__name__}): {e}")
             return
 
         with sqlite3.connect(self.db_path) as conn:

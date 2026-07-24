@@ -185,7 +185,7 @@ def decompose_question(user_prompt: str,
 
 # ─── 2. Extracted Tool Execution Engine ──────────────────────────────────
 
-def execute_tool_call(tool_call: dict, attempt: int, run_log: List[str], df_memory) -> Tuple[str, bool, List[Any]]:
+def execute_tool_call(tool_call: Dict[str, Any], attempt: int, run_log: List[str], df_memory: Any) -> Tuple[str, bool, List[Any]]:
     """
     Handles parsing, Pydantic validation, and execution of a single tool call.
     Returns: (output_text, has_error, extracted_data_objects)
@@ -473,10 +473,9 @@ def run_agent_loop(user_prompt: str, chat_history: List[dict], context: SessionC
             track_tokens(response, context)
             final_text = _extract_text_content(response.choices[0].message)
         except Exception as e:
-            import traceback
             error_trace = traceback.format_exc()
-            run_log.append(f"Synthesis Model Failed: {e}")
-            final_text = f"**⚠️ Synthesis Failed:** The synthesis model encountered an error.\n\n**Error:** {e}\n\n**Raw Extracted Data:**\n```text\n{raw_outputs_str[:2000]}...\n```"
+            run_log.append(f"Synthesis Model Failed ({type(e).__name__}): {e}\n{error_trace}")
+            final_text = f"**⚠️ Synthesis Failed:** The synthesis model encountered an error.\n\n**Error ({type(e).__name__}):** {e}\n\n**Raw Extracted Data:**\n```text\n{raw_outputs_str[:2000]}...\n```"
         step_latencies["3. Final Synthesis"] = round(time.perf_counter() - t0, 2)
         
         step_latencies["Total Execution"] = round(time.perf_counter() - t_start_total, 2)
