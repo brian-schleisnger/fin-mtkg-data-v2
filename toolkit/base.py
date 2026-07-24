@@ -233,9 +233,21 @@ def get_db_engine():
     # We pass an empty URL and bind the dynamic connection creator
     return sa.create_engine("postgresql+pg8000://", creator=get_fresh_connection)
 
+def _validate_read_only_sql(query: str) -> None:
+    """Validates that a SQL query is strictly read-only to prevent destructive operations."""
+    clean_query = query.strip().lower()
+    if not (clean_query.startswith("select") or clean_query.startswith("with") or clean_query.startswith("explain")):
+        raise ValueError("Security Error: Only read-only queries starting with SELECT, WITH, or EXPLAIN are allowed.")
+    
+    forbidden_keywords = ["drop table", "drop database", "delete from", "truncate table", "update ", "insert into", "alter table", "create table"]
+    for keyword in forbidden_keywords:
+        if keyword in clean_query:
+            raise ValueError(f"Security Error: Destructive SQL statement containing '{keyword.strip()}' is not permitted.")
+
 @mlflow.trace(name="run_sql_query")
 def run_sql_query(query: str) -> pd.DataFrame:
-    """Executes a raw SQL string against the Postgres engine and returns a DataFrame."""
+    """Executes a raw SQL string against the Postgres engine and returns a DataFrame after validating safety."""
+    _validate_read_only_sql(query)
     engine = get_db_engine()
     with engine.connect() as conn:
         return pd.read_sql(sa.text(query), conn)

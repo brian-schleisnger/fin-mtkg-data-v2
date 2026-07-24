@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import traceback
 
 from databricks.sdk import WorkspaceClient
@@ -22,6 +23,28 @@ st.set_page_config(
     layout="wide",
 )
 
+# ─── CONFIGURATION CONSTANTS ───────────────────────────────────────────────
+TIKTOKEN_ENCODING_URL = os.environ.get(
+    "TIKTOKEN_ENCODING_URL", 
+    "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken"
+)
+WORKSPACE_TIKTOKEN_PATH = os.environ.get(
+    "WORKSPACE_TIKTOKEN_PATH", 
+    "/Shared/whl-loading/o200k_base.tiktoken"
+)
+TORCH_CPU_WHEEL_NAME = os.environ.get(
+    "TORCH_CPU_WHEEL_NAME", 
+    "torch-2.4.0+cpu-cp311-cp311-linux_x86_64.whl"
+)
+WORKSPACE_WHL_DIR = os.environ.get(
+    "WORKSPACE_WHL_DIR", 
+    "/Shared/whl-loading"
+)
+MLFLOW_EXPERIMENT_PATH = os.environ.get(
+    "MLFLOW_EXPERIMENT_PATH", 
+    "/Workspace/Users/brian.schlesinger@dish.com"
+)
+
 # ─── 1. ENVIRONMENT BOOTSTRAPPING (CACHED) ───────────────────────────────
 @st.cache_resource
 def bootstrap_environment():
@@ -32,18 +55,18 @@ def bootstrap_environment():
     print("Initializing environment bootstrap...")
     
     # --- A. TIKTOKEN OFFLINE CACHE SETUP ---
-    cache_dir = "/tmp/tiktoken_cache"
+    cache_dir = os.path.join(tempfile.gettempdir(), "tiktoken_cache")
     os.environ["TIKTOKEN_CACHE_DIR"] = cache_dir
     os.makedirs(cache_dir, exist_ok=True)
 
-    tiktoken_url = "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken"
+    tiktoken_url = TIKTOKEN_ENCODING_URL
     url_hash = hashlib.sha1(tiktoken_url.encode()).hexdigest()
     tiktoken_cache_path = os.path.join(cache_dir, url_hash)
 
     if not os.path.exists(tiktoken_cache_path):
         print("Downloading offline tiktoken vocabulary from Workspace via SDK...")
         w = WorkspaceClient()
-        with w.workspace.download("/Shared/whl-loading/o200k_base.tiktoken") as response:
+        with w.workspace.download(WORKSPACE_TIKTOKEN_PATH) as response:
             with open(tiktoken_cache_path, "wb") as outfile:
                 shutil.copyfileobj(response, outfile)
     else:
@@ -56,13 +79,13 @@ def bootstrap_environment():
     except (ImportError, OSError, ValueError) as e:
         print(f"PyTorch missing or broken C++ CUDA dependencies ({type(e).__name__}). Starting clean CPU setup...")
 
-        wheel_name = "torch-2.4.0+cpu-cp311-cp311-linux_x86_64.whl"
-        wheel_path = f"/tmp/{wheel_name}"
+        wheel_name = TORCH_CPU_WHEEL_NAME
+        wheel_path = os.path.join(tempfile.gettempdir(), wheel_name)
 
         if not os.path.exists(wheel_path):
             print("Connecting to Databricks Workspace via SDK...")
             w = WorkspaceClient()
-            workspace_path = f"/Shared/whl-loading/{wheel_name}"
+            workspace_path = f"{WORKSPACE_WHL_DIR}/{wheel_name}"
             print(f" -> Downloading CPU-only PyTorch from {workspace_path}...")
 
             with w.workspace.download(workspace_path) as response:
@@ -102,7 +125,7 @@ from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model
 
 # ─── 3. GLOBAL CONFIGURATION & UI HELPERS ────────────────────────────────
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
-mlflow.set_experiment("/Workspace/Users/brian.schlesinger@dish.com")
+mlflow.set_experiment(MLFLOW_EXPERIMENT_PATH)
 
 def load_css():
     """Reads custom CSS from style.css co-located with app.py and injects it."""
