@@ -2,6 +2,7 @@ import hashlib
 import importlib
 import io
 import json
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -9,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 import traceback
+
+logger = logging.getLogger(__name__)
 
 from databricks.sdk import WorkspaceClient
 import mlflow
@@ -47,7 +50,7 @@ MLFLOW_EXPERIMENT_PATH = os.environ.get(
 
 # ─── 1. ENVIRONMENT BOOTSTRAPPING (CACHED) ───────────────────────────────
 @st.cache_resource
-def bootstrap_environment():
+def bootstrap_environment() -> None:
     """
     Runs offline caching, PyTorch CPU workarounds, and wheel installations exactly ONCE 
     per server lifecycle, preventing Streamlit from re-running them on every UI interaction.
@@ -127,11 +130,11 @@ from toolkit.base import AVAILABLE_MODELS, ModelConfig, set_active_model
 # Set MLflow experiment once globally so it doesn't fire API calls on every chat turn
 mlflow.set_experiment(MLFLOW_EXPERIMENT_PATH)
 
-def load_css():
+def load_css() -> None:
     """Reads custom CSS from style.css co-located with app.py and injects it."""
     css_path = Path(__file__).parent / "style.css"
     try:
-        with open(css_path, "r") as f:
+        with open(css_path, "r", encoding="utf-8") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
         st.warning("⚠️ style.css not found. Proceeding with default styling.")
@@ -354,7 +357,8 @@ if st.session_state.rerun_prompt is not None:
             st.rerun()
 
         except Exception as e:
-            st.error(f"Re-run Error: {e}")
+            logger.error(f"Re-run execution failed: {e}", exc_info=True)
+            st.error(f"Re-run Error ({type(e).__name__}): {e}")
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc(), language="python")
 
@@ -383,6 +387,7 @@ if prompt := st.chat_input("Ask a question about the marketing data..."):
             st.rerun()
                     
         except Exception as e:
-            st.error(f"Agent Orchestration Error: {e}")
+            logger.error(f"Agent Orchestration Error: {e}", exc_info=True)
+            st.error(f"Agent Orchestration Error ({type(e).__name__}): {e}")
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc(), language="python")
